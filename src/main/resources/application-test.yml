@@ -36,4 +36,4 @@ orchestrator:
     base-dir: /tmp/orchestrator/archives
 
 server:
-  port: 8081
+  port: 8080

@@ -13,7 +13,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -42,16 +42,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        Authentication authenticated;
         try {
-            authenticationManager.authenticate(
+            authenticated = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
         } catch (AuthenticationException ex) {
             return ApiResponse.error("Invalid username or password");
         }
 
-        UserDetails userDetails = (UserDetails) ((UsernamePasswordAuthenticationToken)
-                SecurityContextHolder.getContext().getAuthentication()).getPrincipal();
+        UserDetails userDetails = (UserDetails) authenticated.getPrincipal();
 
         String token = jwtService.generateToken(userDetails);
         String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
@@ -62,8 +62,11 @@ public class AuthController {
 
     @PostMapping("/change-password")
     public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request,
-                                            Authentication auth) {
-        String username = auth.getName();
+                                            @AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ApiResponse.error("Authentication required");
+        }
+        String username = userDetails.getUsername();
         AppUser user = appUserRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -79,15 +82,17 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<AuthResponse> getCurrentUser(Authentication auth) {
-        String username = auth.getName();
+    public ApiResponse<AuthResponse> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ApiResponse.error("Authentication required");
+        }
+        String username = userDetails.getUsername();
         AppUser user = appUserRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         String role = user.getRole();
         boolean passwordExpired = "Y".equals(user.getPasswordExpired());
 
-        UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);
 
         return ApiResponse.success(new AuthResponse(token, role, passwordExpired));
