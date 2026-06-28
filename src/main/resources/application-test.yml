@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: orchestrator-test
+  datasource:
+    url: jdbc:h2:mem:orchestrator_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+orchestrator:
+  engine:
+    thread-pool-size: 2
+    default-step-timeout-minutes: 5
+    log-retention-days: 7
+  sftp:
+    known-hosts-file: /tmp/known_hosts
+  archive:
+    base-dir: /tmp/orchestrator/archives
+
+server:
+  port: 8081

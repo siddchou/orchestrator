@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: orchestrator
+  datasource:
+    url: jdbc:oracle:thin:@//${DB_HOST}:1521/${DB_SERVICE}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+orchestrator:
+  engine:
+    thread-pool-size: 10
+    default-step-timeout-minutes: 60
+    log-retention-days: 30
+  sftp:
+    known-hosts-file: /opt/orchestrator/.ssh/known_hosts
+  archive:
+    base-dir: /opt/orchestrator/archives
+
+server:
+  port: 8080
