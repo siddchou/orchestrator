@@ -1,0 +1,38 @@
+<div class="login-container">
+  <mat-card class="login-card">
+    <mat-card-header class="login-header">
+      <mat-card-title>Orchestrator</mat-card-title>
+      <mat-card-subtitle>Sign in to your account</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <input matInput formControlName="username" placeholder="Username" autocomplete="username" />
+          @if (loginForm.get('username')?.invalid && loginForm.get('username')?.touched) {
+            <mat-error>Username is required</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <input matInput type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
+          @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+            <mat-error>Password is required</mat-error>
+          }
+        </mat-form-field>
+
+        @if (error) {
+          <div class="error-message">{{ error }}</div>
+        }
+
+        <button mat-raised-button color="primary" type="submit" [disabled]="loginForm.invalid || loading" class="full-width">
+          @if (loading) {
+            <mat-progress-bar mode="indeterminate" class="button-progress"></mat-progress-bar>
+          } @else {
+            Sign In
+          }
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

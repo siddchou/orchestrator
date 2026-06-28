@@ -39,7 +39,10 @@
       "Bash(taskkill //PID 544 //F)",
       "Bash(javap -v \"C:/Users/siddh/IdeaProjects/orchestrator/target/classes/com/novakai/orchestrator/api/config/SecurityConfig.class\")",
       "Bash(mvn dependency:build-classpath -q -DincludeScope=compile -Dmdep.outputFile=/dev/stdout)",
-      "Bash(javac -cp \"$\\(mvn dependency:build-classpath -q -DincludeScope=compile -Dmdep.outputFile=/dev/stdout\\):C:/Users/siddh/IdeaProjects/orchestrator/target/classes\" -d \"C:/Users/siddh/IdeaProjects/orchestrator/target/classes\" \"C:/Users/siddh/IdeaProjects/orchestrator/src/main/java/com/novakai/orchestrator/api/config/SecurityConfig.java\")"
+      "Bash(javac -cp \"$\\(mvn dependency:build-classpath -q -DincludeScope=compile -Dmdep.outputFile=/dev/stdout\\):C:/Users/siddh/IdeaProjects/orchestrator/target/classes\" -d \"C:/Users/siddh/IdeaProjects/orchestrator/target/classes\" \"C:/Users/siddh/IdeaProjects/orchestrator/src/main/java/com/novakai/orchestrator/api/config/SecurityConfig.java\")",
+      "Bash(mvn dependency:tree -Dincludes=org.springframework.security)",
+      "Bash(timeout 30 mvn spring-boot:run)",
+      "Bash(mvn dependency:tree -Dincludes=org.springframework.security:spring-security-web)"
     ]
   }
 }

@@ -12,6 +12,7 @@ import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobScheduleRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
+import com.novakai.orchestrator.security.Auditable;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -46,6 +47,7 @@ public class JobDefinitionService {
     }
 
     @Transactional
+    @Auditable(action = "CREATE_JOB", entityType = "JOB")
     public JobDefinitionResponse createJob(JobDefinitionRequest request) {
         JobDefinition job = new JobDefinition();
         mapper.toEntity(request, job);
@@ -72,6 +74,7 @@ public class JobDefinitionService {
     }
 
     @Transactional
+    @Auditable(action = "DELETE_JOB", entityType = "JOB")
     public void deleteJob(Long jobId) {
         if (!jobRepo.existsById(jobId)) {
             throw new JobNotFoundException(jobId);

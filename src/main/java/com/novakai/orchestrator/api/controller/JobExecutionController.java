@@ -7,6 +7,7 @@ import com.novakai.orchestrator.api.service.JobRunQueryService;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.engine.JobLaunchService;
+import com.novakai.orchestrator.security.Auditable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +27,7 @@ public class JobExecutionController {
 
     @PostMapping("/jobs/{id}/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
     public ApiResponse<JobRunSummary> trigger(
             @PathVariable Long id) {
         var run = launchService.launch(id, TriggerType.MANUAL, "api-user");
@@ -57,6 +59,7 @@ public class JobExecutionController {
     }
 
     @PostMapping("/runs/{runId}/cancel")
+    @Auditable(action = "CANCEL_RUN", entityType = "JOB_RUN")
     public ApiResponse<Void> cancel(@PathVariable Long runId) {
         launchService.cancel(runId);
         return ApiResponse.success(null);
