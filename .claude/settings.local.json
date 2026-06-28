@@ -3,7 +3,14 @@
     "allow": [
       "Bash(mvnw compile *)",
       "Bash(./mvnw compile *)",
-      "Bash(./mvnw clean *)"
+      "Bash(./mvnw clean *)",
+      "Bash(mvn compile *)",
+      "Bash(./mvnw dependency:tree -q)",
+      "Bash(./mvnw dependency:resolve -q)",
+      "Read(//c/Users/siddh/.m2/repository/org/springframework/**)",
+      "Bash(jar tf *)",
+      "Bash(unzip -l /c/Users/siddh/.m2/repository/org/springframework/spring-context/7.0.8/spring-context-7.0.8.jar)",
+      "Bash(./mvnw test *)"
     ]
   }
 }

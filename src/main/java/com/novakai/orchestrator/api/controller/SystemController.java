@@ -12,9 +12,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.File;
+import org.springframework.scheduling.support.CronExpression;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,5 +73,27 @@ public class SystemController {
         results.put("javaBin", Files.isExecutable(Path.of(javaHome, "bin", "java")) ? "OK" : "NOT_EXECUTABLE");
         results.put("workingDir", Files.isDirectory(Path.of(workingDir)) ? "OK" : "NOT_FOUND");
         return ApiResponse.success(results);
+    }
+
+    @GetMapping("/system/cron-validate")
+    public ApiResponse<Map<String, String>> validateCron(@RequestParam String expression) {
+        try {
+            CronExpression cron = CronExpression.parse(expression);
+            Instant now = Instant.now();
+            Instant next1 = cron.next(now);
+            Instant next2 = cron.next(next1);
+            Instant next3 = cron.next(next2);
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("valid", "true");
+            result.put("next1", next1 != null ? next1.toString() : "none");
+            result.put("next2", next2 != null ? next2.toString() : "none");
+            result.put("next3", next3 != null ? next3.toString() : "none");
+            return ApiResponse.success(result);
+        } catch (IllegalArgumentException ex) {
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("valid", "false");
+            result.put("error", ex.getMessage());
+            return ApiResponse.success(result);
+        }
     }
 }

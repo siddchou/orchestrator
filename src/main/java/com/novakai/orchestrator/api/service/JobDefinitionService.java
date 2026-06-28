@@ -6,6 +6,7 @@ import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobEnvVar;
 import com.novakai.orchestrator.domain.entity.JobSchedule;
 import com.novakai.orchestrator.domain.entity.JobStep;
+import com.novakai.orchestrator.engine.JobSchedulerService;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobEnvVarRepository;
@@ -31,6 +32,7 @@ public class JobDefinitionService {
     private final JobEnvVarRepository envVarRepo;
     private final JobScheduleRepository scheduleRepo;
     private final JobDefinitionMapper mapper;
+    private final JobSchedulerService schedulerService;
 
     @Transactional(readOnly = true)
     public Page<JobDefinitionResponse> listJobs(String search, PageRequest pageRequest) {
@@ -193,6 +195,7 @@ public class JobDefinitionService {
                 .updatedAt(LocalDateTime.now())
                 .build();
         schedule = scheduleRepo.save(schedule);
+        schedulerService.register(schedule);
         return mapper.toScheduleResponse(schedule);
     }
 
@@ -203,6 +206,7 @@ public class JobDefinitionService {
         schedule.setCronExpression(request.cronExpression());
         schedule.setUpdatedAt(LocalDateTime.now());
         schedule = scheduleRepo.save(schedule);
+        schedulerService.updateSchedule(schedule);
         return mapper.toScheduleResponse(schedule);
     }
 
@@ -210,6 +214,7 @@ public class JobDefinitionService {
     public void deleteSchedule(Long jobId) {
         JobSchedule schedule = scheduleRepo.findByJobDefinition_JobId(jobId)
                 .orElseThrow(() -> new EntityNotFoundException("Schedule not found"));
+        schedulerService.cancel(schedule.getScheduleId());
         scheduleRepo.delete(schedule);
     }
 
@@ -220,6 +225,11 @@ public class JobDefinitionService {
         schedule.setEnabled(enable ? "Y" : "N");
         schedule.setUpdatedAt(LocalDateTime.now());
         schedule = scheduleRepo.save(schedule);
+        if (enable) {
+            schedulerService.register(schedule);
+        } else {
+            schedulerService.cancel(schedule.getScheduleId());
+        }
         return mapper.toScheduleResponse(schedule);
     }
 }

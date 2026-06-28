@@ -1,6 +1,7 @@
 package com.novakai.orchestrator.api.config;
 
 import com.novakai.orchestrator.api.dto.ApiResponse;
+import com.novakai.orchestrator.engine.exception.InvalidCronExpressionException;
 import com.novakai.orchestrator.engine.exception.JobAlreadyRunningException;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JobAlreadyRunningException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiResponse<Void> handleConflict(JobAlreadyRunningException ex) {
+        return ApiResponse.error(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCronExpressionException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleInvalidCron(InvalidCronExpressionException ex) {
         return ApiResponse.error(ex.getMessage());
     }
 

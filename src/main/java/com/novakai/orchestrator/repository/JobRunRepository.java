@@ -8,9 +8,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface JobRunRepository extends JpaRepository<JobRun, Long> {
     Page<JobRun> findByJobDefinition_JobId(Long jobId, Pageable pageable);
     Page<JobRun> findByStatus(RunStatus status, Pageable pageable);
+    List<JobRun> findAllByStatus(RunStatus status);
     boolean existsByJobDefinition_JobIdAndStatus(Long jobId, RunStatus status);
 
     @Query("SELECT r FROM JobRun r WHERE " +
