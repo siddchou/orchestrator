@@ -1,0 +1,27 @@
+h2 { margin: 0 0 16px; }
+
+.filters-row {
+  margin-bottom: 16px;
+}
+
+.runs-table {
+  width: 100%;
+}
+
+.run-link {
+  color: var(--mat-sys-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.run-link:hover {
+  text-decoration: underline;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}

@@ -1,0 +1,11 @@
+mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 350px;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 24px;
+}

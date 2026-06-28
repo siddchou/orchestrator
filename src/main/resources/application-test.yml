@@ -1,4 +1,8 @@
 spring:
+  security:
+    user:
+      name: admin
+      password: test1234
   application:
     name: orchestrator-test
   datasource:

@@ -1,0 +1,34 @@
+<h2 mat-dialog-title>{{ data.stepId ? 'Edit Step' : 'Add Step' }}</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form">
+    <mat-form-field appearance="outline">
+      <mat-label>Step Name</mat-label>
+      <input matInput formControlName="stepName" required />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Step Type</mat-label>
+      <mat-select formControlName="stepType">
+        @for (type of stepTypes; track type) {
+          <mat-option [value]="type">{{ type }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Step Config (JSON)</mat-label>
+      <textarea matInput formControlName="stepConfig" rows="4"></textarea>
+    </mat-form-field>
+
+    <div class="checkbox-row">
+      <mat-checkbox formControlName="continueOnFailure">Continue on failure</mat-checkbox>
+      <mat-checkbox formControlName="enabled">Enabled</mat-checkbox>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="onSubmit()">Save</button>
+</mat-dialog-actions>

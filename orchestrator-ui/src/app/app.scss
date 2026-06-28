@@ -1,0 +1,25 @@
+.sidenav-container {
+  height: 100%;
+}
+
+.sidenav {
+  width: 220px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 1.25rem;
+  padding-left: 8px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.content {
+  padding: 24px;
+}
+
+.active-link {
+  font-weight: 600;
+}

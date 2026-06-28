@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "orchestrator-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "${workspaceRoot}/orchestrator-ui",
+      "port": 4200
+    }
+  ]
+}

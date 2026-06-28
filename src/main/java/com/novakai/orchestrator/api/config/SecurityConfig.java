@@ -4,8 +4,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.context.annotation.Profile;
 
 @Configuration
+@Profile("!test")
 public class SecurityConfig {
 
     @Bean
@@ -15,6 +17,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/assets/**", "/**/*.js", "/**/*.css", "/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 );
         return http.build();
