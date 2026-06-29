@@ -1,16 +1,16 @@
 #!/bin/bash
 # Run a single step via the orchestrator API
-# Usage: ./scripts/run-step.sh <step-id>
+# Usage: ./scripts/run-step.sh <step-name>
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/auth.sh"
 
 if [ -z "$1" ]; then
-    echo "Usage: $0 <step-id>"
+    echo "Usage: $0 <step-name>"
     exit 1
 fi
 
-STEP_ID="$1"
+STEP_NAME="$1"
 
 # Login
 login
@@ -19,8 +19,8 @@ if [ $? -ne 0 ]; then
 fi
 
 # Trigger the step
-echo "[run-step] Triggering step #${STEP_ID}..."
-RESPONSE=$(api_req POST "/api/steps/${STEP_ID}/run")
+echo "[run-step] Triggering step '${STEP_NAME}'..."
+RESPONSE=$(api_req POST "/api/steps/name/${STEP_NAME}/run")
 
 # Check for errors
 ERR=$(echo "$RESPONSE" | grep -o '"error":"[^"]*"')
@@ -49,7 +49,7 @@ fi
 FINAL_STATUS=$(echo "$RESULT" | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
 
 echo ""
-echo "[run-step] Step #${STEP_ID} finished — Status: ${FINAL_STATUS}"
+echo "[run-step] Step '${STEP_NAME}' finished — Status: ${FINAL_STATUS}"
 
 if [ "$FINAL_STATUS" = "SUCCESS" ]; then
     exit 0

@@ -39,28 +39,27 @@ public class CliRunner implements CommandLineRunner {
     @Override
     public void run(String... args) {
         if (args.length < 2) {
-            System.err.println("Usage: orchestrator -- <command> <id>");
+            System.err.println("Usage: orchestrator -- <command> <name>");
             System.err.println("  Commands:");
-            System.err.println("    run-job <job-id>     Run a full job");
-            System.err.println("    run-step <step-id>   Run a single step");
+            System.err.println("    run-job <job-name>     Run a full job");
+            System.err.println("    run-step <step-name>   Run a single step");
             System.exit(1);
         }
 
         String command = args[0];
-        String idStr = args[1];
+        String name = args[1];
 
         try {
-            long id = Long.parseLong(idStr);
             JobRun run;
 
             switch (command) {
-                case "run-job" -> run = launchService.launch(id, TriggerType.CLI, "cli");
-                case "run-step" -> run = launchService.launchStep(id, TriggerType.CLI, "cli");
+                case "run-job" -> run = launchService.launchByName(name, TriggerType.CLI, "cli");
+                case "run-step" -> run = launchService.launchStepByName(name, TriggerType.CLI, "cli");
                 default -> {
                     System.err.println("Unknown command: " + command);
                     System.err.println("Valid commands: run-job, run-step");
                     System.exit(1);
-                    run = null; // unreachable, suppresses warning
+                    run = null;
                 }
             }
 
@@ -68,17 +67,14 @@ public class CliRunner implements CommandLineRunner {
             waitForCompletion(run.getRunId());
             printResult(run.getRunId());
 
-        } catch (NumberFormatException ex) {
-            System.err.println("[CLI] Error: Invalid ID '" + idStr + "'");
-            System.exit(1);
         } catch (JobNotFoundException ex) {
-            System.err.println("[CLI] Error: Job not found (id=" + idStr + ")");
+            System.err.println("[CLI] Error: Job not found (name=" + name + ")");
             System.exit(1);
         } catch (StepNotFoundException ex) {
-            System.err.println("[CLI] Error: Step not found (id=" + idStr + ")");
+            System.err.println("[CLI] Error: Step not found (name=" + name + ")");
             System.exit(1);
         } catch (JobAlreadyRunningException ex) {
-            System.err.println("[CLI] Error: Job is already running (id=" + idStr + ")");
+            System.err.println("[CLI] Error: Job is already running");
             System.exit(1);
         } catch (Exception ex) {
             System.err.println("[CLI] Error: " + ex.getMessage());

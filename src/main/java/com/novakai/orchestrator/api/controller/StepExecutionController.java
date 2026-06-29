@@ -19,14 +19,14 @@ public class StepExecutionController {
     private final JobLaunchService launchService;
     private final JobRunQueryService runQueryService;
 
-    @PostMapping("/steps/{stepId}/run")
+    @PostMapping("/steps/name/{stepName}/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Auditable(action = "TRIGGER_STEP", entityType = "JOB_RUN")
-    public ApiResponse<JobRunSummary> runStep(
-            @PathVariable Long stepId,
+    public ApiResponse<JobRunSummary> runStepByName(
+            @PathVariable String stepName,
             Authentication auth) {
         String username = auth != null ? auth.getName() : "anonymous";
-        var run = launchService.launchStep(stepId, TriggerType.MANUAL, username);
+        var run = launchService.launchStepByName(stepName, TriggerType.MANUAL, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 }

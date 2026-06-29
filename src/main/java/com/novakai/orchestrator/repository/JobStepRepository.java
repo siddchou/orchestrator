@@ -13,4 +13,7 @@ public interface JobStepRepository extends JpaRepository<JobStep, Long> {
 
     @Query("SELECT s FROM JobStep s JOIN FETCH s.jobDefinition WHERE s.stepId = :stepId")
     Optional<JobStep> findStepWithJobDefinition(@Param("stepId") Long stepId);
+
+    @Query("SELECT s FROM JobStep s JOIN FETCH s.jobDefinition WHERE s.stepName = :stepName")
+    Optional<JobStep> findStepWithJobDefinitionByStepName(@Param("stepName") String stepName);
 }

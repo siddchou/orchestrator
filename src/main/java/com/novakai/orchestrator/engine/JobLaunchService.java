@@ -92,9 +92,92 @@ public class JobLaunchService {
         return run;
     }
 
+    public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy) {
+        JobDefinition job = jobRepo.findByJobName(jobName)
+            .orElseThrow(() -> new JobNotFoundException(jobName));
+
+        Long jobId = job.getJobId();
+
+        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
+            throw new JobAlreadyRunningException(jobId);
+        }
+
+        Map<String, String> env = buildEnvMap(jobId);
+
+        final JobRun run = runRepo.save(JobRun.builder()
+            .jobDefinition(job)
+            .triggerType(triggerType)
+            .triggeredBy(triggeredBy)
+            .status(RunStatus.PENDING)
+            .createdAt(LocalDateTime.now())
+            .build());
+        final Long runId = run.getRunId();
+
+        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        liveLogQueues.put(runId, logQueue);
+
+        ExecutionContext ctx = ExecutionContext.builder()
+            .runId(runId)
+            .jobId(jobId)
+            .workingDir(job.getWorkingDir())
+            .envVars(env)
+            .liveLogQueue(logQueue)
+            .cancelRequested(false)
+            .build();
+
+        Future<?> future = taskExecutor.submit(
+            () -> orchestrator.execute(ctx, job, run)
+        );
+        activeFutures.put(runId, future);
+
+        return run;
+    }
+
     public JobRun launchStep(Long stepId, TriggerType triggerType, String triggeredBy) {
         JobStep step = stepRepo.findStepWithJobDefinition(stepId)
             .orElseThrow(() -> new StepNotFoundException(stepId));
+
+        JobDefinition job = step.getJobDefinition();
+        Long jobId = job.getJobId();
+
+        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
+            throw new JobAlreadyRunningException(jobId);
+        }
+
+        Map<String, String> env = buildEnvMap(jobId);
+
+        final JobRun run = runRepo.save(JobRun.builder()
+            .jobDefinition(job)
+            .triggerType(triggerType)
+            .triggeredBy(triggeredBy)
+            .status(RunStatus.PENDING)
+            .createdAt(LocalDateTime.now())
+            .build());
+        final Long runId = run.getRunId();
+
+        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        liveLogQueues.put(runId, logQueue);
+
+        ExecutionContext ctx = ExecutionContext.builder()
+            .runId(runId)
+            .jobId(jobId)
+            .workingDir(job.getWorkingDir())
+            .envVars(env)
+            .liveLogQueue(logQueue)
+            .cancelRequested(false)
+            .build();
+
+        Future<?> future = taskExecutor.submit(
+            () -> orchestrator.executeSingleStep(ctx, job, run, step)
+        );
+        activeFutures.put(runId, future);
+
+        return run;
+    }
+
+    public JobRun launchStepByName(String stepName, TriggerType triggerType, String triggeredBy) {
+        JobStep step = stepRepo.findStepWithJobDefinitionByStepName(stepName)
+            .orElseThrow(() -> new StepNotFoundException(stepName));
 
         JobDefinition job = step.getJobDefinition();
         Long jobId = job.getJobId();

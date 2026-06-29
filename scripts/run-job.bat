@@ -1,6 +1,6 @@
 @echo off
 REM Run a full job via the orchestrator API
-REM Usage: run-job.bat <job-id>
+REM Usage: run-job.bat <job-name>
 
 set ORCHESTRATOR_URL=%ORCHESTRATOR_URL%
 if "%ORCHESTRATOR_URL%"=="" set ORCHESTRATOR_URL=http://localhost:8080
@@ -10,11 +10,11 @@ set ORCHESTRATOR_PASS=%ORCHESTRATOR_PASS%
 if "%ORCHESTRATOR_PASS%"=="" set ORCHESTRATOR_PASS=changeme
 
 if "%~1"=="" (
-    echo Usage: run-job.bat ^<job-id^>
+    echo Usage: run-job.bat ^<job-name^>
     exit /b 1
 )
 
-set JOB_ID=%~1
+set JOB_NAME=%~1
 
 REM Login
 echo [auth] Logging in...
@@ -29,9 +29,9 @@ if "%JWT_TOKEN%"=="" (
 echo [auth] Logged in successfully
 
 REM Trigger the job
-echo [run-job] Triggering job #%JOB_ID%...
+echo [run-job] Triggering job '%JOB_NAME%'...
 for /f "delims=" %%i in ('powershell -Command ^
-    "$r=Invoke-RestMethod -Uri '%ORCHESTRATOR_URL%/api/jobs/%JOB_ID%/run' -Method Post -Headers @{Authorization='Bearer %JWT_TOKEN%'} -ContentType 'application/json'; $r.data.runId"') do set RUN_ID=%%i
+    "$r=Invoke-RestMethod -Uri '%ORCHESTRATOR_URL%/api/jobs/name/%JOB_NAME%/run' -Method Post -Headers @{Authorization='Bearer %JWT_TOKEN%'} -ContentType 'application/json'; $r.data.runId"') do set RUN_ID=%%i
 
 if "%RUN_ID%"=="" (
     echo [run-job] Failed to trigger job
@@ -62,7 +62,7 @@ set /a ELAPSED+=3
 goto :poll_loop
 
 :done
-echo [run-job] Job #%JOB_ID% finished — Status: %RUN_STATUS%
+echo [run-job] Job '%JOB_NAME%' finished — Status: %RUN_STATUS%
 
 if "%RUN_STATUS%"=="SUCCESS" exit /b 0
 exit /b 1
