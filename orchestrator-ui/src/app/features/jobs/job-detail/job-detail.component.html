@@ -23,13 +23,24 @@
           <textarea matInput formControlName="description" rows="3"></textarea>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Working Directory</mat-label>
-          <input matInput formControlName="workingDir" required />
-          @if (generalForm.get('workingDir')?.invalid && generalForm.get('workingDir')?.touched) {
-            <mat-error>Working directory is required</mat-error>
-          }
-        </mat-form-field>
+        <div class="path-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Working Directory</mat-label>
+            <input matInput formControlName="workingDir" required />
+            @if (generalForm.get('workingDir')?.invalid && generalForm.get('workingDir')?.touched) {
+              <mat-error>Working directory is required</mat-error>
+            }
+          </mat-form-field>
+          <button mat-stroked-button (click)="validatePaths()" type="button">Validate</button>
+        </div>
+
+        @if (pathValidation['workingDir']) {
+          <div class="validation-result"
+               [class.ok]="pathValidation['workingDir'] === 'OK'"
+               [class.error]="pathValidation['workingDir'] !== 'OK'">
+            workingDir: {{ pathValidation['workingDir'] }}
+          </div>
+        }
 
         @if (jobId) {
           <button mat-flat-button color="primary" (click)="saveGeneral()">Save</button>
@@ -47,53 +58,26 @@
             <mat-icon>add</mat-icon> Add Step
           </button>
 
-          <table mat-table [dataSource]="job.steps">
-            <ng-container matColumnDef="stepOrder">
-              <th mat-header-cell *matHeaderCellDef>#</th>
-              <td mat-cell *matCellDef="let step">{{ step.stepOrder }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="stepName">
-              <th mat-header-cell *matHeaderCellDef>Name</th>
-              <td mat-cell *matCellDef="let step">{{ step.stepName }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="stepType">
-              <th mat-header-cell *matHeaderCellDef>Type</th>
-              <td mat-cell *matCellDef="let step">
-                <mat-chip>{{ step.stepType }}</mat-chip>
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="continueOnFailure">
-              <th mat-header-cell *matHeaderCellDef>Continue on Fail</th>
-              <td mat-cell *matCellDef="let step">
-                {{ step.continueOnFailure ? 'Yes' : 'No' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="enabled">
-              <th mat-header-cell *matHeaderCellDef>Enabled</th>
-              <td mat-cell *matCellDef="let step">
-                {{ step.enabled ? 'Yes' : 'No' }}
-              </td>
-            </ng-container>
-
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef>Actions</th>
-              <td mat-cell *matCellDef="let step">
+          <div cdkDropList class="step-list" (cdkDropListDropped)="onStepDropped($event)">
+            @for (step of job.steps; track step.stepId) {
+              <div cdkDrag class="step-row">
+                <mat-icon cdkDragHandle class="drag-handle">drag_indicator</mat-icon>
+                <span class="step-order">{{ step.stepOrder }}.</span>
+                <span class="step-name">{{ step.stepName }}</span>
+                <mat-chip class="step-type-chip">{{ step.stepType }}</mat-chip>
+                <span class="spacer"></span>
                 <button mat-icon-button (click)="openStepForm(step)" matTooltip="Edit">
                   <mat-icon>edit</mat-icon>
                 </button>
                 <button mat-icon-button (click)="deleteStep(step)" matTooltip="Delete" color="warn">
                   <mat-icon>delete</mat-icon>
                 </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="displayedStepCols"></tr>
-            <tr mat-row *matRowDef="let row; columns: displayedStepCols;"></tr>
-          </table>
+              </div>
+            }
+            @if (job.steps.length === 0) {
+              <div class="empty-msg">No steps yet. Click Add Step to begin.</div>
+            }
+          </div>
         </div>
       </mat-tab>
     }
@@ -153,7 +137,7 @@
         <div class="tab-form">
           <mat-form-field appearance="outline">
             <mat-label>Cron Expression</mat-label>
-            <input matInput [(ngModel)]="scheduleCron" placeholder="0 0 2 * * *" />
+            <input matInput [(ngModel)]="scheduleCron" (input)="onCronInput()" placeholder="0 0 2 * * *" />
             <button mat-icon-button matSuffix (click)="validateCron()" matTooltip="Validate cron">
               <mat-icon>fact_check</mat-icon>
             </button>

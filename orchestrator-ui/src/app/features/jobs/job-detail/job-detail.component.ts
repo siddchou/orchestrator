@@ -13,6 +13,7 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { CdkDrag, CdkDropList, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { JobService } from '../../../core/services/job.service';
 import { SystemService } from '../../../core/services/system.service';
@@ -26,7 +27,7 @@ import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '../../../
     CommonModule, ReactiveFormsModule, FormsModule, MatTabsModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
-    MatTooltipModule,
+    MatTooltipModule, CdkDrag, CdkDropList, CdkDragHandle,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
@@ -58,6 +59,8 @@ export class JobDetailComponent implements OnInit {
   newEnvValue = '';
   scheduleCron = '';
   scheduleEnabled = false;
+  pathValidation: Record<string, string> = {};
+  private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit() {
     const idParam = this.route.snapshot.paramMap.get('id');
@@ -192,6 +195,11 @@ export class JobDetailComponent implements OnInit {
     });
   }
 
+  onCronInput() {
+    if (this.cronDebounceTimer) clearTimeout(this.cronDebounceTimer);
+    this.cronDebounceTimer = setTimeout(() => this.validateCron(), 500);
+  }
+
   saveSchedule() {
     if (this.jobId == null || !this.scheduleCron) return;
     if (this.job?.schedule) {
@@ -222,6 +230,25 @@ export class JobDetailComponent implements OnInit {
       if (!confirmed || this.jobId == null) return;
       this.jobService.deleteSchedule(this.jobId).subscribe({ next: () => this.loadJob() });
     });
+  }
+
+  validatePaths() {
+    const wd = this.generalForm.value.workingDir ?? '';
+    this.systemService.validateEnv('', wd).subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.pathValidation = { workingDir: res.data.message ?? 'OK' };
+        }
+      },
+    });
+  }
+
+  onStepDropped(event: CdkDragDrop<JobStep[]>) {
+    if (!this.job) return;
+    moveItemInArray(this.job.steps, event.previousIndex, event.currentIndex);
+    this.job.steps.forEach((s, i) => (s.stepOrder = i + 1));
+    const stepIds = this.job.steps.map(s => s.stepId);
+    this.jobService.reorderSteps(this.jobId!, stepIds).subscribe();
   }
 
   createNewJob() {
