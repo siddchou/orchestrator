@@ -40,3 +40,6 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
+
+### Angular build output ###
+src/main/resources/static/
