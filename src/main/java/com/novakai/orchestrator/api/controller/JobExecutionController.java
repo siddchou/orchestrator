@@ -37,6 +37,17 @@ public class JobExecutionController {
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 
+    @PostMapping("/jobs/name/{name}/run")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
+    public ApiResponse<JobRunSummary> triggerByName(
+            @PathVariable String name,
+            Authentication auth) {
+        String username = auth != null ? auth.getName() : "anonymous";
+        var run = launchService.launchByName(name, TriggerType.MANUAL, username);
+        return ApiResponse.success(runQueryService.toRunSummary(run));
+    }
+
     @GetMapping("/runs")
     public ApiResponse<Page<JobRunSummary>> listRuns(
             @RequestParam(required = false) Long jobId,
