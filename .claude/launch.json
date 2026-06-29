@@ -6,7 +6,8 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["start"],
       "cwd": "${workspaceRoot}/orchestrator-ui",
-      "port": 4200
+      "port": 4200,
+      "autoPort": true
     }
   ]
 }

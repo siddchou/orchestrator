@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, AfterViewInit, ViewChild, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -11,8 +11,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { RouterLink } from '@angular/router';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { RouterLink, NavigationEnd, Router } from '@angular/router';
+import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { JobService } from '../../../core/services/job.service';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
@@ -29,9 +29,11 @@ import { JobDefinition } from '../../../core/models/job.model';
   templateUrl: './job-list.component.html',
   styleUrl: './job-list.component.scss',
 })
-export class JobListComponent implements OnInit {
+export class JobListComponent implements AfterViewInit {
   private jobService = inject(JobService);
   private dialog = inject(MatDialog);
+  private router = inject(Router);
+  private cd = inject(ChangeDetectorRef);
 
   jobs: JobDefinition[] = [];
   displayedColumns = ['jobName', 'description', 'enabled', 'steps', 'schedule', 'actions'];
@@ -39,9 +41,12 @@ export class JobListComponent implements OnInit {
   page = 0;
   size = 20;
 
+  @ViewChild('searchInput', { read: HTMLInputElement })
+  searchInput?: HTMLInputElement;
+
   private searchSubject = new Subject<string>();
 
-  ngOnInit() {
+  ngAfterViewInit() {
     this.loadJobs();
 
     this.searchSubject.pipe(
@@ -51,22 +56,28 @@ export class JobListComponent implements OnInit {
       this.page = 0;
       this.loadJobs();
     });
+
+    // Reload when navigating back from job detail
+    this.router.events.pipe(
+      filter(e => e instanceof NavigationEnd)
+    ).subscribe(() => this.loadJobs());
   }
 
   loadJobs() {
-    const search = (this.searchInput as HTMLInputElement)?.value || '';
+    const search = this.searchInput?.value || '';
     this.jobService.listJobs(this.page, this.size, search).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.jobs = res.data.content;
           this.totalElements = res.data.totalElements;
         }
+        this.cd.detectChanges();
       },
     });
   }
 
   search() {
-    this.searchSubject.next('');
+    this.searchSubject.next(this.searchInput?.value || '');
   }
 
   setPage(index: number) {
@@ -80,6 +91,7 @@ export class JobListComponent implements OnInit {
         if (res.status === 'SUCCESS') {
           job.enabled = res.data.enabled;
         }
+        this.cd.detectChanges();
       },
     });
   }
@@ -118,10 +130,5 @@ export class JobListComponent implements OnInit {
 
   get hasNext() {
     return this.page * this.size + this.jobs.length < this.totalElements;
-  }
-
-  // Template helper
-  get searchInput(): HTMLInputElement | undefined {
-    return document.querySelector('#searchInput') as HTMLInputElement;
   }
 }

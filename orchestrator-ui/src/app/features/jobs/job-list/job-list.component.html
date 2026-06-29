@@ -3,7 +3,7 @@
   <div class="header-actions">
     <mat-form-field appearance="outline">
       <mat-label>Search jobs...</mat-label>
-      <input matInput id="searchInput" (keyup.enter)="search()" />
+      <input matInput #searchInput (keyup.enter)="search()" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
     <button mat-flat-button color="primary" routerLink="/jobs/new">

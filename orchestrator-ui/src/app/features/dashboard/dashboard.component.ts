@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -38,6 +38,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private runService = inject(RunService);
   private jobService = inject(JobService);
   private dialog = inject(MatDialog);
+  private cd = inject(ChangeDetectorRef);
 
   cardData = CARD_DATA;
   summary = { totalJobs: 0, runsToday: 0, successRate: 0, runningNow: 0 };
@@ -61,6 +62,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (res.status === 'SUCCESS') {
           this.summary.totalJobs = res.data.totalElements;
         }
+        this.cd.detectChanges();
       },
     });
 
@@ -79,6 +81,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.summary.runningNow = runs.filter(r => r.status === 'RUNNING').length;
           this.recentRuns = runs.slice(0, 10);
         }
+        this.cd.detectChanges();
       },
     });
   }
