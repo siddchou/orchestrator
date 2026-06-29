@@ -2,28 +2,35 @@
   <div class="loading">Loading run details...</div>
 } @else if (run) {
   <div class="header-row">
-    <button mat-icon-button (click)="goBack()" matTooltip="Back">
+    <button mat-icon-button routerLink="/runs" matTooltip="Back">
       <mat-icon>arrow_back</mat-icon>
     </button>
-    <h2>Run #{{ run.runId }} · {{ run.jobName }}</h2>
-    <app-status-badge [status]="run.status" />
-    <span class="duration">{{ run.durationSeconds | duration }}</span>
+    <div>
+      <h2>Run #{{ run.runId }} · {{ run.jobName }}</h2>
+      <div class="run-meta">
+        <app-status-badge [status]="run.status" />
+        &nbsp;·&nbsp;{{ run.triggerType }}
+        &nbsp;·&nbsp;By {{ run.triggeredBy }}
+        &nbsp;·&nbsp;{{ run.startedAt | date:'dd MMM yyyy HH:mm:ss' }}
+        &nbsp;·&nbsp;{{ run.durationSeconds | duration }}
+      </div>
+    </div>
+    @if (isActive()) {
+      <button mat-stroked-button color="warn" (click)="cancelRun()">
+        <mat-icon>stop</mat-icon> Cancel
+      </button>
+    }
   </div>
-
-  @if (run.status === 'RUNNING') {
-    <button mat-flat-button color="warn" (click)="cancelRun()">
-      <mat-icon>stop</mat-icon> Cancel Run
-    </button>
-  }
 
   <h3>Step Timeline</h3>
 
   <div class="step-timeline">
     @for (step of run.steps; track step.runStepId) {
-      <div class="step-row">
-        <mat-icon class="step-icon" [class.success]="step.status === 'SUCCESS'" [class.failed]="step.status === 'FAILED'">
+      <div class="step-row" [class.selected]="selectedStepId === step.runStepId">
+        <mat-icon class="step-icon" [style.color]="statusIconColor(step.status)">
           {{ statusIcon(step.status) }}
         </mat-icon>
+        <span class="step-order">{{ step.stepOrder }}.</span>
         <div class="step-info">
           <div class="step-name">{{ step.stepName }}</div>
           <div class="step-meta">
@@ -32,29 +39,38 @@
             <app-status-badge [status]="step.status" />
           </div>
         </div>
-        <button mat-stroked-button (click)="openLog(step.runStepId)">
-          <mat-icon>visibility</mat-icon> View Log
-        </button>
+        <span class="spacer"></span>
+        <button mat-button (click)="viewStepLog(step.runStepId)">View Log</button>
       </div>
     }
   </div>
 
-  @if (logLines.length > 0) {
+  <!-- Static Log Panel for completed steps -->
+  @if (selectedStepId && !isActive()) {
     <div class="log-section">
       <div class="log-header">
-        <h3>Log Output</h3>
-        <div class="log-controls">
-          <mat-slide-toggle [(ngModel)]="autoScroll">Auto-scroll</mat-slide-toggle>
-          @if (!logComplete && run.status === 'RUNNING') {
-            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <h3>Step Log</h3>
+      </div>
+      @if (loadingLog) {
+        <div class="loading">Loading log...</div>
+      }
+      @if (stepLog) {
+        <div class="log-container">
+          @for (line of stepLog.split('\n'); track $index) {
+            <div class="log-line">{{ line }}</div>
           }
         </div>
+      }
+    </div>
+  }
+
+  <!-- Live Log Viewer for active runs -->
+  @if (isActive()) {
+    <div class="log-section">
+      <div class="log-header">
+        <h3>Live Log</h3>
       </div>
-      <div class="log-container">
-        @for (line of logLines; track $index) {
-          <div class="log-line">{{ line }}</div>
-        }
-      </div>
+      <app-log-viewer [runId]="run.runId" />
     </div>
   }
 }

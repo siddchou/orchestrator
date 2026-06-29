@@ -2,6 +2,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessC
 import { provideRouter, withHashLocation } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { provideNativeDateAdapter } from '@angular/material/core';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
@@ -16,5 +17,6 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([authInterceptor, errorInterceptor])
     ),
     provideAnimationsAsync(),
+    provideNativeDateAdapter(),
   ]
 };

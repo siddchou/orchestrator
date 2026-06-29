@@ -1,6 +1,6 @@
 .header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
@@ -10,8 +10,10 @@
   margin: 0;
 }
 
-.duration {
+.run-meta {
+  font-size: 0.85rem;
   color: var(--mat-sys-on-surface-variant);
+  margin-top: 4px;
 }
 
 .step-timeline {
@@ -30,16 +32,19 @@
   background: var(--mat-sys-surface-container-low);
 }
 
+.step-row.selected {
+  background: var(--mat-sys-surface-container-high);
+  outline: 2px solid var(--mat-sys-primary);
+}
+
 .step-icon {
   flex-shrink: 0;
 }
 
-.step-icon.success {
-  color: #4caf50;
-}
-
-.step-icon.failed {
-  color: #f44336;
+.step-order {
+  font-weight: 600;
+  color: var(--mat-sys-on-surface-variant);
+  min-width: 24px;
 }
 
 .step-info {
@@ -66,6 +71,8 @@
   letter-spacing: 0.5px;
 }
 
+.spacer { flex: 1; }
+
 .log-section {
   margin-top: 24px;
 }
@@ -77,27 +84,21 @@
   margin-bottom: 8px;
 }
 
-.log-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 .log-container {
   background: #1e1e1e;
   color: #d4d4d4;
   font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.8rem;
+  font-size: 13px;
   padding: 16px;
   border-radius: 8px;
   max-height: 500px;
   overflow-y: auto;
   line-height: 1.6;
-  white-space: pre-wrap;
 }
 
 .log-line {
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .loading {

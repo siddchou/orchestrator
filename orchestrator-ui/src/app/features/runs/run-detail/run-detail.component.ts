@@ -2,16 +2,19 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { RunService } from '../../../core/services/run.service';
 import { LogStreamService } from '../../../core/services/log-stream.service';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
+import { LogViewerComponent } from '../log-viewer/log-viewer.component';
 import { JobRunDetail } from '../../../core/models/run.model';
 import { RunStatus } from '../../../core/models/job.model';
 
@@ -19,27 +22,28 @@ import { RunStatus } from '../../../core/models/job.model';
   selector: 'app-run-detail',
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule,
-    MatSlideToggleModule, MatTooltipModule,
-    StatusBadge, DurationPipe,
+    MatSlideToggleModule, MatTooltipModule, MatSnackBarModule, RouterLink,
+    StatusBadge, DurationPipe, LogViewerComponent,
   ],
   templateUrl: './run-detail.component.html',
   styleUrl: './run-detail.component.scss',
 })
 export class RunDetailComponent implements OnInit, OnDestroy {
   private runService = inject(RunService);
-  private logStreamService = inject(LogStreamService);
+  private snack = inject(MatSnackBar);
   private route = inject(ActivatedRoute);
 
   runId: number | null = null;
   run: JobRunDetail | null = null;
   loading = true;
 
-  // Log viewer
-  logLines: string[] = [];
+  // Static log viewer for completed steps
   selectedStepId: number | null = null;
-  autoScroll = true;
-  logComplete = false;
-  private logSub?: Subscription;
+  stepLog: string | null = null;
+  loadingLog = false;
+
+  // Polling
+  private pollInterval?: ReturnType<typeof setInterval>;
 
   ngOnInit() {
     const idParam = this.route.snapshot.paramMap.get('runId');
@@ -50,7 +54,7 @@ export class RunDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.logSub?.unsubscribe();
+    this.stopPolling();
   }
 
   loadRun() {
@@ -62,64 +66,49 @@ export class RunDetailComponent implements OnInit, OnDestroy {
           this.run = res.data;
         }
         this.loading = false;
+
+        // Poll every 3s while the run is active
+        if (this.run?.status === 'RUNNING' || this.run?.status === 'PENDING') {
+          this.startPolling();
+        } else {
+          this.stopPolling();
+        }
       },
-      error: () => { this.loading = false; },
+      error: () => { this.loading = false; this.stopPolling(); },
     });
   }
 
-  openLog(stepId: number) {
+  viewStepLog(stepId: number) {
     if (this.runId == null) return;
-
-    // Unsubscribe from previous log stream
-    this.logSub?.unsubscribe();
-    this.logLines = [];
     this.selectedStepId = stepId;
-    this.logComplete = false;
-
-    if (this.run?.status === 'RUNNING') {
-      this.logSub = this.logStreamService.streamLog(this.runId).subscribe({
-        next: (line) => {
-          this.logLines.push(line);
-          if (this.autoScroll) this.scrollToBottom();
-        },
-        complete: () => {
-          this.logComplete = true;
-          this.logLines.push('--- Run complete ---');
-        },
-        error: () => {
-          this.logComplete = true;
-          this.logLines.push('--- Stream disconnected ---');
-        },
-      });
-    } else {
-      // Load static log for completed steps
-      this.runService.getStepLog(this.runId, stepId).subscribe({
-        next: (res) => {
-          if (res.status === 'SUCCESS' && res.data) {
-            this.logLines = res.data.split('\n').filter(Boolean);
-          }
-          this.logComplete = true;
-        },
-      });
-    }
-  }
-
-  scrollToBottom() {
-    setTimeout(() => {
-      const el = document.querySelector('.log-container') as HTMLElement;
-      if (el) el.scrollTop = el.scrollHeight;
-    }, 50);
+    this.loadingLog = true;
+    this.stepLog = null;
+    this.runService.getStepLog(this.runId, stepId).subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS' && res.data) {
+          this.stepLog = res.data;
+        }
+        this.loadingLog = false;
+      },
+      error: () => { this.loadingLog = false; },
+    });
   }
 
   cancelRun() {
     if (this.runId == null) return;
     this.runService.cancelRun(this.runId).subscribe({
-      next: () => this.loadRun(),
+      next: () => {
+        this.snack.open('Cancel requested', 'OK', { duration: 2000 });
+        this.loadRun();
+      },
+      error: () => {
+        this.snack.open('Cancel failed', 'Dismiss', { duration: 3000 });
+      },
     });
   }
 
-  goBack() {
-    window.location.hash = '#/runs';
+  isActive(): boolean {
+    return this.run?.status === 'RUNNING' || this.run?.status === 'PENDING';
   }
 
   statusIcon(status: RunStatus): string {
@@ -128,5 +117,25 @@ export class RunDetailComponent implements OnInit, OnDestroy {
       FAILED: 'error', PARTIAL: 'warning', CANCELLED: 'cancel', SKIPPED: 'step_inplace',
     };
     return icons[status] ?? 'help';
+  }
+
+  statusIconColor(status: RunStatus): string {
+    const colors: Record<RunStatus, string> = {
+      SUCCESS: 'green', FAILED: 'red', RUNNING: 'orange',
+      PENDING: 'grey', PARTIAL: 'orange', CANCELLED: 'purple', SKIPPED: 'grey',
+    };
+    return colors[status] ?? 'grey';
+  }
+
+  private startPolling(): void {
+    this.stopPolling();
+    this.pollInterval = setInterval(() => this.loadRun(), 3000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = undefined;
+    }
   }
 }

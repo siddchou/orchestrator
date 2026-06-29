@@ -1,27 +1,27 @@
 h2 { margin: 0 0 16px; }
 
 .filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
   margin-bottom: 16px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
 }
 
 .runs-table {
   width: 100%;
 }
 
-.run-link {
-  color: var(--mat-sys-primary);
-  text-decoration: none;
-  font-weight: 500;
+.running-row {
+  background: rgba(255, 152, 0, 0.08);
 }
 
-.run-link:hover {
-  text-decoration: underline;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 16px;
+.running-row:hover {
+  background: rgba(255, 152, 0, 0.15);
 }
