@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -39,6 +39,7 @@ export class JobDetailComponent implements OnInit {
   private dialog = inject(MatDialog);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private cd = inject(ChangeDetectorRef);
 
   jobId: number | null = null;
   job: JobDefinition | null = null;
@@ -65,6 +66,7 @@ export class JobDetailComponent implements OnInit {
       this.loadJob();
     } else {
       this.loading = false;
+      this.cd.detectChanges();
     }
   }
 
@@ -92,8 +94,9 @@ export class JobDetailComponent implements OnInit {
           }
         }
         this.loading = false;
+        this.cd.detectChanges();
       },
-      error: () => { this.loading = false; },
+      error: () => { this.loading = false; this.cd.detectChanges(); },
     });
   }
 
