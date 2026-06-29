@@ -1,7 +1,22 @@
 <div class="log-toolbar">
-  <mat-slide-toggle [(ngModel)]="autoScroll">Auto-scroll</mat-slide-toggle>
-  <button mat-button (click)="clearLog()">Clear</button>
-  <span class="log-count">{{ logLines.length }} lines</span>
+  <div class="toolbar-left">
+    <mat-slide-toggle [(ngModel)]="autoScroll">
+      <span class="toggle-label">Auto-scroll</span>
+    </mat-slide-toggle>
+    @if (running) {
+      <span class="live-badge">
+        <span class="live-dot"></span> Streaming
+      </span>
+    } @else {
+      <span class="stopped-badge">Completed</span>
+    }
+  </div>
+  <div class="toolbar-right">
+    <span class="log-count">{{ logLines.length }} lines</span>
+    <button mat-stroked-button (click)="clearLog()" class="clear-btn">
+      <mat-icon>clear_all</mat-icon> Clear
+    </button>
+  </div>
 </div>
 <div class="log-container" #logContainer>
   @for (line of logLines; track $index) {

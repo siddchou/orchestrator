@@ -1,85 +1,118 @@
-<h2>Global Configuration</h2>
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Configuration</h2>
+    <p class="page-subtitle">System health, environment variables, and path validation</p>
+  </div>
+</div>
 
 <!-- System Health -->
-<h3>System Health</h3>
-<mat-card class="health-card">
+<div class="health-card">
+  <div class="section-header">
+    <h3 class="section-title">
+      <mat-icon>monitoring</mat-icon> System Health
+    </h3>
+  </div>
   @if (health) {
     <div class="health-grid">
       <div class="health-item">
-        <mat-icon>storage</mat-icon>
-        <div>
+        <div class="health-icon-wrapper" style="background: var(--gradient-primary);">
+          <mat-icon>storage</mat-icon>
+        </div>
+        <div class="health-text">
           <div class="health-label">Database</div>
           <div class="health-value">{{ health.database }}</div>
         </div>
       </div>
       <div class="health-item">
-        <mat-icon>memory</mat-icon>
-        <div>
+        <div class="health-icon-wrapper" style="background: var(--gradient-info);">
+          <mat-icon>memory</mat-icon>
+        </div>
+        <div class="health-text">
           <div class="health-label">Thread Pool</div>
           <div class="health-value">{{ health.threadPoolUtilization }}%</div>
         </div>
       </div>
       <div class="health-item">
-        <mat-icon>pending_actions</mat-icon>
-        <div>
+        <div class="health-icon-wrapper" style="background: var(--gradient-warning);">
+          <mat-icon>pending_actions</mat-icon>
+        </div>
+        <div class="health-text">
           <div class="health-label">Active Runs</div>
           <div class="health-value">{{ health.activeRuns }}</div>
         </div>
       </div>
     </div>
   } @else {
-    <p class="empty-msg">Health data unavailable</p>
+    <div class="empty-state">
+      <mat-icon>error_outline</mat-icon>
+      <p>Health data unavailable</p>
+    </div>
   }
-</mat-card>
-
-<!-- Global Environment Variables -->
-<h3>Global Environment Variables</h3>
-
-<div class="add-env-row">
-  <mat-form-field appearance="outline">
-    <mat-label>Variable Name</mat-label>
-    <input matInput [(ngModel)]="newKey" placeholder="MY_VAR" />
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Value</mat-label>
-    <input matInput [(ngModel)]="newValue" placeholder="/some/path" />
-  </mat-form-field>
-  <button mat-flat-button color="primary" (click)="addEnvVar()">
-    <mat-icon>add</mat-icon> Add
-  </button>
 </div>
 
-@if (globalEnvVars.length > 0) {
-  <table mat-table [dataSource]="globalEnvVars">
-    <ng-container matColumnDef="key">
-      <th mat-header-cell *matHeaderCellDef>Variable</th>
-      <td mat-cell *matCellDef="let env">{{ env.key }}</td>
-    </ng-container>
+<!-- Global Environment Variables -->
+<div class="section-card">
+  <div class="section-header">
+    <h3 class="section-title">
+      <mat-icon>settings</mat-icon> Global Environment Variables
+    </h3>
+  </div>
 
-    <ng-container matColumnDef="value">
-      <th mat-header-cell *matHeaderCellDef>Value</th>
-      <td mat-cell *matCellDef="let env">{{ env.value }}</td>
-    </ng-container>
+  <div class="add-env-row">
+    <mat-form-field appearance="outline">
+      <mat-label>Variable Name</mat-label>
+      <input matInput [(ngModel)]="newKey" placeholder="MY_VAR" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Value</mat-label>
+      <input matInput [(ngModel)]="newValue" placeholder="/some/path" />
+    </mat-form-field>
+    <button mat-flat-button color="primary" (click)="addEnvVar()">
+      <mat-icon>add</mat-icon> Add
+    </button>
+  </div>
 
-    <ng-container matColumnDef="actions">
-      <th mat-header-cell *matHeaderCellDef>Actions</th>
-      <td mat-cell *matCellDef="let env">
-        <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" matTooltip="Delete" color="warn">
-          <mat-icon>delete</mat-icon>
-        </button>
-      </td>
-    </ng-container>
+  @if (globalEnvVars.length > 0) {
+    <table mat-table [dataSource]="globalEnvVars">
+      <ng-container matColumnDef="key">
+        <th mat-header-cell *matHeaderCellDef>Variable</th>
+        <td mat-cell *matCellDef="let env">
+          <span class="env-key">{{ env.key }}</span>
+        </td>
+      </ng-container>
 
-    <tr mat-header-row *matHeaderRowDef="['key', 'value', 'actions']"></tr>
-    <tr mat-row *matRowDef="let row; columns: ['key', 'value', 'actions'];"></tr>
-  </table>
-} @else {
-  <p class="empty-msg">No global environment variables defined.</p>
-}
+      <ng-container matColumnDef="value">
+        <th mat-header-cell *matHeaderCellDef>Value</th>
+        <td mat-cell *matCellDef="let env">{{ env.value }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let env">
+          <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" matTooltip="Delete" color="warn">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="['key', 'value', 'actions']"></tr>
+      <tr mat-row *matRowDef="let row; columns: ['key', 'value', 'actions'];"></tr>
+    </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>settings</mat-icon>
+      <p>No global environment variables defined.</p>
+    </div>
+  }
+</div>
 
 <!-- Path Validator -->
-<h3>Path Validator</h3>
-<mat-card class="validator-card">
+<div class="validator-card">
+  <div class="section-header">
+    <h3 class="section-title">
+      <mat-icon>fact_check</mat-icon> Path Validator
+    </h3>
+  </div>
   <div class="validator-row">
     <mat-form-field appearance="outline">
       <mat-label>JAVA_HOME</mat-label>
@@ -89,11 +122,14 @@
       <mat-label>Working Directory</mat-label>
       <input matInput [(ngModel)]="workingDir" placeholder="/opt/jobs/my-job" />
     </mat-form-field>
-    <button mat-flat-button (click)="validatePaths()">
+    <button mat-flat-button color="primary" (click)="validatePaths()">
       <mat-icon>fact_check</mat-icon> Validate
     </button>
   </div>
   @if (validationResult) {
-    <p class="validation-result">{{ validationResult }}</p>
+    <div class="validation-result">
+      <mat-icon>info</mat-icon>
+      <span>{{ validationResult }}</span>
+    </div>
   }
-</mat-card>
+</div>

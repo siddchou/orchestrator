@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
@@ -26,7 +27,7 @@ import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '../../../
   imports: [
     CommonModule, ReactiveFormsModule, FormsModule, MatTabsModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
-    MatCheckboxModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
+    MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
     MatTooltipModule, CdkDrag, CdkDropList, CdkDragHandle,
   ],
   templateUrl: './job-detail.component.html',

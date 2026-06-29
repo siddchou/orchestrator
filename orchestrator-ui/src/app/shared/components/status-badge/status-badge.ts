@@ -12,6 +12,16 @@ const STATUS_COLORS: Record<RunStatus, { foreground: string; background: string 
   SKIPPED:   { foreground: '#ffffff', background: '#9e9e9e' },
 };
 
+const STATUS_LABELS: Record<RunStatus, string> = {
+  PENDING:   'Pending',
+  RUNNING:   'Running',
+  SUCCESS:   'Success',
+  FAILED:    'Failed',
+  PARTIAL:   'Partial',
+  CANCELLED: 'Cancelled',
+  SKIPPED:   'Skipped',
+};
+
 @Component({
   selector: 'app-status-badge',
   imports: [MatChipsModule],
@@ -23,5 +33,9 @@ export class StatusBadge {
 
   get color(): string {
     return STATUS_COLORS[this.status]?.background ?? '#757575';
+  }
+
+  get statusLabel(): string {
+    return STATUS_LABELS[this.status] ?? this.status;
   }
 }

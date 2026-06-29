@@ -1,10 +1,15 @@
 <div class="dialog">
-  <h2 mat-dialog-title>{{ data.title }}</h2>
+  <div class="dialog-header">
+    <div class="dialog-icon">
+      <mat-icon>warning_amber</mat-icon>
+    </div>
+    <h2 class="dialog-title">{{ data.title }}</h2>
+  </div>
   <mat-dialog-content>
     <p>{{ data.message }}</p>
   </mat-dialog-content>
-  <mat-dialog-actions align="end">
-    <button mat-button (click)="cancel()">Cancel</button>
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-stroked-button (click)="cancel()">Cancel</button>
     <button mat-flat-button color="warn" (click)="confirm()">{{ data.confirmButton ?? 'Confirm' }}</button>
   </mat-dialog-actions>
 </div>

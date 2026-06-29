@@ -1,24 +1,310 @@
 @use '@angular/material' as mat;
 
+/* ── Design Tokens ────────────────────────────────────────────── */
+:root {
+  /* Spacing scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08), 0 6px 12px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 20px rgba(0, 0, 0, 0.06);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography */
+  --font-sans: 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+
+  /* Page background gradient */
+  --page-bg: linear-gradient(135deg, #f8f9fc 0%, #eef1f8 100%);
+
+  /* Card elevation */
+  --card-bg: #ffffff;
+  --card-border: 1px solid rgba(0, 0, 0, 0.06);
+
+  /* Accent gradients */
+  --gradient-primary: linear-gradient(135deg, #4a90d9 0%, #357abd 100%);
+  --gradient-success: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+  --gradient-warning: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  --gradient-danger: linear-gradient(135deg, #ef5350 0%, #d32f2f 100%);
+  --gradient-info: linear-gradient(135deg, #29b6f6 0%, #0288d1 100%);
+  --gradient-purple: linear-gradient(135deg, #ab47bc 0%, #7b1fa2 100%);
+
+  /* Login background */
+  --login-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  /* Sidenav */
+  --sidenav-width: 260px;
+  --sidenav-bg: #ffffff;
+  --sidenav-border: 1px solid rgba(0, 0, 0, 0.06);
+
+  /* Toolbar */
+  --toolbar-height: 64px;
+  --toolbar-bg: #ffffff;
+  --toolbar-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* Log viewer */
+  --log-bg: #1a1b26;
+  --log-text: #a9b1d6;
+  --log-border: #292e42;
+}
+
+/* ── Material M3 Theme ────────────────────────────────────────── */
 html {
   height: 100%;
+
   @include mat.theme(
     (
       color: (
         primary: mat.$azure-palette,
         tertiary: mat.$blue-palette,
+        accent: mat.$cyan-palette,
       ),
-      typography: Roboto,
+      typography: (
+        brand-family: var(--font-sans),
+        plain-family: var(--font-sans),
+        mono-family: var(--font-mono),
+      ),
       density: 0,
     )
   );
 }
 
+/* ── Global Resets ────────────────────────────────────────────── */
 body {
   color-scheme: light;
-  background-color: var(--mat-sys-surface);
+  background: var(--page-bg);
   color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
+  font-family: var(--font-sans);
   margin: 0;
   height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Headings ─────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin: 0 0 var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+h3 {
+  font-size: 1.125rem;
+  margin: var(--spacing-lg) 0 var(--spacing-sm);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+mat-card {
+  background: var(--card-bg) !important;
+  border: var(--card-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: box-shadow var(--transition-normal), transform var(--transition-fast);
+
+  &:hover {
+    box-shadow: var(--shadow-md) !important;
+  }
+}
+
+/* ── Tables ───────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  background: var(--card-bg);
+  border-radius: var(--radius-md);
+  border: var(--card-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.mat-header-cell {
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--mat-sys-on-surface-variant) !important;
+  border-bottom: 2px solid var(--mat-sys-primary) !important;
+  padding: 12px 16px !important;
+}
+
+.mat-cell {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+.mat-row {
+  transition: background-color var(--transition-fast);
+
+  &:hover {
+    background: rgba(var(--mat-sys-primary), 0.04);
+  }
+}
+
+/* ── Form Fields ──────────────────────────────────────────────── */
+mat-form-field {
+  font-size: 14px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+button.mat-mdc-raised-button {
+  border-radius: var(--radius-sm) !important;
+}
+
+button.mat-mdc-unelevated-button {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Apply fade-in to content areas */
+.content > * {
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* ── Utility Classes ──────────────────────────────────────────── */
+.page-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-3xl) var(--spacing-lg);
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+  }
+}
+
+/* ── Snackbar ─────────────────────────────────────────────────── */
+.error-snackbar {
+  .mdc-snackbar__surface {
+    background: var(--mat-sys-error) !important;
+    color: var(--mat-sys-on-error) !important;
+  }
+}
+
+/* ── Paginator ────────────────────────────────────────────────── */
+.mat-mdc-paginator {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin-top: var(--spacing-md);
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+mat-tab-group {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+
+  ::ng-deep .mat-mdc-tab-group {
+    background: var(--card-bg);
+  }
+
+  ::ng-deep .mdc-tab--active {
+    .mdc-tab__text-label {
+      font-weight: 600;
+    }
+  }
+
+  ::ng-deep .mat-mdc-tab-body-wrapper {
+    padding: var(--spacing-md);
+  }
+}
+
+/* ── Dialog ───────────────────────────────────────────────────── */
+.mat-mdc-dialog-container {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl) !important;
+
+  ::ng-deep .mdc-dialog__surface {
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* ── Chips ────────────────────────────────────────────────────── */
+.mat-mdc-standard-chip {
+  border-radius: var(--radius-full) !important;
+  font-weight: 500;
+}
+
+/* ── Sidenav Container Background ─────────────────────────────── */
+mat-sidenav-container {
+  background: transparent;
+}
+
+/* ── Loading Spinner ──────────────────────────────────────────── */
+.loading {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  color: var(--mat-sys-on-surface-variant);
+  animation: pulse 2s ease-in-out infinite;
 }

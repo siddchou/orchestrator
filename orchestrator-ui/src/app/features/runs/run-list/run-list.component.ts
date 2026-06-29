@@ -11,7 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { RunService } from '../../../core/services/run.service';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
@@ -24,7 +24,7 @@ import { RunStatus } from '../../../core/models/job.model';
     CommonModule, FormsModule, ReactiveFormsModule,
     MatTableModule, MatPaginatorModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSelectModule, MatTooltipModule,
-    MatDatepickerModule, MatProgressSpinnerModule,
+    MatDatepickerModule, MatProgressSpinnerModule, RouterLink,
     StatusBadge, DurationPipe,
   ],
   templateUrl: './run-list.component.html',

@@ -1,22 +1,97 @@
+.dialog-container {
+  padding: var(--spacing-sm);
+}
+
+.dialog-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-sm) 0 var(--spacing-md);
+}
+
+.header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(var(--mat-sys-primary), 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+
+  &.edit {
+    background: rgba(255, 152, 0, 0.1);
+
+    mat-icon {
+      color: #ff9800;
+    }
+  }
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.dialog-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 mat-dialog-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 400px;
+  gap: var(--spacing-md);
+  min-width: 420px;
   max-width: 600px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 .full-width {
   width: 100%;
 }
 
+.form-row {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
 .toggles-row {
   display: flex;
-  gap: 24px;
+  gap: var(--spacing-lg);
 }
 
 .section-divider {
   border: none;
-  border-top: 1px solid #e0e0e0;
-  margin: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  margin: 4px 0;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) 0;
+}
+
+.config-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.dialog-actions {
+  padding: var(--spacing-md) var(--spacing-sm) var(--spacing-sm);
+  gap: var(--spacing-sm);
 }
