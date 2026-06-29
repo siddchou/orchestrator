@@ -14,5 +14,6 @@ public record JobRunDetail(
     String triggeredBy,
     LocalDateTime startedAt,
     LocalDateTime endedAt,
+    long durationSeconds,
     List<RunStepDetail> steps
 ) {}

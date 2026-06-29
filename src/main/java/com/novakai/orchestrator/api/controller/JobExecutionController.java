@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -29,8 +30,10 @@ public class JobExecutionController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
     public ApiResponse<JobRunSummary> trigger(
-            @PathVariable Long id) {
-        var run = launchService.launch(id, TriggerType.MANUAL, "api-user");
+            @PathVariable Long id,
+            Authentication auth) {
+        String username = auth != null ? auth.getName() : "anonymous";
+        var run = launchService.launch(id, TriggerType.MANUAL, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 

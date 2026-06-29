@@ -106,6 +106,10 @@ public class JobDefinitionMapper {
         List<RunStepDetail> steps = runSteps.stream()
                 .map(this::toRunStepDetail)
                 .toList();
+        long duration = 0;
+        if (run.getStartedAt() != null && run.getEndedAt() != null) {
+            duration = java.time.Duration.between(run.getStartedAt(), run.getEndedAt()).getSeconds();
+        }
         return new JobRunDetail(
                 run.getRunId(),
                 run.getJobDefinition().getJobId(),
@@ -115,6 +119,7 @@ public class JobDefinitionMapper {
                 run.getTriggeredBy(),
                 run.getStartedAt(),
                 run.getEndedAt(),
+                duration,
                 steps
         );
     }
