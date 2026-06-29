@@ -12,6 +12,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@ConditionalOnWebApplication
 public class JobSchedulerService {
 
     private final TaskScheduler taskScheduler;

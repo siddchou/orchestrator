@@ -2,13 +2,16 @@ package com.novakai.orchestrator.engine;
 
 import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobRun;
+import com.novakai.orchestrator.domain.entity.JobStep;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.engine.exception.JobAlreadyRunningException;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
+import com.novakai.orchestrator.engine.exception.StepNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -34,14 +37,18 @@ public class JobLaunchService {
     private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> liveLogQueues
             = new ConcurrentHashMap<>();
 
+    private final JobStepRepository stepRepo;
+
     public JobLaunchService(JobDefinitionRepository jobRepo,
                             JobEnvVarRepository envVarRepo,
                             JobRunRepository runRepo,
+                            JobStepRepository stepRepo,
                             JobExecutionOrchestrator orchestrator,
                             ThreadPoolTaskExecutor taskExecutor) {
         this.jobRepo = jobRepo;
         this.envVarRepo = envVarRepo;
         this.runRepo = runRepo;
+        this.stepRepo = stepRepo;
         this.orchestrator = orchestrator;
         this.taskExecutor = taskExecutor;
     }
@@ -79,6 +86,48 @@ public class JobLaunchService {
 
         Future<?> future = taskExecutor.submit(
             () -> orchestrator.execute(ctx, job, run)
+        );
+        activeFutures.put(runId, future);
+
+        return run;
+    }
+
+    public JobRun launchStep(Long stepId, TriggerType triggerType, String triggeredBy) {
+        JobStep step = stepRepo.findStepWithJobDefinition(stepId)
+            .orElseThrow(() -> new StepNotFoundException(stepId));
+
+        JobDefinition job = step.getJobDefinition();
+        Long jobId = job.getJobId();
+
+        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
+            throw new JobAlreadyRunningException(jobId);
+        }
+
+        Map<String, String> env = buildEnvMap(jobId);
+
+        final JobRun run = runRepo.save(JobRun.builder()
+            .jobDefinition(job)
+            .triggerType(triggerType)
+            .triggeredBy(triggeredBy)
+            .status(RunStatus.PENDING)
+            .createdAt(LocalDateTime.now())
+            .build());
+        final Long runId = run.getRunId();
+
+        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        liveLogQueues.put(runId, logQueue);
+
+        ExecutionContext ctx = ExecutionContext.builder()
+            .runId(runId)
+            .jobId(jobId)
+            .workingDir(job.getWorkingDir())
+            .envVars(env)
+            .liveLogQueue(logQueue)
+            .cancelRequested(false)
+            .build();
+
+        Future<?> future = taskExecutor.submit(
+            () -> orchestrator.executeSingleStep(ctx, job, run, step)
         );
         activeFutures.put(runId, future);
 

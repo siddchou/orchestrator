@@ -47,42 +47,13 @@ public class JobExecutionOrchestrator {
                 }
 
                 JobRunStep runStep = createRunStep(run, step);
-
-                try {
-                    runStep.setStatus(RunStatus.RUNNING);
-                    runStep.setStartedAt(LocalDateTime.now());
-                    runStepRepo.save(runStep);
-
-                    StepExecutor executor = executorFactory.resolve(step.getStepType());
-                    StepResult result = executor.execute(ctx, step);
-
-                    runStep.setExitCode(result.exitCode());
-                    runStep.setLogOutput(result.logOutput());
-                    runStep.setEndedAt(LocalDateTime.now());
-
-                    if (result.success()) {
-                        runStep.setStatus(RunStatus.SUCCESS);
-                    } else {
-                        runStep.setStatus(RunStatus.FAILED);
-                        anyStepFailed = true;
-                        if ("N".equals(step.getContinueOnFailure())) {
-                            runStepRepo.save(runStep);
-                            log.error("Step {} failed and continueOnFailure=N. Aborting run.", step.getStepName());
-                            break;
-                        }
-                    }
-                } catch (Exception ex) {
-                    log.error("Unexpected error in step {}: {}", step.getStepName(), ex.getMessage(), ex);
-                    runStep.setStatus(RunStatus.FAILED);
-                    runStep.setLogOutput("EXCEPTION: " + ex.getMessage());
-                    runStep.setEndedAt(LocalDateTime.now());
+                boolean stepFailed = executeStep(ctx, run, runStep, step);
+                if (stepFailed) {
                     anyStepFailed = true;
                     if ("N".equals(step.getContinueOnFailure())) {
-                        runStepRepo.save(runStep);
+                        log.error("Step {} failed and continueOnFailure=N. Aborting run.", step.getStepName());
                         break;
                     }
-                } finally {
-                    runStepRepo.save(runStep);
                 }
             }
 
@@ -94,6 +65,59 @@ public class JobExecutionOrchestrator {
                 run.setStatus(anyStepFailed ? RunStatus.PARTIAL : RunStatus.SUCCESS);
             }
             runRepo.save(run);
+        }
+    }
+
+    public void executeSingleStep(ExecutionContext ctx, JobDefinition job, JobRun run, JobStep targetStep) {
+        run.setStatus(RunStatus.RUNNING);
+        run.setStartedAt(LocalDateTime.now());
+        runRepo.save(run);
+
+        boolean stepFailed = false;
+
+        try {
+            JobRunStep runStep = createRunStep(run, targetStep);
+            stepFailed = executeStep(ctx, run, runStep, targetStep);
+
+        } finally {
+            run.setEndedAt(LocalDateTime.now());
+            if (ctx.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+                run.setStatus(RunStatus.CANCELLED);
+            } else {
+                run.setStatus(stepFailed ? RunStatus.FAILED : RunStatus.SUCCESS);
+            }
+            runRepo.save(run);
+        }
+    }
+
+    boolean executeStep(ExecutionContext ctx, JobRun run, JobRunStep runStep, JobStep step) {
+        try {
+            runStep.setStatus(RunStatus.RUNNING);
+            runStep.setStartedAt(LocalDateTime.now());
+            runStepRepo.save(runStep);
+
+            StepExecutor executor = executorFactory.resolve(step.getStepType());
+            StepResult result = executor.execute(ctx, step);
+
+            runStep.setExitCode(result.exitCode());
+            runStep.setLogOutput(result.logOutput());
+            runStep.setEndedAt(LocalDateTime.now());
+
+            if (result.success()) {
+                runStep.setStatus(RunStatus.SUCCESS);
+            } else {
+                runStep.setStatus(RunStatus.FAILED);
+            }
+            runStepRepo.save(runStep);
+
+            return !result.success();
+        } catch (Exception ex) {
+            log.error("Unexpected error in step {}: {}", step.getStepName(), ex.getMessage(), ex);
+            runStep.setStatus(RunStatus.FAILED);
+            runStep.setLogOutput("EXCEPTION: " + ex.getMessage());
+            runStep.setEndedAt(LocalDateTime.now());
+            runStepRepo.save(runStep);
+            return true;
         }
     }
 

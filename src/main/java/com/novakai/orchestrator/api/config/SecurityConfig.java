@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/jobs/**").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
                         // Operator + Admin can trigger and cancel runs
                         .requestMatchers(HttpMethod.POST, "/api/jobs/*/run").hasAnyRole("OPERATOR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/steps/*/run").hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/runs/*/cancel").hasAnyRole("OPERATOR", "ADMIN")
                         // Admin-only: system config, job CRUD, env vars, credentials
                         .requestMatchers("/api/system/**").hasRole("ADMIN")
