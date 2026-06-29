@@ -18,8 +18,8 @@ public class JobSchedule {
     @Column(name = "SCHEDULE_ID")
     private Long scheduleId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "JOB_ID", nullable = false)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "JOB_ID", nullable = false, unique = true)
     private JobDefinition jobDefinition;
 
     @Column(name = "CRON_EXPRESSION", nullable = false, length = 100)

@@ -13,16 +13,19 @@ import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobScheduleRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import com.novakai.orchestrator.security.Auditable;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,12 +39,17 @@ public class JobDefinitionService {
     private final JobSchedulerService schedulerService;
 
     @Transactional(readOnly = true)
-    public Page<JobDefinitionResponse> listJobs(String search, PageRequest pageRequest) {
+    public Page<JobDefinitionResponse> listJobs(String search, Pageable pageable) {
+        Pageable sorted = PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by("jobName").ascending()
+        );
         Page<JobDefinition> result;
         if (search != null && !search.isBlank()) {
-            result = jobRepo.findByJobNameContainingIgnoreCase(search, pageRequest);
+            result = jobRepo.findByJobNameContainingIgnoreCase(search, sorted);
         } else {
-            result = jobRepo.findAll(pageRequest);
+            result = jobRepo.findAll(sorted);
         }
         return result.map(mapper::toResponse);
     }
@@ -49,6 +57,9 @@ public class JobDefinitionService {
     @Transactional
     @Auditable(action = "CREATE_JOB", entityType = "JOB")
     public JobDefinitionResponse createJob(JobDefinitionRequest request) {
+        if (jobRepo.findByJobName(request.jobName()).isPresent()) {
+            throw new IllegalArgumentException("Job name already exists: " + request.jobName());
+        }
         JobDefinition job = new JobDefinition();
         mapper.toEntity(request, job);
         job.setEnabled("Y");
@@ -60,6 +71,14 @@ public class JobDefinitionService {
     public JobDefinitionResponse updateJob(Long jobId, JobDefinitionRequest request) {
         JobDefinition job = jobRepo.findById(jobId)
                 .orElseThrow(() -> new JobNotFoundException(jobId));
+
+        // Allow rename only if name is not taken by a different job
+        jobRepo.findByJobName(request.jobName()).ifPresent(existing -> {
+            if (!existing.getJobId().equals(jobId)) {
+                throw new IllegalArgumentException("Job name already exists: " + request.jobName());
+            }
+        });
+
         mapper.toEntity(request, job);
         job.setUpdatedAt(LocalDateTime.now());
         job = jobRepo.save(job);
@@ -97,6 +116,10 @@ public class JobDefinitionService {
     public JobStepResponse addStep(Long jobId, JobStepRequest request) {
         JobDefinition job = jobRepo.findById(jobId)
                 .orElseThrow(() -> new JobNotFoundException(jobId));
+
+        // If order clashes, shift existing steps up
+        shiftStepsFrom(jobId, request.stepOrder());
+
         JobStep step = mapper.toStepEntity(request, job);
         step = stepRepo.save(step);
         return mapper.toStepResponse(step);
@@ -104,44 +127,48 @@ public class JobDefinitionService {
 
     @Transactional
     public JobStepResponse updateStep(Long jobId, Long stepId, JobStepRequest request) {
+        jobRepo.findById(jobId).orElseThrow(() -> new JobNotFoundException(jobId));
         JobStep step = stepRepo.findById(stepId)
-                .orElseThrow(EntityNotFoundException::new);
-        if (!step.getJobDefinition().getJobId().equals(jobId)) {
-            throw new EntityNotFoundException("Step does not belong to job");
-        }
+            .filter(s -> s.getJobDefinition().getJobId().equals(jobId))
+            .orElseThrow(() -> new JobNotFoundException(stepId));
+
         step.setStepName(request.stepName());
         step.setStepOrder(request.stepOrder());
         step.setStepType(request.stepType());
         step.setStepConfig(request.stepConfig());
         step.setContinueOnFailure(request.continueOnFailure() ? "Y" : "N");
         step.setEnabled(request.enabled() ? "Y" : "N");
-        step = stepRepo.save(step);
-        return mapper.toStepResponse(step);
+        return mapper.toStepResponse(stepRepo.save(step));
     }
 
     @Transactional
     public void deleteStep(Long jobId, Long stepId) {
         JobStep step = stepRepo.findById(stepId)
-                .orElseThrow(EntityNotFoundException::new);
-        if (!step.getJobDefinition().getJobId().equals(jobId)) {
-            throw new EntityNotFoundException("Step does not belong to job");
-        }
+                .filter(s -> s.getJobDefinition().getJobId().equals(jobId))
+                .orElseThrow(() -> new JobNotFoundException(stepId));
         stepRepo.delete(step);
+        renumberSteps(jobId);
     }
 
     @Transactional
     public List<JobStepResponse> reorderSteps(Long jobId, List<Long> stepIds) {
-        for (int i = 0; i < stepIds.size(); i++) {
-            JobStep step = stepRepo.findById(stepIds.get(i))
-                    .orElseThrow(EntityNotFoundException::new);
-            if (!step.getJobDefinition().getJobId().equals(jobId)) {
-                throw new EntityNotFoundException("Step does not belong to job");
+        List<JobStep> steps = stepRepo.findByJobDefinition_JobIdOrderByStepOrderAsc(jobId);
+
+        // Validate all provided IDs belong to this job
+        Set<Long> ownedIds = steps.stream().map(JobStep::getStepId).collect(Collectors.toSet());
+        stepIds.forEach(id -> {
+            if (!ownedIds.contains(id)) {
+                throw new IllegalArgumentException("Step " + id + " does not belong to job " + jobId);
             }
-            step.setStepOrder(i + 1);
-            stepRepo.save(step);
+        });
+
+        // Assign new order based on position in stepIds list
+        Map<Long, JobStep> stepMap = steps.stream()
+            .collect(Collectors.toMap(JobStep::getStepId, s -> s));
+        for (int i = 0; i < stepIds.size(); i++) {
+            stepMap.get(stepIds.get(i)).setStepOrder(i + 1);
         }
-        return stepRepo.findByJobDefinition_JobIdOrderByStepOrderAsc(jobId)
-                .stream().map(mapper::toStepResponse).toList();
+        return stepRepo.saveAll(steps).stream().map(mapper::toStepResponse).toList();
     }
 
     // --- Env Vars ---
@@ -169,27 +196,31 @@ public class JobDefinitionService {
 
     @Transactional
     public void deleteEnvVar(Long jobId, Long envId) {
-        JobEnvVar envVar = envVarRepo.findById(envId)
-                .orElseThrow(EntityNotFoundException::new);
-        if (envVar.getJobDefinition() != null && !envVar.getJobDefinition().getJobId().equals(jobId)) {
-            throw new EntityNotFoundException("Env var does not belong to job");
-        }
-        envVarRepo.delete(envVar);
+        envVarRepo.findById(envId)
+            .filter(v -> v.getJobDefinition() != null && v.getJobDefinition().getJobId().equals(jobId))
+            .ifPresentOrElse(
+                envVarRepo::delete,
+                () -> { throw new JobNotFoundException(envId); }
+            );
     }
 
     // --- Schedule ---
 
     @Transactional(readOnly = true)
     public JobScheduleResponse getSchedule(Long jobId) {
-        JobSchedule schedule = scheduleRepo.findByJobDefinition_JobId(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Schedule not found"));
-        return mapper.toScheduleResponse(schedule);
+        return scheduleRepo.findByJobDefinition_JobId(jobId)
+            .map(mapper::toScheduleResponse)
+            .orElse(null);
     }
 
     @Transactional
     public JobScheduleResponse createSchedule(Long jobId, JobScheduleRequest request) {
         JobDefinition job = jobRepo.findById(jobId)
-                .orElseThrow(() -> new JobNotFoundException(jobId));
+            .orElseThrow(() -> new JobNotFoundException(jobId));
+        if (scheduleRepo.findByJobDefinition_JobId(jobId).isPresent()) {
+            throw new IllegalStateException("Schedule already exists for job " + jobId
+                + ". Use PUT to update.");
+        }
         JobSchedule schedule = JobSchedule.builder()
                 .jobDefinition(job)
                 .cronExpression(request.cronExpression())
@@ -205,7 +236,7 @@ public class JobDefinitionService {
     @Transactional
     public JobScheduleResponse updateSchedule(Long jobId, JobScheduleRequest request) {
         JobSchedule schedule = scheduleRepo.findByJobDefinition_JobId(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Schedule not found"));
+            .orElseThrow(() -> new IllegalStateException("No schedule for job " + jobId));
         schedule.setCronExpression(request.cronExpression());
         schedule.setUpdatedAt(LocalDateTime.now());
         schedule = scheduleRepo.save(schedule);
@@ -216,7 +247,7 @@ public class JobDefinitionService {
     @Transactional
     public void deleteSchedule(Long jobId) {
         JobSchedule schedule = scheduleRepo.findByJobDefinition_JobId(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Schedule not found"));
+            .orElseThrow(() -> new IllegalStateException("No schedule for job " + jobId));
         schedulerService.cancel(schedule.getScheduleId());
         scheduleRepo.delete(schedule);
     }
@@ -224,7 +255,7 @@ public class JobDefinitionService {
     @Transactional
     public JobScheduleResponse toggleSchedule(Long jobId, boolean enable) {
         JobSchedule schedule = scheduleRepo.findByJobDefinition_JobId(jobId)
-                .orElseThrow(() -> new EntityNotFoundException("Schedule not found"));
+            .orElseThrow(() -> new IllegalStateException("No schedule for job " + jobId));
         schedule.setEnabled(enable ? "Y" : "N");
         schedule.setUpdatedAt(LocalDateTime.now());
         schedule = scheduleRepo.save(schedule);
@@ -234,5 +265,21 @@ public class JobDefinitionService {
             schedulerService.cancel(schedule.getScheduleId());
         }
         return mapper.toScheduleResponse(schedule);
+    }
+
+    // --- Internal helpers ---
+
+    private void shiftStepsFrom(Long jobId, int fromOrder) {
+        stepRepo.findByJobDefinition_JobIdOrderByStepOrderAsc(jobId).stream()
+            .filter(s -> s.getStepOrder() >= fromOrder)
+            .forEach(s -> s.setStepOrder(s.getStepOrder() + 1));
+    }
+
+    private void renumberSteps(Long jobId) {
+        List<JobStep> steps = stepRepo.findByJobDefinition_JobIdOrderByStepOrderAsc(jobId);
+        for (int i = 0; i < steps.size(); i++) {
+            steps.get(i).setStepOrder(i + 1);
+        }
+        stepRepo.saveAll(steps);
     }
 }
