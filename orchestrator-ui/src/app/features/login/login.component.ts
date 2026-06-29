@@ -7,7 +7,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -28,7 +29,7 @@ import { HttpClient } from '@angular/common/http';
 export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
-  private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   loginForm: FormGroup;
   error = '';
@@ -41,28 +42,19 @@ export class LoginComponent {
     });
   }
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.loginForm.invalid) return;
     this.loading = true;
     this.error = '';
 
     const { username, password } = this.loginForm.value;
 
-    this.http.post('/api/auth/login', { username, password }).subscribe({
-      next: (resp: any) => {
-        const data = resp.data;
-        localStorage.setItem('authToken', data.accessToken);
-        localStorage.setItem('authUser', JSON.stringify({
-          token: data.accessToken,
-          role: data.role,
-          passwordExpired: data.passwordExpired,
-        }));
-        this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err.error?.error || 'Login failed. Please check your credentials.';
-      },
-    });
+    try {
+      await firstValueFrom(this.auth.login(username, password));
+      this.router.navigate(['/dashboard']);
+    } catch (err: any) {
+      this.loading = false;
+      this.error = err.error?.error || 'Login failed. Please check your credentials.';
+    }
   }
 }

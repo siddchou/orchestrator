@@ -5,7 +5,7 @@ export type TriggerType = 'MANUAL' | 'SCHEDULED' | 'API';
 export interface JobDefinition {
   jobId: number;
   jobName: string;
-  description: string;
+  description: string | null;
   workingDir: string;
   enabled: boolean;
   createdAt: string;
@@ -25,6 +25,13 @@ export interface JobStep {
   enabled: boolean;
 }
 
+export interface EnvVar {
+  envVarId: number;
+  key: string;
+  value: string;
+  isGlobal: boolean;
+}
+
 export interface JobSchedule {
   scheduleId: number;
   cronExpression: string;
@@ -32,9 +39,39 @@ export interface JobSchedule {
   nextFireTime: string | null;
 }
 
-export interface EnvVar {
-  envVarId: number;
-  key: string;
-  value: string;
-  isGlobal: boolean;
+// Step config shapes — parsed from JobStep.stepConfig JSON
+export interface EnvSetupConfig {
+  javaHome: string;
+  classpathEntries: string[];
+  extraEnvVars: Record<string, string>;
+}
+
+export interface LogCleanupConfig {
+  directory: string;
+  filePattern: string;
+}
+
+export interface JavaExecConfig {
+  mainClass?: string;
+  jarPath?: string;
+  args: string[];
+  jvmArgs: string[];
+  timeoutMinutes: number | null;
+}
+
+export interface SftpConfig {
+  host: string;
+  port: number;
+  username: string;
+  credentialRef: string;
+  remoteDir: string;
+  filePattern: string;
+  direction: 'UPLOAD' | 'DOWNLOAD';
+}
+
+export interface ArchiveConfig {
+  sourceDir: string;
+  filePatterns: string[];
+  archiveDir: string;
+  archiveFormat: 'ZIP' | 'TAR_GZ';
 }

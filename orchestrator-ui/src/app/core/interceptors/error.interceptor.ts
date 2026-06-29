@@ -2,23 +2,18 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
-  const snackBar = inject(MatSnackBar);
-  const router = inject(Router);
+  const auth = inject(AuthService);
+  const snack = inject(MatSnackBar);
 
   return next(req).pipe(
-    catchError(err => {
+    catchError((err: any) => {
       if (err.status === 401 && !req.url.includes('/auth/login')) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('authUser');
-        router.navigate(['/login']);
-        return throwError(() => err);
-      }
-      if (err.status !== 0) {
-        const msg = err.error?.error || err.statusText || `HTTP error ${err.status}`;
-        snackBar.open(msg, 'Dismiss', { duration: 5000, panelClass: 'error-snackbar' });
+        auth.logout();
+      } else if (err.status >= 500) {
+        snack.open('Server error — please try again', 'Dismiss', { duration: 4000 });
       }
       return throwError(() => err);
     })
