@@ -1,0 +1,13 @@
+<div class="log-toolbar">
+  <mat-slide-toggle [(ngModel)]="autoScroll">Auto-scroll</mat-slide-toggle>
+  <button mat-button (click)="clearLog()">Clear</button>
+  <span class="log-count">{{ logLines.length }} lines</span>
+</div>
+<div class="log-container" #logContainer>
+  @for (line of logLines; track $index) {
+    <div class="log-line">{{ line }}</div>
+  }
+  @if (running) {
+    <span class="cursor">▮</span>
+  }
+</div>

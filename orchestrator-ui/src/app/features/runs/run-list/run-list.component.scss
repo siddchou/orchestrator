@@ -1,0 +1,27 @@
+h2 { margin: 0 0 16px; }
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.runs-table {
+  width: 100%;
+}
+
+.running-row {
+  background: rgba(255, 152, 0, 0.08);
+}
+
+.running-row:hover {
+  background: rgba(255, 152, 0, 0.15);
+}

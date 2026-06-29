@@ -1,0 +1,22 @@
+mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.toggles-row {
+  display: flex;
+  gap: 24px;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 8px 0;
+}

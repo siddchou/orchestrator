@@ -95,6 +95,7 @@ public class JobDefinitionController {
     }
 
     @PostMapping("/{id}/env-vars")
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EnvVarResponse> addEnvVar(
             @PathVariable Long id,
             @Valid @RequestBody EnvVarRequest request) {
@@ -115,6 +116,7 @@ public class JobDefinitionController {
     }
 
     @PostMapping("/{id}/schedule")
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobScheduleResponse> createSchedule(
             @PathVariable Long id,
             @Valid @RequestBody JobScheduleRequest request) {

@@ -524,16 +524,35 @@ export class AuthInterceptor implements HttpInterceptor {
 
 ## Phase 5 Acceptance Criteria
 
-- [ ] App builds cleanly with `ng build --configuration production`
-- [ ] Built static assets copy into Spring Boot's `resources/static/` correctly
-- [ ] Angular routes work on hard refresh (Spring Boot serves `index.html` for unknown paths)
-- [ ] Job list loads, paginates, and searches correctly
-- [ ] Step builder drag-and-drop reorder calls the reorder API and updates step numbers
-- [ ] Step type selection dynamically renders the correct form fields
-- [ ] Run Monitor live log viewer streams output and auto-scrolls
-- [ ] SSE stream closes cleanly when run completes — no memory leak on `EventSource`
-- [ ] Dashboard cards and table refresh automatically every 30 seconds
-- [ ] Schedule cron validator shows next 3 fire times before saving
+- [x] App builds cleanly with `ng build --configuration production`
+- [x] Built static assets copy into Spring Boot's `resources/static/` correctly
+- [x] Angular routes work on hard refresh (Spring Boot serves `index.html` for unknown paths)
+- [x] Job list loads, paginates, and searches correctly
+- [x] Step builder drag-and-drop reorder calls the reorder API and updates step numbers
+- [x] Step type selection dynamically renders the correct form fields
+- [x] Run Monitor live log viewer streams output and auto-scrolls
+- [x] SSE stream closes cleanly when run completes — no memory leak on `EventSource`
+- [x] Dashboard cards and table refresh automatically every 30 seconds
+- [x] Schedule cron validator shows next 3 fire times before saving
+
+---
+
+## Implementation Notes
+
+### What was built
+- Angular 22 with Zoneless Change Detection, Material 22, SCSS
+- All four feature modules: Dashboard, Job Manager, Run Monitor, Global Config
+- Hash-location routing with lazy-loaded components
+- Build output to `src/main/resources/static` via `angular.json`
+- `WebConfig.java` forwards root paths to `browser/index.html` for SPA routing
+- `frontend-maven-plugin` in `pom.xml` for Node/npm install + build during Maven lifecycle
+
+### Key fixes during build
+- Switched `loadComponent` → `loadChildren` with `.then(m => [{ component: m.X }])` to resolve ESM interop type errors
+- Added `@angular/animations` dependency for `provideAnimationsAsync`
+- Fixed `MAT_DIALOG_DATA<ConfirmData>` generic incompatibility with `inject()` + type cast
+- Replaced `snackBar.error()` → `snackBar.open()` with `panelClass` for Angular 22 API
+- Used `HttpParams` builder to avoid undefined param values in HttpClient
 
 ---
 

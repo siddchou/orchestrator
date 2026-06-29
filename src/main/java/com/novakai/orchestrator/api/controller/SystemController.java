@@ -36,6 +36,7 @@ public class SystemController {
     }
 
     @PostMapping("/env-vars/global")
+    @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EnvVarResponse> addGlobal(@Valid @RequestBody EnvVarRequest req) {
         JobEnvVar envVar = JobEnvVar.builder()
                 .varName(req.key())
@@ -72,6 +73,7 @@ public class SystemController {
         results.put("javaHome", Files.isDirectory(Path.of(javaHome)) ? "OK" : "NOT_FOUND");
         results.put("javaBin", Files.isExecutable(Path.of(javaHome, "bin", "java")) ? "OK" : "NOT_EXECUTABLE");
         results.put("workingDir", Files.isDirectory(Path.of(workingDir)) ? "OK" : "NOT_FOUND");
+        results.put("workingDirWritable", Files.isWritable(Path.of(workingDir)) ? "OK" : "NOT_WRITABLE");
         return ApiResponse.success(results);
     }
 

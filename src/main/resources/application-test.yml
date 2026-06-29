@@ -1,4 +1,8 @@
 spring:
+  security:
+    user:
+      name: admin
+      password: test1234
   application:
     name: orchestrator-test
   datasource:
@@ -32,4 +36,4 @@ orchestrator:
     base-dir: /tmp/orchestrator/archives
 
 server:
-  port: 8081
+  port: 8080

@@ -1,0 +1,142 @@
+<h2 mat-dialog-title>{{ data.stepId ? 'Edit Step' : 'Add Step' }}</h2>
+
+<mat-dialog-content [formGroup]="form">
+
+  <!-- Common fields -->
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Step Name</mat-label>
+    <input matInput formControlName="stepName" required />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Step Type</mat-label>
+    <mat-select formControlName="stepType">
+      @for (type of stepTypes; track type) {
+        <mat-option [value]="type">{{ type }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <div class="toggles-row">
+    <mat-slide-toggle formControlName="continueOnFailure">Continue on failure</mat-slide-toggle>
+    <mat-slide-toggle formControlName="enabled">Enabled</mat-slide-toggle>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- ENV_SETUP -->
+  <ng-container *ngIf="selectedType === 'ENV_SETUP'">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>JAVA_HOME</mat-label>
+      <input matInput formControlName="javaHome" placeholder="/usr/lib/jvm/java-21" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Classpath Entries (comma-separated)</mat-label>
+      <input matInput formControlName="classpath" placeholder="/opt/libs/app.jar,/opt/libs/deps.jar" />
+    </mat-form-field>
+  </ng-container>
+
+  <!-- LOG_CLEANUP -->
+  <ng-container *ngIf="selectedType === 'LOG_CLEANUP'">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Directory</mat-label>
+      <input matInput formControlName="cleanupDir" placeholder="/opt/jobs/my-job/logs" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>File Pattern (glob)</mat-label>
+      <input matInput formControlName="filePattern" placeholder="*.log" />
+      <mat-hint>Examples: *.log · job_*.txt</mat-hint>
+    </mat-form-field>
+  </ng-container>
+
+  <!-- JAVA_EXEC -->
+  <ng-container *ngIf="selectedType === 'JAVA_EXEC'">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Main Class (or leave blank if using JAR)</mat-label>
+      <input matInput formControlName="mainClass" placeholder="com.example.MainJob" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>JAR Path (or leave blank if using Main Class)</mat-label>
+      <input matInput formControlName="jarPath" placeholder="/opt/jobs/my-job/app.jar" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>JVM Args (space-separated)</mat-label>
+      <input matInput formControlName="jvmArgs" placeholder="-Xmx2g -Dspring.profiles.active=prod" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Program Args (space-separated)</mat-label>
+      <input matInput formControlName="args" placeholder="--date=today --output=/tmp" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Timeout (minutes, blank = default)</mat-label>
+      <input matInput type="number" formControlName="timeoutMinutes" />
+    </mat-form-field>
+  </ng-container>
+
+  <!-- SFTP -->
+  <ng-container *ngIf="selectedType === 'SFTP'">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Host</mat-label>
+      <input matInput formControlName="host" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Port</mat-label>
+      <input matInput type="number" formControlName="port" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Username</mat-label>
+      <input matInput formControlName="username" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Credential Reference</mat-label>
+      <input matInput formControlName="credentialRef" placeholder="my-sftp-cred" />
+      <mat-hint>Name of a stored credential (configured in Global Config)</mat-hint>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Remote Directory</mat-label>
+      <input matInput formControlName="remoteDir" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>File Pattern</mat-label>
+      <input matInput formControlName="sftp_filePattern" placeholder="*.pdf" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Direction</mat-label>
+      <mat-select formControlName="direction">
+        <mat-option value="UPLOAD">Upload</mat-option>
+        <mat-option value="DOWNLOAD">Download</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </ng-container>
+
+  <!-- ARCHIVE -->
+  <ng-container *ngIf="selectedType === 'ARCHIVE'">
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Source Directory</mat-label>
+      <input matInput formControlName="sourceDir" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>File Patterns (comma-separated)</mat-label>
+      <input matInput formControlName="archivePatterns" placeholder="*.log,*.out" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Archive Directory</mat-label>
+      <input matInput formControlName="archiveDir" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Format</mat-label>
+      <mat-select formControlName="archiveFormat">
+        <mat-option value="ZIP">ZIP</mat-option>
+        <mat-option value="TAR_GZ">TAR_GZ</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </ng-container>
+
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="onSubmit()" [disabled]="form.invalid">
+    {{ data.stepId ? 'Update' : 'Add' }}
+  </button>
+</mat-dialog-actions>

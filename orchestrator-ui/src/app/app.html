@@ -1,0 +1,37 @@
+@if (isLoginPage) {
+  <router-outlet />
+} @else {
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav #drawer mode="push" opened class="sidenav">
+      <mat-toolbar>
+        <span class="title">Orchestrator</span>
+      </mat-toolbar>
+      <mat-nav-list>
+        @for (item of navItems; track item.route) {
+          <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
+
+    <mat-sidenav-content>
+      <mat-toolbar color="primary">
+        <button mat-icon-button (click)="drawer.toggle()">
+          <mat-icon>menu</mat-icon>
+        </button>
+        <span class="spacer"></span>
+        @if (userRole) {
+          <span class="user-role">{{ userRole }}</span>
+          <button mat-icon-button (click)="logout()" title="Logout">
+            <mat-icon>logout</mat-icon>
+          </button>
+        }
+      </mat-toolbar>
+      <div class="content">
+        <router-outlet />
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+}

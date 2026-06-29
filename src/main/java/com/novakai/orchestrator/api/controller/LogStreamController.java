@@ -5,6 +5,7 @@ import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.JobLaunchService;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class LogStreamController {
 
     private final JobLaunchService launchService;
@@ -25,6 +27,9 @@ public class LogStreamController {
         ConcurrentLinkedQueue<String> queue = launchService.getLiveLogQueue(runId);
 
         if (queue == null) {
+            try {
+                emitter.send(SseEmitter.event().name("done").data("RUN_ALREADY_COMPLETE"));
+            } catch (java.io.IOException ignored) { }
             emitter.complete();
             return emitter;
         }
@@ -39,6 +44,10 @@ public class LogStreamController {
                         JobRun run = runRepo.findById(runId).orElse(null);
                         if (run != null && run.getStatus() != RunStatus.RUNNING
                                         && run.getStatus() != RunStatus.PENDING) {
+                            String remaining;
+                            while ((remaining = queue.poll()) != null) {
+                                emitter.send(SseEmitter.event().data(remaining));
+                            }
                             emitter.send(SseEmitter.event().name("done").data("RUN_COMPLETE"));
                             emitter.complete();
                             break;
@@ -46,6 +55,9 @@ public class LogStreamController {
                         Thread.sleep(250);
                     }
                 }
+            } catch (java.io.IOException ex) {
+                log.debug("SSE client disconnected for run {}", runId);
+                emitter.completeWithError(ex);
             } catch (Exception ex) {
                 emitter.completeWithError(ex);
             }
