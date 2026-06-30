@@ -235,25 +235,93 @@ Migrations run automatically on startup. Flyway is disabled in the test profile 
 
 ## Deployment
 
-The application is designed as a single fat JAR deployed on Linux via systemd:
+### Build the Fat JAR
+
+```bash
+mvn clean package -DskipTests
+# Output: target/orchestrator-0.0.1-SNAPSHOT.jar (~80–100 MB)
+```
+
+The fat JAR contains all Java classes, dependencies, Angular static assets, and Flyway migrations. To skip the Angular build during rapid backend iteration:
+
+```bash
+mvn clean package -DskipTests -Dskip.npm
+```
+
+### Deployment Directory Layout
+
+```
+/opt/orchestrator/
+├── orchestrator.jar              # fat JAR
+├── orchestrator.env              # secrets file (chmod 600)
+├── logs/
+│   ├── app.log                   # active log (rotated nightly)
+│   └── archived/                 # compressed old logs
+├── archives/                     # job archive output
+└── .ssh/
+    └── known_hosts               # SFTP host fingerprints
+```
+
+### Create OS User and Directories
+
+```bash
+sudo useradd --system --shell /usr/sbin/nologin --home-dir /opt/orchestrator --create-home orchestrator
+sudo mkdir -p /opt/orchestrator/{logs,logs/archived,archives,.ssh}
+sudo chown -R orchestrator:orchestrator /opt/orchestrator
+sudo chmod 700 /opt/orchestrator/.ssh
+```
+
+### Environment File
+
+Create `/opt/orchestrator/orchestrator.env` with the required secrets:
+
+```bash
+DB_HOST=your-oracle-host.internal
+DB_SERVICE=ORCL
+DB_USER=orchestrator_app
+DB_PASSWORD=CHANGE_ME
+JWT_SECRET=CHANGE_ME_AT_LEAST_32_CHARS_HERE_XX
+ORCHESTRATOR_ENCRYPTION_KEY=CHANGE_ME_EXACTLY_32_CHARS_HERE_
+JAVA_OPTS=-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200
+```
+
+```bash
+sudo chmod 600 /opt/orchestrator/orchestrator.env
+sudo chown orchestrator:orchestrator /opt/orchestrator/orchestrator.env
+```
+
+### Systemd Service
+
+Install `/etc/systemd/system/orchestrator.service`:
 
 ```ini
-# /etc/systemd/system/orchestrator.service
 [Unit]
-Description=Novakai Orchestrator
-After=network.target
+Description=Job Orchestration Platform
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 User=orchestrator
-Environment=DB_HOST=...
-Environment=DB_SERVICE=...
-Environment=DB_USER=...
-Environment=DB_PASSWORD=...
-Environment=JWT_SECRET=...
-Environment=ORCH_HOME=/opt/orchestrator
-ExecStart=/usr/bin/java -jar /opt/orchestrator/orchestrator.jar
+Group=orchestrator
+WorkingDirectory=/opt/orchestrator
+EnvironmentFile=/opt/orchestrator/orchestrator.env
+ExecStart=/usr/bin/java ${JAVA_OPTS} \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dspring.profiles.active=prod \
+    -jar /opt/orchestrator/orchestrator.jar
 Restart=on-failure
+RestartSec=15
+TimeoutStopSec=60
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/orchestrator/logs /opt/orchestrator/archives
+PrivateTmp=true
+ProtectHome=true
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=orchestrator
 
 [Install]
 WantedBy=multi-user.target
@@ -262,4 +330,38 @@ WantedBy=multi-user.target
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now orchestrator
+sudo systemctl status orchestrator
+sudo journalctl -u orchestrator -f   # live log tail
 ```
+
+### Upgrade Procedure
+
+```bash
+# 1. Copy new JAR to server
+scp target/orchestrator-0.0.1-SNAPSHOT.jar deploy@server:/tmp/
+
+# 2. Stop service (waits up to 60s for active run to finish)
+sudo systemctl stop orchestrator
+
+# 3. Backup and deploy
+sudo cp /opt/orchestrator/orchestrator.jar /opt/orchestrator/orchestrator.jar.bak
+sudo cp /tmp/orchestrator-0.0.1-SNAPSHOT.jar /opt/orchestrator/orchestrator.jar
+sudo chown orchestrator:orchestrator /opt/orchestrator/orchestrator.jar
+
+# 4. Start — Flyway applies any new migrations automatically
+sudo systemctl start orchestrator
+
+# 5. Validate
+curl -s http://localhost:8080/actuator/health
+```
+
+### Pre-Deployment Checklist
+
+- [ ] Oracle schema user has `SELECT, INSERT, UPDATE, DELETE` grants on all app tables
+- [ ] `orchestrator.env` created with real secrets and `chmod 600`
+- [ ] `JWT_SECRET` is at least 32 characters
+- [ ] Default admin password changed after first login
+- [ ] SFTP `known_hosts` populated (`ssh-keyscan -H host >> known_hosts`)
+- [ ] Working directories for all jobs exist and are writable by the `orchestrator` OS user
+- [ ] Java 21 JRE installed at `/usr/bin/java`
+- [ ] Port 8080 is accessible
