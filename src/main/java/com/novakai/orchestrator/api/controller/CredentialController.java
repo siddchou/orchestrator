@@ -13,12 +13,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/credentials")
 @PreAuthorize("hasRole('ADMIN')")
+@Slf4j
 public class CredentialController {
 
     private final JobCredentialRepository credRepo;
@@ -55,6 +57,7 @@ public class CredentialController {
                 .createdAt(LocalDateTime.now())
                 .build();
         cred = credRepo.save(cred);
+        log.info("Created credential ref={} type={}", request.ref(), credType);
         return ApiResponse.success(new CredentialSummary(
                 cred.getCredentialId(), cred.getCredentialRef(), cred.getCredType()));
     }
@@ -65,5 +68,6 @@ public class CredentialController {
         JobCredential cred = credRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Credential not found: " + id));
         credRepo.delete(cred);
+        log.info("Deleted credential id={} ref={}", id, cred.getCredentialRef());
     }
 }

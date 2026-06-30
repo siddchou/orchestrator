@@ -7,14 +7,17 @@ import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.StepExecutor;
 import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.PathUtils;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
 @Component
+@Slf4j
 public class EnvSetupStepExecutor implements StepExecutor {
 
     private final JsonParser jsonParser;
@@ -30,7 +33,7 @@ public class EnvSetupStepExecutor implements StepExecutor {
 
     @Override
     public StepResult execute(ExecutionContext ctx, JobStep step) throws Exception {
-        StringBuilder log = new StringBuilder();
+        StringBuilder output = new StringBuilder();
         EnvSetupConfig config = jsonParser.parse(step.getStepConfig(), EnvSetupConfig.class);
 
         if (config == null) {
@@ -41,26 +44,28 @@ public class EnvSetupStepExecutor implements StepExecutor {
         if (!Files.isDirectory(javaHome)) {
             return StepResult.failure("JAVA_HOME does not exist: " + javaHome);
         }
-        Path javaBin = javaHome.resolve("bin/java");
+        Path javaBin = PathUtils.resolveJavaBinary(config.javaHome());
         if (!Files.isExecutable(javaBin)) {
             return StepResult.failure("java binary not executable: " + javaBin);
         }
-        log.append("JAVA_HOME validated: ").append(javaHome).append("\n");
+        output.append("JAVA_HOME validated: ").append(javaHome).append("\n");
 
+        log.debug("EnvSetup: JAVA_HOME={}, classpath entries={}", javaHome, config.classpathEntries().size());
         ctx.setJavaHome(config.javaHome());
         ctx.setClasspath(new ArrayList<>(config.classpathEntries()));
 
         for (String entry : config.classpathEntries()) {
             if (!Files.exists(Path.of(entry))) {
-                log.append("WARNING: classpath entry not found: ").append(entry).append("\n");
+                output.append("WARNING: classpath entry not found: ").append(entry).append("\n");
             }
         }
 
         if (config.extraEnvVars() != null) {
             ctx.getEnvVars().putAll(config.extraEnvVars());
-            log.append("Merged ").append(config.extraEnvVars().size()).append(" extra env vars\n");
+            log.debug("EnvSetup: merged {} extra env vars", config.extraEnvVars().size());
+            output.append("Merged ").append(config.extraEnvVars().size()).append(" extra env vars\n");
         }
 
-        return StepResult.success(log.toString());
+        return StepResult.success(output.toString());
     }
 }

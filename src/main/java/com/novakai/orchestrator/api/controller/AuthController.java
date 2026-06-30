@@ -18,8 +18,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import lombok.extern.slf4j.Slf4j;
+
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -48,6 +51,7 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())
             );
         } catch (AuthenticationException ex) {
+            log.debug("Login failed for user {}", request.username());
             return ApiResponse.error("Invalid username or password");
         }
 
@@ -57,6 +61,7 @@ public class AuthController {
         String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
         boolean passwordExpired = userDetailsService.isPasswordExpired(request.username());
 
+        log.info("Login successful for user {} (role={})", request.username(), role);
         return ApiResponse.success(new AuthResponse(token, role, passwordExpired));
     }
 
@@ -78,6 +83,7 @@ public class AuthController {
         user.setPasswordExpired("N");
         appUserRepository.save(user);
 
+        log.info("Password changed for user {}", username);
         return ApiResponse.success(null);
     }
 

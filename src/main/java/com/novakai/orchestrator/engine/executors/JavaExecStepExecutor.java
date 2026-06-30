@@ -7,6 +7,7 @@ import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.StepExecutor;
 import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.PathUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -44,9 +45,9 @@ public class JavaExecStepExecutor implements StepExecutor {
             return StepResult.failure("JavaExecConfig is null or empty");
         }
 
-        StringBuilder log = new StringBuilder();
+        StringBuilder output = new StringBuilder();
 
-        String javaBin = ctx.getJavaHome() + "/bin/java";
+        String javaBin = PathUtils.resolveJavaBinary(ctx.getJavaHome()).toString();
         List<String> command = new ArrayList<>();
         command.add(javaBin);
         if (config.jvmArgs() != null) {
@@ -59,7 +60,7 @@ public class JavaExecStepExecutor implements StepExecutor {
         } else {
             if (ctx.getClasspath() != null && !ctx.getClasspath().isEmpty()) {
                 command.add("-cp");
-                command.add(String.join(":", ctx.getClasspath()));
+                command.add(PathUtils.joinClasspath(ctx.getClasspath()));
             }
             command.add(config.mainClass());
         }
@@ -68,10 +69,11 @@ public class JavaExecStepExecutor implements StepExecutor {
             command.addAll(config.args());
         }
 
-        log.append("Executing: ").append(String.join(" ", command)).append("\n");
+        output.append("Executing: ").append(String.join(" ", command)).append("\n");
         if (ctx.getLiveLogQueue() != null) {
             ctx.getLiveLogQueue().add("Executing: " + String.join(" ", command));
         }
+        log.debug("JavaExec: command={}", String.join(" ", command));
 
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(new File(ctx.getWorkingDir()));
@@ -85,7 +87,7 @@ public class JavaExecStepExecutor implements StepExecutor {
                 new InputStreamReader(process.getInputStream()))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                log.append(line).append("\n");
+                output.append(line).append("\n");
                 if (ctx.getLiveLogQueue() != null) {
                     ctx.getLiveLogQueue().add(line);
                 }
@@ -95,14 +97,15 @@ public class JavaExecStepExecutor implements StepExecutor {
         boolean completed = process.waitFor(timeout, TimeUnit.MINUTES);
         if (!completed) {
             process.destroyForcibly();
-            return StepResult.failure(-1, log + "\nPROCESS TIMED OUT after " + timeout + " minutes");
+            return StepResult.failure(-1, output + "\nPROCESS TIMED OUT after " + timeout + " minutes");
         }
 
         int exitCode = process.exitValue();
-        log.append("\nProcess exited with code: ").append(exitCode);
+        log.debug("JavaExec: process exited with code {}", exitCode);
+        output.append("\nProcess exited with code: ").append(exitCode);
 
         return exitCode == 0
-            ? StepResult.success(log.toString())
-            : StepResult.failure(exitCode, log.toString());
+            ? StepResult.success(output.toString())
+            : StepResult.failure(exitCode, output.toString());
     }
 }

@@ -6,10 +6,12 @@ import com.novakai.orchestrator.engine.JobLaunchService;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 @RestController
@@ -34,7 +36,9 @@ public class LogStreamController {
             return emitter;
         }
 
+        Map<String, String> contextMap = MDC.getCopyOfContextMap();
         Thread.startVirtualThread(() -> {
+            MDC.setContextMap(contextMap);
             try {
                 while (true) {
                     String line = queue.poll();
@@ -60,6 +64,8 @@ public class LogStreamController {
                 emitter.completeWithError(ex);
             } catch (Exception ex) {
                 emitter.completeWithError(ex);
+            } finally {
+                MDC.clear();
             }
         });
 

@@ -58,11 +58,12 @@ public class SftpStepExecutor implements StepExecutor {
             return StepResult.failure("SftpConfig is null or empty");
         }
 
-        StringBuilder log = new StringBuilder();
+        StringBuilder output = new StringBuilder();
 
         JobCredential cred = credentialRepo.findByCredentialRef(config.credentialRef())
             .orElseThrow(() -> new RuntimeException("Credential not found: " + config.credentialRef()));
 
+        log.debug("SFTP: credential ref={} type={}", config.credentialRef(), cred.getCredType());
         String decryptedValue = decryptionService.decrypt(cred.getCredValue());
 
         PathMatcher matcher = java.nio.file.FileSystems.getDefault()
@@ -74,8 +75,9 @@ public class SftpStepExecutor implements StepExecutor {
         }
 
         if (files.isEmpty()) {
-            log.append("No files matched pattern: ").append(config.filePattern()).append("\n");
-            return StepResult.success(log.toString());
+            log.debug("SFTP: no files matched pattern {} in {}", config.filePattern(), ctx.getWorkingDir());
+            output.append("No files matched pattern: ").append(config.filePattern()).append("\n");
+            return StepResult.success(output.toString());
         }
 
         SshClient client = SshClient.setUpDefaultClient();
@@ -108,7 +110,7 @@ public class SftpStepExecutor implements StepExecutor {
                             SftpClient.OpenMode.Truncate
                         ));
                         long bytes = Files.size(file);
-                        log.append("Uploaded: ").append(file.getFileName())
+                        output.append("Uploaded: ").append(file.getFileName())
                            .append(" (").append(bytes / 1024).append(" KB)\n");
                     }
                 }
@@ -119,6 +121,6 @@ public class SftpStepExecutor implements StepExecutor {
             client.stop();
         }
 
-        return StepResult.success(log.toString());
+        return StepResult.success(output.toString());
     }
 }

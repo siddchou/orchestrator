@@ -25,6 +25,7 @@ public class StartupMaintenanceService {
     public void cleanupStaleRuns() {
         List<JobRun> stale = runRepo.findAllByStatus(RunStatus.RUNNING);
         if (stale.isEmpty()) {
+            log.info("No stale RUNNING jobs found at startup");
             return;
         }
         stale.forEach(run -> {

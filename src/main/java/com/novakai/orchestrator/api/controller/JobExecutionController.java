@@ -9,6 +9,7 @@ import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.engine.JobLaunchService;
 import com.novakai.orchestrator.security.Auditable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class JobExecutionController {
 
     private final JobLaunchService launchService;
@@ -34,6 +36,7 @@ public class JobExecutionController {
             Authentication auth) {
         String username = auth != null ? auth.getName() : "anonymous";
         var run = launchService.launch(id, TriggerType.MANUAL, username);
+        log.info("Job {} triggered by {}", id, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 
@@ -45,6 +48,7 @@ public class JobExecutionController {
             Authentication auth) {
         String username = auth != null ? auth.getName() : "anonymous";
         var run = launchService.launchByName(name, TriggerType.MANUAL, username);
+        log.info("Job '{}' triggered by {}", name, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 
@@ -75,6 +79,7 @@ public class JobExecutionController {
     @PostMapping("/runs/{runId}/cancel")
     @Auditable(action = "CANCEL_RUN", entityType = "JOB_RUN")
     public ApiResponse<Void> cancel(@PathVariable Long runId) {
+        log.info("Cancel requested for run {}", runId);
         launchService.cancel(runId);
         return ApiResponse.success(null);
     }

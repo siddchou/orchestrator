@@ -13,6 +13,7 @@ import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
@@ -54,7 +55,8 @@ public class JobLaunchService {
     }
 
     public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy) {
-        JobDefinition job = jobRepo.findById(jobId)
+        log.debug("Launching job id={} trigger={} by {}", jobId, triggerType, triggeredBy);
+        JobDefinition job = jobRepo.findByIdWithSteps(jobId)
             .orElseThrow(() -> new JobNotFoundException(jobId));
 
         if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
@@ -85,7 +87,14 @@ public class JobLaunchService {
             .build();
 
         Future<?> future = taskExecutor.submit(
-            () -> orchestrator.execute(ctx, job, run)
+            () -> {
+                MDC.put("runId", String.valueOf(runId));
+                try {
+                    orchestrator.execute(ctx, job, run);
+                } finally {
+                    MDC.clear();
+                }
+            }
         );
         activeFutures.put(runId, future);
 
@@ -93,7 +102,7 @@ public class JobLaunchService {
     }
 
     public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy) {
-        JobDefinition job = jobRepo.findByJobName(jobName)
+        JobDefinition job = jobRepo.findByJobNameWithSteps(jobName)
             .orElseThrow(() -> new JobNotFoundException(jobName));
 
         Long jobId = job.getJobId();
@@ -126,7 +135,14 @@ public class JobLaunchService {
             .build();
 
         Future<?> future = taskExecutor.submit(
-            () -> orchestrator.execute(ctx, job, run)
+            () -> {
+                MDC.put("runId", String.valueOf(runId));
+                try {
+                    orchestrator.execute(ctx, job, run);
+                } finally {
+                    MDC.clear();
+                }
+            }
         );
         activeFutures.put(runId, future);
 
@@ -168,7 +184,14 @@ public class JobLaunchService {
             .build();
 
         Future<?> future = taskExecutor.submit(
-            () -> orchestrator.executeSingleStep(ctx, job, run, step)
+            () -> {
+                MDC.put("runId", String.valueOf(runId));
+                try {
+                    orchestrator.executeSingleStep(ctx, job, run, step);
+                } finally {
+                    MDC.clear();
+                }
+            }
         );
         activeFutures.put(runId, future);
 
@@ -210,7 +233,14 @@ public class JobLaunchService {
             .build();
 
         Future<?> future = taskExecutor.submit(
-            () -> orchestrator.executeSingleStep(ctx, job, run, step)
+            () -> {
+                MDC.put("runId", String.valueOf(runId));
+                try {
+                    orchestrator.executeSingleStep(ctx, job, run, step);
+                } finally {
+                    MDC.clear();
+                }
+            }
         );
         activeFutures.put(runId, future);
 
@@ -218,6 +248,7 @@ public class JobLaunchService {
     }
 
     public void cancel(Long runId) {
+        log.info("Cancelling run {}", runId);
         Future<?> future = activeFutures.get(runId);
         if (future != null) {
             future.cancel(true);

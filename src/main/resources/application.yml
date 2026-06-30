@@ -24,9 +24,9 @@ orchestrator:
     default-step-timeout-minutes: 60
     log-retention-days: 30
   sftp:
-    known-hosts-file: /opt/orchestrator/.ssh/known_hosts
+    known-hosts-file: ${ORCH_HOME:/opt/orchestrator}/.ssh/known_hosts
   archive:
-    base-dir: /opt/orchestrator/archives
+    base-dir: ${ORCH_HOME:/opt/orchestrator}/archives
   security:
     jwt-secret: ${JWT_SECRET:default-secret-key-must-be-at-least-32-changes!!}
     jwt-expiry-hours: 8

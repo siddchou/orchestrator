@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -13,6 +14,7 @@ import java.util.Arrays;
 import java.util.Base64;
 
 @Service
+@Slf4j
 public class CredentialDecryptionService {
 
     @Value("${ORCHESTRATOR_ENCRYPTION_KEY:default-encryption-key-32bytes!!}")
@@ -24,6 +26,7 @@ public class CredentialDecryptionService {
     public void init() {
         byte[] keyBytes = encryptionKey.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
+            log.warn("Encryption key is shorter than 32 bytes, padding with zeros");
             keyBytes = Arrays.copyOf(keyBytes, 32);
         }
         this.keySpec = new SecretKeySpec(keyBytes, "AES");

@@ -32,6 +32,7 @@ public class JobExecutionOrchestrator {
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(LocalDateTime.now());
         runRepo.save(run);
+        log.debug("Run {} started for job {} with {} steps", ctx.getRunId(), job.getJobName(), job.getSteps().size());
 
         boolean anyStepFailed = false;
 
@@ -64,6 +65,7 @@ public class JobExecutionOrchestrator {
             } else {
                 run.setStatus(anyStepFailed ? RunStatus.PARTIAL : RunStatus.SUCCESS);
             }
+            log.debug("Run {} completed with status {}", run.getRunId(), run.getStatus());
             runRepo.save(run);
         }
     }
@@ -105,8 +107,10 @@ public class JobExecutionOrchestrator {
 
             if (result.success()) {
                 runStep.setStatus(RunStatus.SUCCESS);
+                log.debug("Step {} succeeded (exit code={})", step.getStepName(), result.exitCode());
             } else {
                 runStep.setStatus(RunStatus.FAILED);
+                log.debug("Step {} failed (exit code={})", step.getStepName(), result.exitCode());
             }
             runStepRepo.save(runStep);
 

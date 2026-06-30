@@ -9,12 +9,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
 @Aspect
 @Component
+@Slf4j
 public class AuditAspect {
 
     private final AuditLogRepository auditRepo;
@@ -42,6 +44,7 @@ public class AuditAspect {
                 .createdAt(LocalDateTime.now())
                 .build();
         auditRepo.save(entry);
+        log.debug("Audit: user={} action={} entityType={} entityId={}", username, auditable.action(), auditable.entityType(), entityId);
     }
 
     private Long extractEntityId(Object[] args) {

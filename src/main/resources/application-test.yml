@@ -31,9 +31,9 @@ orchestrator:
     default-step-timeout-minutes: 5
     log-retention-days: 7
   sftp:
-    known-hosts-file: /tmp/known_hosts
+    known-hosts-file: ${java.io.tmpdir}/known_hosts
   archive:
-    base-dir: /tmp/orchestrator/archives
+    base-dir: ${java.io.tmpdir}/orchestrator/archives
 
 server:
   port: 8080
