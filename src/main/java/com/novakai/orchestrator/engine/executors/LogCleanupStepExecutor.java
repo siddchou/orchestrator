@@ -9,11 +9,15 @@ import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
 import org.springframework.stereotype.Component;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.*;
 
 @Component
 public class LogCleanupStepExecutor implements StepExecutor {
+
+    private static final Logger logger = LoggerFactory.getLogger(LogCleanupStepExecutor.class);
 
     private final JsonParser jsonParser;
 
@@ -40,13 +44,18 @@ public class LogCleanupStepExecutor implements StepExecutor {
             return StepResult.failure("Cleanup directory does not exist: " + dir);
         }
 
+        logger.info("LogCleanup: scanning dir={} pattern={}", dir, config.filePattern());
+
         PathMatcher matcher = FileSystems.getDefault()
             .getPathMatcher("glob:" + config.filePattern());
 
         int deleted = 0;
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path file : stream) {
-                if (matcher.matches(file.getFileName())) {
+                String name = file.getFileName().toString();
+                boolean matches = matcher.matches(Path.of(name));
+                logger.info("LogCleanup: file={} matches={}", name, matches);
+                if (matches) {
                     Files.delete(file);
                     log.append("Deleted: ").append(file.getFileName()).append("\n");
                     deleted++;

@@ -54,7 +54,7 @@ public class JobLaunchService {
     }
 
     public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy) {
-        JobDefinition job = jobRepo.findById(jobId)
+        JobDefinition job = jobRepo.findByIdWithSteps(jobId)
             .orElseThrow(() -> new JobNotFoundException(jobId));
 
         if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
@@ -93,7 +93,7 @@ public class JobLaunchService {
     }
 
     public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy) {
-        JobDefinition job = jobRepo.findByJobName(jobName)
+        JobDefinition job = jobRepo.findByJobNameWithSteps(jobName)
             .orElseThrow(() -> new JobNotFoundException(jobName));
 
         Long jobId = job.getJobId();
