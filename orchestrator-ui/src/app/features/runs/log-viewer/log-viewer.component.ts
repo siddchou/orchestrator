@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
 import { LogStreamService } from '../../../core/services/log-stream.service';
 
 @Component({
   selector: 'app-log-viewer',
-  imports: [CommonModule, MatSlideToggleModule, MatButtonModule, FormsModule],
+  imports: [CommonModule, MatSlideToggleModule, MatButtonModule, MatIconModule, FormsModule],
   templateUrl: './log-viewer.component.html',
   styleUrl: './log-viewer.component.scss',
 })

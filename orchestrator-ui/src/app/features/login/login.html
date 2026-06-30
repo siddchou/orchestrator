@@ -1,13 +1,25 @@
 <div class="login-container">
+  <!-- Animated background shapes -->
+  <div class="bg-shapes">
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+  </div>
+
   <mat-card class="login-card">
-    <mat-card-header class="login-header">
+    <!-- Header -->
+    <div class="login-header">
+      <div class="logo-icon">
+        <mat-icon>bolt</mat-icon>
+      </div>
       <mat-card-title>Orchestrator</mat-card-title>
-      <mat-card-subtitle>Sign in to your account</mat-card-subtitle>
-    </mat-card-header>
+      <mat-card-subtitle>Sign in to continue</mat-card-subtitle>
+    </div>
 
     <mat-card-content>
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
         <mat-form-field appearance="outline" class="full-width">
+          <mat-icon matPrefix>person</mat-icon>
           <input matInput formControlName="username" placeholder="Username" autocomplete="username" />
           @if (loginForm.get('username')?.invalid && loginForm.get('username')?.touched) {
             <mat-error>Username is required</mat-error>
@@ -15,6 +27,7 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
+          <mat-icon matPrefix>lock</mat-icon>
           <input matInput type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
           @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
             <mat-error>Password is required</mat-error>
@@ -22,14 +35,21 @@
         </mat-form-field>
 
         @if (error) {
-          <div class="error-message">{{ error }}</div>
+          <div class="error-message">
+            <mat-icon>error_outline</mat-icon>
+            <span>{{ error }}</span>
+          </div>
         }
 
-        <button mat-raised-button color="primary" type="submit" [disabled]="loginForm.invalid || loading" class="full-width">
+        <button mat-flat-button color="primary" type="submit" [disabled]="loginForm.invalid || loading" class="full-width login-btn">
           @if (loading) {
             <mat-progress-bar mode="indeterminate" class="button-progress"></mat-progress-bar>
+            <span class="btn-text">Signing in...</span>
           } @else {
-            Sign In
+            <ng-container>
+              <mat-icon>arrow_forward</mat-icon>
+              <span class="btn-text">Sign In</span>
+            </ng-container>
           }
         </button>
       </form>

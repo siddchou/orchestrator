@@ -1,1 +1,4 @@
-<span class="status-badge" [style.background-color]="color">{{ status }}</span>
+<span class="status-badge" [class]="status" [style.background-color]="color">
+  <span class="status-dot"></span>
+  <span class="status-text">{{ statusLabel }}</span>
+</span>

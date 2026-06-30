@@ -2,31 +2,218 @@
   height: 100%;
 }
 
+/* ── Sidenav ──────────────────────────────────────────────────── */
 .sidenav {
-  width: 220px;
+  width: var(--sidenav-width);
+  background: var(--sidenav-bg);
+  border-right: var(--sidenav-border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+
+  mat-toolbar {
+    display: none;
+  }
 }
 
-.title {
+.sidenav-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Brand */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: var(--spacing-sm);
+}
+
+.brand-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  mat-icon {
+    color: white;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--mat-sys-on-surface);
+  letter-spacing: -0.02em;
+}
+
+.brand-subtitle {
+  font-size: 0.75rem;
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Navigation */
+.nav-list {
+  padding: var(--spacing-sm) 8px;
+}
+
+.nav-list a {
+  border-radius: var(--radius-sm);
+  margin-bottom: 2px;
+  height: 44px;
+  position: relative;
+
+  .mat-mdc-list-item-icon {
+    margin-right: 12px;
+    color: var(--mat-sys-on-surface-variant);
+    transition: color var(--transition-fast);
+  }
+
+  &:hover {
+    background: rgba(var(--mat-sys-primary), 0.06);
+
+    .mat-mdc-list-item-icon {
+      color: var(--mat-sys-primary);
+    }
+  }
+}
+
+.active-link {
+  background: rgba(var(--mat-sys-primary), 0.08) !important;
+  font-weight: 600 !important;
+
+  .mat-mdc-list-item-icon {
+    color: var(--mat-sys-primary) !important;
+  }
+}
+
+.active-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  background: var(--mat-sys-primary);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Sidenav Footer */
+.sidenav-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: var(--spacing-md);
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 600;
-  font-size: 1.25rem;
-  padding-left: 8px;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-role-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--mat-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.logout-btn {
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+
+  &:hover {
+    opacity: 1;
+    color: var(--mat-sys-error);
+  }
+}
+
+/* ── Main Content ─────────────────────────────────────────────── */
+.main-content {
+  background: var(--page-bg);
+}
+
+/* Toolbar */
+.top-toolbar {
+  height: var(--toolbar-height);
+  background: var(--toolbar-bg);
+  box-shadow: var(--toolbar-shadow);
+  padding: 0 var(--spacing-lg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.toolbar-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
+.toolbar-time {
+  font-size: 0.85rem;
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
 }
 
 .spacer {
   flex: 1 1 auto;
 }
 
+/* Content Area */
 .content {
-  padding: 24px;
-}
-
-.active-link {
-  font-weight: 600;
-}
-
-.user-role {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  margin-right: 8px;
-  opacity: 0.85;
+  padding: var(--spacing-lg);
+  max-width: 1400px;
 }

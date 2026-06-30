@@ -43,3 +43,6 @@ pnpm-lock.yaml
 
 ### Angular build output ###
 src/main/resources/static/
+# Angular chunk files (generated on build)
+**/chunk-*.js
+

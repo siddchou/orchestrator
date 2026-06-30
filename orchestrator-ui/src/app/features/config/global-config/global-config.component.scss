@@ -1,31 +1,88 @@
-h2 { margin: 0 0 16px; }
-h3 { margin: 24px 0 8px; }
+.page-header {
+  margin-bottom: var(--spacing-lg);
+}
 
+.page-title {
+  margin: 0;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.9rem;
+}
+
+/* Health Card */
 .health-card {
-  padding: 16px;
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+.section-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--mat-sys-primary);
+  }
 }
 
 .health-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
 }
 
 .health-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-sm);
 }
 
-.health-item mat-icon {
-  color: var(--mat-sys-primary);
+.health-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  mat-icon {
+    color: white;
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.health-text {
+  flex: 1;
 }
 
 .health-label {
   font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   color: var(--mat-sys-on-surface-variant);
+  margin-bottom: 2px;
 }
 
 .health-value {
@@ -33,35 +90,84 @@ h3 { margin: 24px 0 8px; }
   font-weight: 600;
 }
 
-.add-env-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+/* Section Card */
+.section-card {
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
 }
 
+.add-env-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.env-key {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: rgba(0, 0, 0, 0.03);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Validator Card */
 .validator-card {
-  padding: 16px;
+  background: var(--card-bg);
+  border: var(--card-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .validator-row {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
   align-items: flex-end;
+  padding: var(--spacing-lg);
 }
 
 .validation-result {
-  margin-top: 12px;
-  padding: 8px;
-  border-radius: 4px;
-  background: var(--mat-sys-surface-container);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--spacing-lg) var(--spacing-md);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--mat-sys-primary), 0.06);
+  font-size: 0.85rem;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-primary);
+  }
 }
 
-.empty-msg {
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-2xl);
   color: var(--mat-sys-on-surface-variant);
-  font-style: italic;
+
+  mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    opacity: 0.4;
+    margin-bottom: var(--spacing-sm);
+  }
+
+  p {
+    margin: 0;
+  }
 }
 
 table {

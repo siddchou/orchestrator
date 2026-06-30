@@ -2,32 +2,61 @@
   <router-outlet />
 } @else {
   <mat-sidenav-container class="sidenav-container">
+    <!-- Sidenav -->
     <mat-sidenav #drawer mode="side" opened disableBackdrop class="sidenav">
-      <mat-toolbar>
-        <span class="title">Orchestrator</span>
-      </mat-toolbar>
-      <mat-nav-list>
-        @for (item of navItems; track item.route) {
-          <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link">
-            <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-            <span matListItemTitle>{{ item.label }}</span>
-          </a>
-        }
-      </mat-nav-list>
-    </mat-sidenav>
+      <div class="sidenav-inner">
+        <!-- Brand -->
+        <div class="brand">
+          <div class="brand-icon">
+            <mat-icon>bolt</mat-icon>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">Orchestrator</span>
+            <span class="brand-subtitle">Job Runner</span>
+          </div>
+        </div>
 
-    <mat-sidenav-content>
-      <mat-toolbar color="primary">
-        <button mat-icon-button (click)="drawer.toggle()">
-          <mat-icon>menu</mat-icon>
-        </button>
-        <span class="spacer"></span>
-        @if (userRole) {
-          <span class="user-role">{{ userRole }}</span>
-          <button mat-icon-button (click)="logout()" title="Logout">
+        <!-- Navigation -->
+        <mat-nav-list class="nav-list">
+          @for (item of navItems; track item.route) {
+            <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link" #rla="routerLinkActive" [activated]="rla.isActive">
+              <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+              <span matListItemTitle>{{ item.label }}</span>
+              @if (rla.isActive) {
+                <span class="active-indicator"></span>
+              }
+            </a>
+          }
+        </mat-nav-list>
+      </div>
+
+      <!-- Footer -->
+      <div class="sidenav-footer">
+        <div class="user-card">
+          <div class="user-avatar">
+            {{ userRole?.charAt(0) ?? 'U' }}
+          </div>
+          <div class="user-info">
+            <span class="user-role-label">{{ userRole || 'User' }}</span>
+          </div>
+          <button mat-icon-button (click)="logout()" title="Logout" class="logout-btn">
             <mat-icon>logout</mat-icon>
           </button>
-        }
+        </div>
+      </div>
+    </mat-sidenav>
+
+    <!-- Main Content -->
+    <mat-sidenav-content class="main-content">
+      <mat-toolbar class="top-toolbar">
+        <button mat-icon-button (click)="drawer.toggle()" class="menu-btn">
+          <mat-icon>menu</mat-icon>
+        </button>
+        <span class="toolbar-title">{{ pageTitle }}</span>
+        <span class="spacer"></span>
+        <div class="toolbar-actions">
+          <span class="toolbar-time">{{ currentTime }}</span>
+        </div>
       </mat-toolbar>
       <div class="content">
         <router-outlet />

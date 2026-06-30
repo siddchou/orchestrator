@@ -1,76 +1,120 @@
 @if (loading) {
-  <div class="loading">Loading run details...</div>
+  <div class="loading">
+    <mat-spinner diameter="32"></mat-spinner>
+    <p>Loading run details...</p>
+  </div>
 } @else if (run) {
-  <div class="header-row">
-    <button mat-icon-button routerLink="/runs" matTooltip="Back">
-      <mat-icon>arrow_back</mat-icon>
-    </button>
-    <div>
-      <h2>Run #{{ run.runId }} · {{ run.jobName }}</h2>
-      <div class="run-meta">
-        <app-status-badge [status]="run.status" />
-        &nbsp;·&nbsp;{{ run.triggerType }}
-        &nbsp;·&nbsp;By {{ run.triggeredBy }}
-        &nbsp;·&nbsp;{{ run.startedAt | date:'dd MMM yyyy HH:mm:ss' }}
-        &nbsp;·&nbsp;{{ run.durationSeconds | duration }}
+  <!-- Header -->
+  <div class="run-header">
+    <div class="header-left">
+      <button mat-icon-button routerLink="/runs" matTooltip="Back">
+        <mat-icon>arrow_back</mat-icon>
+      </button>
+      <div>
+        <h2 class="page-title">Run #{{ run.runId }}</h2>
+        <div class="run-meta">
+          <span class="meta-item">
+            <mat-icon class="meta-icon">work</mat-icon>
+            {{ run.jobName }}
+          </span>
+          <span class="meta-divider">·</span>
+          <app-status-badge [status]="run.status" />
+          <span class="meta-divider">·</span>
+          <span class="meta-item">
+            <mat-icon class="meta-icon">play_arrow</mat-icon>
+            {{ run.triggerType }}
+          </span>
+          <span class="meta-divider">·</span>
+          <span class="meta-item">
+            <mat-icon class="meta-icon">schedule</mat-icon>
+            {{ run.startedAt | date:'dd MMM yyyy HH:mm:ss' }}
+          </span>
+          <span class="meta-divider">·</span>
+          <span class="meta-item">
+            <mat-icon class="meta-icon">timer</mat-icon>
+            {{ run.durationSeconds | duration }}
+          </span>
+        </div>
       </div>
     </div>
     @if (isActive()) {
-      <button mat-stroked-button color="warn" (click)="cancelRun()">
-        <mat-icon>stop</mat-icon> Cancel
+      <button mat-flat-button color="warn" (click)="cancelRun()">
+        <mat-icon>stop</mat-icon> Cancel Run
       </button>
     }
   </div>
 
-  <h3>Step Timeline</h3>
+  <!-- Step Timeline -->
+  <div class="section-card">
+    <div class="section-header">
+      <h3 class="section-title">
+        <mat-icon>timeline</mat-icon> Step Timeline
+      </h3>
+    </div>
 
-  <div class="step-timeline">
-    @for (step of run.steps; track step.runStepId) {
-      <div class="step-row" [class.selected]="selectedStepId === step.runStepId">
-        <mat-icon class="step-icon" [style.color]="statusIconColor(step.status)">
-          {{ statusIcon(step.status) }}
-        </mat-icon>
-        <span class="step-order">{{ step.stepOrder }}.</span>
-        <div class="step-info">
-          <div class="step-name">{{ step.stepName }}</div>
-          <div class="step-meta">
-            <span class="step-type">{{ step.stepType }}</span>
-            <span class="step-duration">{{ step.durationSeconds | duration }}</span>
-            <app-status-badge [status]="step.status" />
+    <div class="step-timeline">
+      @for (step of run.steps; track step.runStepId) {
+        <div class="step-row" [class.selected]="selectedStepId === step.runStepId" (click)="viewStepLog(step.runStepId)">
+          <div class="step-indicator" [style.color]="statusIconColor(step.status)">
+            <mat-icon class="step-icon">{{ statusIcon(step.status) }}</mat-icon>
           </div>
+          <div class="step-content">
+            <div class="step-name">{{ step.stepName }}</div>
+            <div class="step-meta">
+              <span class="step-type">{{ step.stepType }}</span>
+              <span class="meta-sep">·</span>
+              <span class="step-duration">{{ step.durationSeconds | duration }}</span>
+              <span class="meta-sep">·</span>
+              <app-status-badge [status]="step.status" />
+            </div>
+          </div>
+          <button mat-stroked-button (click)="viewStepLog(step.runStepId); $event.stopPropagation()" class="log-btn">
+            <mat-icon>visibility</mat-icon> Log
+          </button>
         </div>
-        <span class="spacer"></span>
-        <button mat-button (click)="viewStepLog(step.runStepId)">View Log</button>
-      </div>
-    }
+      }
+    </div>
   </div>
 
   <!-- Static Log Panel for completed steps -->
   @if (selectedStepId && !isActive()) {
     <div class="log-section">
-      <div class="log-header">
-        <h3>Step Log</h3>
-      </div>
-      @if (loadingLog) {
-        <div class="loading">Loading log...</div>
-      }
-      @if (stepLog) {
-        <div class="log-container">
-          @for (line of stepLog.split('\n'); track $index) {
-            <div class="log-line">{{ line }}</div>
-          }
+      <div class="section-card">
+        <div class="section-header">
+          <h3 class="section-title">
+            <mat-icon>terminal</mat-icon> Step Log
+          </h3>
         </div>
-      }
+        @if (loadingLog) {
+          <div class="loading">
+            <mat-spinner diameter="24"></mat-spinner>
+          </div>
+        }
+        @if (stepLog) {
+          <div class="log-container">
+            @for (line of stepLog.split('\n'); track $index) {
+              <div class="log-line">{{ line }}</div>
+            }
+          </div>
+        }
+      </div>
     </div>
   }
 
   <!-- Live Log Viewer for active runs -->
   @if (isActive()) {
     <div class="log-section">
-      <div class="log-header">
-        <h3>Live Log</h3>
+      <div class="section-card">
+        <div class="section-header">
+          <h3 class="section-title">
+            <mat-icon>cast</mat-icon> Live Log
+            <span class="live-indicator">
+              <span class="live-dot"></span> LIVE
+            </span>
+          </h3>
+        </div>
+        <app-log-viewer [runId]="run.runId" />
       </div>
-      <app-log-viewer [runId]="run.runId" />
     </div>
   }
 }
