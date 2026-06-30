@@ -14,6 +14,7 @@ import com.novakai.orchestrator.repository.JobScheduleRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import com.novakai.orchestrator.security.Auditable;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JobDefinitionService {
 
     private final JobDefinitionRepository jobRepo;
@@ -64,6 +66,7 @@ public class JobDefinitionService {
         mapper.toEntity(request, job);
         job.setEnabled("Y");
         job = jobRepo.save(job);
+        log.info("Created job '{}' (id={})", job.getJobName(), job.getJobId());
         return mapper.toResponse(job);
     }
 
@@ -99,6 +102,7 @@ public class JobDefinitionService {
             throw new JobNotFoundException(jobId);
         }
         jobRepo.deleteById(jobId);
+        log.info("Deleted job id={}", jobId);
     }
 
     @Transactional

@@ -46,7 +46,7 @@ public class ArchiveStepExecutor implements StepExecutor {
             return StepResult.failure("ArchiveConfig is null or empty");
         }
 
-        StringBuilder log = new StringBuilder();
+        StringBuilder output = new StringBuilder();
 
         Path sourceDir = Path.of(config.sourceDir());
         List<Path> filesToArchive = new ArrayList<>();
@@ -62,8 +62,9 @@ public class ArchiveStepExecutor implements StepExecutor {
         }
 
         if (filesToArchive.isEmpty()) {
-            log.append("No files matched patterns for archiving\n");
-            return StepResult.success(log.toString());
+            log.debug("Archive: no files matched patterns in {}", config.sourceDir());
+            output.append("No files matched patterns for archiving\n");
+            return StepResult.success(output.toString());
         }
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
@@ -73,28 +74,29 @@ public class ArchiveStepExecutor implements StepExecutor {
         Files.createDirectories(archiveDir);
         Path archivePath = archiveDir.resolve(jobName + "_" + timestamp + ext);
 
+        log.debug("Archive: creating {} with {} files", archivePath, filesToArchive.size());
         if ("TAR_GZ".equals(config.archiveFormat())) {
-            writeTarGz(archivePath, filesToArchive, log);
+            writeTarGz(archivePath, filesToArchive, output);
         } else {
-            writeZip(archivePath, filesToArchive, log);
+            writeZip(archivePath, filesToArchive, output);
         }
 
-        log.append("Archive created: ").append(archivePath).append("\n");
-        return StepResult.success(log.toString());
+        output.append("Archive created: ").append(archivePath).append("\n");
+        return StepResult.success(output.toString());
     }
 
-    private void writeZip(Path archivePath, List<Path> files, StringBuilder log) throws IOException {
+    private void writeZip(Path archivePath, List<Path> files, StringBuilder output) throws IOException {
         try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(archivePath))) {
             for (Path file : files) {
                 zos.putNextEntry(new ZipEntry(file.getFileName().toString()));
                 Files.copy(file, zos);
                 zos.closeEntry();
-                log.append("Archived: ").append(file.getFileName()).append("\n");
+                output.append("Archived: ").append(file.getFileName()).append("\n");
             }
         }
     }
 
-    private void writeTarGz(Path archivePath, List<Path> files, StringBuilder log) throws IOException {
+    private void writeTarGz(Path archivePath, List<Path> files, StringBuilder output) throws IOException {
         try (OutputStream fos = Files.newOutputStream(archivePath);
              GzipCompressorOutputStream gzip = new GzipCompressorOutputStream(fos);
              TarArchiveOutputStream tar = new TarArchiveOutputStream(gzip)) {
@@ -104,7 +106,7 @@ public class ArchiveStepExecutor implements StepExecutor {
                 tar.putArchiveEntry(entry);
                 Files.copy(file, tar);
                 tar.closeArchiveEntry();
-                log.append("Archived: ").append(file.getFileName()).append("\n");
+                output.append("Archived: ").append(file.getFileName()).append("\n");
             }
         }
     }

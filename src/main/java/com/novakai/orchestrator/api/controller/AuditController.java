@@ -8,11 +8,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/audit")
 @PreAuthorize("hasRole('ADMIN')")
+@Slf4j
 public class AuditController {
 
     private final AuditLogRepository auditRepo;
@@ -23,6 +25,7 @@ public class AuditController {
 
     @GetMapping
     public ApiResponse<List<AuditLog>> list() {
+        log.info("Audit log list requested");
         return ApiResponse.success(auditRepo.findAll());
     }
 }
