@@ -7,6 +7,7 @@ import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.StepExecutor;
 import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.PathUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -46,7 +47,7 @@ public class JavaExecStepExecutor implements StepExecutor {
 
         StringBuilder log = new StringBuilder();
 
-        String javaBin = ctx.getJavaHome() + "/bin/java";
+        String javaBin = PathUtils.resolveJavaBinary(ctx.getJavaHome()).toString();
         List<String> command = new ArrayList<>();
         command.add(javaBin);
         if (config.jvmArgs() != null) {
@@ -59,7 +60,7 @@ public class JavaExecStepExecutor implements StepExecutor {
         } else {
             if (ctx.getClasspath() != null && !ctx.getClasspath().isEmpty()) {
                 command.add("-cp");
-                command.add(String.join(":", ctx.getClasspath()));
+                command.add(PathUtils.joinClasspath(ctx.getClasspath()));
             }
             command.add(config.mainClass());
         }

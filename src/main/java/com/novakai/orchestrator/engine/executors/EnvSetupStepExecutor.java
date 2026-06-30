@@ -7,6 +7,7 @@ import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.StepExecutor;
 import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.PathUtils;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -41,7 +42,7 @@ public class EnvSetupStepExecutor implements StepExecutor {
         if (!Files.isDirectory(javaHome)) {
             return StepResult.failure("JAVA_HOME does not exist: " + javaHome);
         }
-        Path javaBin = javaHome.resolve("bin/java");
+        Path javaBin = PathUtils.resolveJavaBinary(config.javaHome());
         if (!Files.isExecutable(javaBin)) {
             return StepResult.failure("java binary not executable: " + javaBin);
         }
