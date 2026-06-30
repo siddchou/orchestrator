@@ -23,8 +23,15 @@ public class TestDataInitializer {
     @EventListener(ApplicationReadyEvent.class)
     public void init() {
         String hash = passwordEncoder.encode("changeme");
-        appUserRepository.save(new AppUser(null, "admin", hash, "ADMIN", "Y", "N", null));
-        appUserRepository.save(new AppUser(null, "operator", hash, "OPERATOR", "Y", "N", null));
-        appUserRepository.save(new AppUser(null, "viewer", hash, "VIEWER", "Y", "N", null));
+        createIfMissing("admin", "ADMIN", hash);
+        createIfMissing("operator", "OPERATOR", hash);
+        createIfMissing("viewer", "VIEWER", hash);
+    }
+
+    private void createIfMissing(String username, String role, String passwordHash) {
+        appUserRepository.findByUsername(username)
+                .orElseGet(() -> appUserRepository.save(
+                        new AppUser(null, username, passwordHash, role, "Y", "N", null)))
+                ;
     }
 }
