@@ -45,4 +45,4 @@ pnpm-lock.yaml
 src/main/resources/static/
 # Angular chunk files (generated on build)
 **/chunk-*.js
-
+/src/resources/static/browser/

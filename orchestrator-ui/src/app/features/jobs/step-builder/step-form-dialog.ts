@@ -69,6 +69,7 @@ export class StepFormDialog {
       archiveDir: [''],
       archivePatterns: [''],
       archiveFormat: ['ZIP'],
+      deleteOriginal: [false],
     });
 
     // Pre-fill from stepConfig JSON if editing
@@ -84,7 +85,7 @@ export class StepFormDialog {
         cleanupDir: '', filePattern: '',
         mainClass: '', jarPath: '', jvmArgs: '', args: '', timeoutMinutes: null,
         host: '', port: 22, username: '', credentialRef: '', remoteDir: '', sftp_filePattern: '', direction: 'UPLOAD',
-        sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP',
+        sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP', deleteOriginal: false,
       });
     });
   }
@@ -146,6 +147,7 @@ export class StepFormDialog {
             archiveDir: (c as ArchiveConfig).archiveDir,
             archivePatterns: ((c as ArchiveConfig).filePatterns ?? []).join(','),
             archiveFormat: (c as ArchiveConfig).archiveFormat,
+            deleteOriginal: (c as ArchiveConfig).deleteOriginal ?? false,
           };
       }
     } catch {
@@ -188,6 +190,7 @@ export class StepFormDialog {
           archiveDir: v.archiveDir,
           filePatterns: (v.archivePatterns ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
           archiveFormat: v.archiveFormat,
+          deleteOriginal: v.deleteOriginal ?? false,
         };
       default:
         return {};

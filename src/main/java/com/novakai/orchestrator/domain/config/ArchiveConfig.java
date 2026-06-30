@@ -6,5 +6,6 @@ public record ArchiveConfig(
     String sourceDir,
     List<String> filePatterns,
     String archiveDir,
-    String archiveFormat
+    String archiveFormat,
+    boolean deleteOriginal
 ) {}

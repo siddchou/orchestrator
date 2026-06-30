@@ -82,6 +82,19 @@ public class ArchiveStepExecutor implements StepExecutor {
         }
 
         output.append("Archive created: ").append(archivePath).append("\n");
+
+        if (config.deleteOriginal()) {
+            for (Path file : filesToArchive) {
+                try {
+                    Files.delete(file);
+                    output.append("Deleted: ").append(file.getFileName()).append("\n");
+                } catch (IOException ex) {
+                    output.append("Failed to delete: ").append(file.getFileName())
+                            .append(" - ").append(ex.getMessage()).append("\n");
+                }
+            }
+        }
+
         return StepResult.success(output.toString());
     }
 

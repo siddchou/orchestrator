@@ -74,4 +74,5 @@ export interface ArchiveConfig {
   filePatterns: string[];
   archiveDir: string;
   archiveFormat: 'ZIP' | 'TAR_GZ';
+  deleteOriginal?: boolean;
 }
