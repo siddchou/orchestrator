@@ -18,7 +18,9 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,27 +33,29 @@ public class JobLaunchService {
     private final JobDefinitionRepository jobRepo;
     private final JobEnvVarRepository envVarRepo;
     private final JobRunRepository runRepo;
+    private final JobStepRepository stepRepo;
     private final JobExecutionOrchestrator orchestrator;
     private final ThreadPoolTaskExecutor taskExecutor;
+    private final JsonParser jsonParser;
 
     private final ConcurrentHashMap<Long, Future<?>> activeFutures = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> liveLogQueues
             = new ConcurrentHashMap<>();
-
-    private final JobStepRepository stepRepo;
 
     public JobLaunchService(JobDefinitionRepository jobRepo,
                             JobEnvVarRepository envVarRepo,
                             JobRunRepository runRepo,
                             JobStepRepository stepRepo,
                             JobExecutionOrchestrator orchestrator,
-                            ThreadPoolTaskExecutor taskExecutor) {
+                            ThreadPoolTaskExecutor taskExecutor,
+                            JsonParser jsonParser) {
         this.jobRepo = jobRepo;
         this.envVarRepo = envVarRepo;
         this.runRepo = runRepo;
         this.stepRepo = stepRepo;
         this.orchestrator = orchestrator;
         this.taskExecutor = taskExecutor;
+        this.jsonParser = jsonParser;
     }
 
     public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy) {
@@ -62,8 +66,6 @@ public class JobLaunchService {
         if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
             throw new JobAlreadyRunningException(jobId);
         }
-
-        Map<String, String> env = buildEnvMap(jobId);
 
         final JobRun run = runRepo.save(JobRun.builder()
             .jobDefinition(job)
@@ -77,14 +79,7 @@ public class JobLaunchService {
         ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
         liveLogQueues.put(runId, logQueue);
 
-        ExecutionContext ctx = ExecutionContext.builder()
-            .runId(runId)
-            .jobId(jobId)
-            .workingDir(job.getWorkingDir())
-            .envVars(env)
-            .liveLogQueue(logQueue)
-            .cancelRequested(false)
-            .build();
+        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
 
         Future<?> future = taskExecutor.submit(
             () -> {
@@ -111,8 +106,6 @@ public class JobLaunchService {
             throw new JobAlreadyRunningException(jobId);
         }
 
-        Map<String, String> env = buildEnvMap(jobId);
-
         final JobRun run = runRepo.save(JobRun.builder()
             .jobDefinition(job)
             .triggerType(triggerType)
@@ -125,14 +118,7 @@ public class JobLaunchService {
         ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
         liveLogQueues.put(runId, logQueue);
 
-        ExecutionContext ctx = ExecutionContext.builder()
-            .runId(runId)
-            .jobId(jobId)
-            .workingDir(job.getWorkingDir())
-            .envVars(env)
-            .liveLogQueue(logQueue)
-            .cancelRequested(false)
-            .build();
+        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
 
         Future<?> future = taskExecutor.submit(
             () -> {
@@ -160,8 +146,6 @@ public class JobLaunchService {
             throw new JobAlreadyRunningException(jobId);
         }
 
-        Map<String, String> env = buildEnvMap(jobId);
-
         final JobRun run = runRepo.save(JobRun.builder()
             .jobDefinition(job)
             .triggerType(triggerType)
@@ -174,14 +158,7 @@ public class JobLaunchService {
         ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
         liveLogQueues.put(runId, logQueue);
 
-        ExecutionContext ctx = ExecutionContext.builder()
-            .runId(runId)
-            .jobId(jobId)
-            .workingDir(job.getWorkingDir())
-            .envVars(env)
-            .liveLogQueue(logQueue)
-            .cancelRequested(false)
-            .build();
+        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
 
         Future<?> future = taskExecutor.submit(
             () -> {
@@ -209,8 +186,6 @@ public class JobLaunchService {
             throw new JobAlreadyRunningException(jobId);
         }
 
-        Map<String, String> env = buildEnvMap(jobId);
-
         final JobRun run = runRepo.save(JobRun.builder()
             .jobDefinition(job)
             .triggerType(triggerType)
@@ -223,14 +198,7 @@ public class JobLaunchService {
         ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
         liveLogQueues.put(runId, logQueue);
 
-        ExecutionContext ctx = ExecutionContext.builder()
-            .runId(runId)
-            .jobId(jobId)
-            .workingDir(job.getWorkingDir())
-            .envVars(env)
-            .liveLogQueue(logQueue)
-            .cancelRequested(false)
-            .build();
+        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
 
         Future<?> future = taskExecutor.submit(
             () -> {
@@ -270,6 +238,35 @@ public class JobLaunchService {
             .stream().filter(v -> "N".equals(v.getIsGlobal()))
             .forEach(v -> env.put(v.getVarName(), v.getVarValue()));
         return env;
+    }
+
+    private ExecutionContext buildContext(Long runId, Long jobId, JobDefinition job,
+                                          ConcurrentLinkedQueue<String> logQueue) {
+        List<String> classpath = parseJobClasspath(job.getClasspath());
+        return ExecutionContext.builder()
+            .runId(runId)
+            .jobId(jobId)
+            .workingDir(job.getWorkingDir())
+            .javaHome(job.getJavaHome())
+            .classpath(classpath)
+            .envVars(buildEnvMap(jobId))
+            .liveLogQueue(logQueue)
+            .cancelRequested(false)
+            .build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> parseJobClasspath(String json) {
+        if (json == null || json.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            Object result = jsonParser.parse(json, Object.class);
+            if (result instanceof List) {
+                return (List<String>) result;
+            }
+        } catch (Exception ignored) { }
+        return new ArrayList<>();
     }
 
     private ExecutionContext findContext(Long runId) {

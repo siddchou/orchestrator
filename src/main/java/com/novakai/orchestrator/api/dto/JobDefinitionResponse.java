@@ -8,6 +8,8 @@ public record JobDefinitionResponse(
     String jobName,
     String description,
     String workingDir,
+    String javaHome,
+    List<String> classpathEntries,
     boolean enabled,
     LocalDateTime createdAt,
     LocalDateTime updatedAt,

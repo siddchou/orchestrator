@@ -30,6 +30,13 @@ public class JobDefinition {
     @Column(name = "WORKING_DIR", nullable = false)
     private String workingDir;
 
+    @Column(name = "JAVA_HOME")
+    private String javaHome;
+
+    @Lob
+    @Column(name = "CLASSPATH")
+    private String classpath;
+
     @Column(name = "ENABLED", nullable = false)
     private String enabled = "Y";
 

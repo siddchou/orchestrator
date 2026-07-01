@@ -8,5 +8,7 @@ import java.util.List;
 public record JobDefinitionRequest(
     @NotBlank String jobName,
     String description,
-    @NotBlank String workingDir
+    @NotBlank String workingDir,
+    String javaHome,
+    List<String> classpathEntries
 ) {}
