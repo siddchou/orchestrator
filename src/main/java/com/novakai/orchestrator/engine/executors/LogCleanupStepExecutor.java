@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @Slf4j
@@ -42,16 +44,29 @@ public class LogCleanupStepExecutor implements StepExecutor {
             return StepResult.failure("Cleanup directory does not exist: " + dir);
         }
 
-        log.info("LogCleanup: scanning dir={} pattern={}", dir, config.filePattern());
+        List<String> patterns = new ArrayList<>();
+        if (config.filePattern() != null && !config.filePattern().isEmpty()) {
+            patterns.add(config.filePattern());
+        }
+        if (config.extraPatterns() != null) {
+            patterns.addAll(config.extraPatterns());
+        }
 
-        PathMatcher matcher = FileSystems.getDefault()
-            .getPathMatcher("glob:" + config.filePattern());
+        if (patterns.isEmpty()) {
+            return StepResult.failure("No file patterns specified");
+        }
+
+        log.info("LogCleanup: scanning dir={} patterns={}", dir, patterns);
+
+        List<PathMatcher> matchers = patterns.stream()
+            .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
+            .toList();
 
         int deleted = 0;
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
             for (Path file : stream) {
                 String name = file.getFileName().toString();
-                boolean matches = matcher.matches(Path.of(name));
+                boolean matches = matchers.stream().anyMatch(m -> m.matches(Path.of(name)));
                 log.info("LogCleanup: file={} matches={}", name, matches);
                 if (matches) {
                     Files.delete(file);

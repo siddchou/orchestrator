@@ -1,0 +1,139 @@
+.run-dialog {
+  min-width: 400px;
+  max-width: 520px;
+  padding: var(--spacing-md);
+}
+
+.dialog-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md) 0 var(--spacing-sm);
+}
+
+.header-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(33, 150, 243, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-sm);
+
+  mat-icon {
+    color: #2196f3;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.dialog-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+}
+
+.dialog-content {
+  padding: var(--spacing-sm) 0;
+}
+
+.job-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: var(--spacing-xs);
+  word-break: break-word;
+}
+
+.job-description {
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant, #666);
+  margin: 0 0 var(--spacing-md, 16px);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm, 8px);
+}
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm, 8px);
+  padding: var(--spacing-xs, 4px) 0;
+
+  &.warning {
+    background: rgba(255, 152, 0, 0.08);
+    border-radius: 8px;
+    padding: var(--spacing-sm, 8px);
+  }
+}
+
+.detail-icon {
+  color: var(--mat-sys-on-surface-variant, #666);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+
+  .warning & {
+    color: #ff9800;
+  }
+}
+
+.detail-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mat-sys-on-surface-variant, #666);
+}
+
+.detail-value {
+  font-size: 0.875rem;
+  line-height: 1.4;
+
+  &.path {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+  }
+
+  &.cron {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+}
+
+.detail-helper {
+  color: var(--mat-sys-on-surface-variant, #666);
+  font-size: 0.8rem;
+}
+
+.dialog-actions {
+  padding: var(--spacing-md, 16px) var(--spacing-sm, 8px) var(--spacing-sm, 8px);
+  gap: var(--spacing-sm, 8px);
+}
+
+.run-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -49,6 +49,7 @@ export interface EnvSetupConfig {
 export interface LogCleanupConfig {
   directory: string;
   filePattern: string;
+  extraPatterns?: string[];
 }
 
 export interface JavaExecConfig {
@@ -74,4 +75,5 @@ export interface ArchiveConfig {
   filePatterns: string[];
   archiveDir: string;
   archiveFormat: 'ZIP' | 'TAR_GZ';
+  deleteOriginal?: boolean;
 }

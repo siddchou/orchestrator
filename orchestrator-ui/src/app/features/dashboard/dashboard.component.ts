@@ -15,7 +15,7 @@ import { StatusBadge } from '../../shared/components/status-badge/status-badge';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { JobRunSummary } from '../../core/models/run.model';
 import { RunStatus } from '../../core/models/job.model';
-import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
+import { RunJobDialog } from '../../shared/components/run-job-dialog/run-job-dialog';
 
 const CARD_DATA = [
   { label: 'Total Jobs', icon: 'work', key: 'totalJobs' as const },
@@ -87,21 +87,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   triggerRun(jobName: string, jobId: number) {
-    this.dialog.open(ConfirmDialog, {
-      data: {
-        title: 'Trigger Run',
-        message: `Run "${jobName}" now?`,
-        confirmButton: 'Run',
+    this.jobService.getJob(jobId).subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.dialog.open(RunJobDialog, {
+            data: { job: res.data },
+          }).afterClosed().subscribe(confirmed => {
+            if (!confirmed) return;
+            this.jobService.triggerRun(jobId).subscribe({
+              next: (runRes) => {
+                if (runRes.status === 'SUCCESS') {
+                  this.loadDashboard();
+                }
+              },
+            });
+          });
+        }
       },
-    }).afterClosed().subscribe(confirmed => {
-      if (!confirmed) return;
-      this.jobService.triggerRun(jobId).subscribe({
-        next: (res) => {
-          if (res.status === 'SUCCESS') {
-            this.loadDashboard();
-          }
-        },
-      });
     });
   }
 
