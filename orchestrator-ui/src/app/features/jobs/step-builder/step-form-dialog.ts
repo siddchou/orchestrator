@@ -50,6 +50,7 @@ export class StepFormDialog {
       // LOG_CLEANUP
       cleanupDir: [''],
       filePattern: [''],
+      extraPatterns: [''],
       // JAVA_EXEC
       mainClass: [''],
       jarPath: [''],
@@ -82,7 +83,7 @@ export class StepFormDialog {
     this.form.get('stepType')?.valueChanges.subscribe(type => {
       this.form.patchValue({
         javaHome: '', classpath: '',
-        cleanupDir: '', filePattern: '',
+        cleanupDir: '', filePattern: '', extraPatterns: '',
         mainClass: '', jarPath: '', jvmArgs: '', args: '', timeoutMinutes: null,
         host: '', port: 22, username: '', credentialRef: '', remoteDir: '', sftp_filePattern: '', direction: 'UPLOAD',
         sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP', deleteOriginal: false,
@@ -122,7 +123,7 @@ export class StepFormDialog {
         case 'ENV_SETUP':
           return { javaHome: (c as EnvSetupConfig).javaHome, classpath: ((c as EnvSetupConfig).classpathEntries ?? []).join(',') };
         case 'LOG_CLEANUP':
-          return { cleanupDir: (c as LogCleanupConfig).directory, filePattern: (c as LogCleanupConfig).filePattern };
+          return { cleanupDir: (c as LogCleanupConfig).directory, filePattern: (c as LogCleanupConfig).filePattern, extraPatterns: ((c as LogCleanupConfig).extraPatterns ?? []).join(',') };
         case 'JAVA_EXEC':
           return {
             mainClass: (c as JavaExecConfig).mainClass ?? '',
@@ -165,7 +166,11 @@ export class StepFormDialog {
           extraEnvVars: {},
         };
       case 'LOG_CLEANUP':
-        return { directory: v.cleanupDir, filePattern: v.filePattern };
+        return {
+          directory: v.cleanupDir,
+          filePattern: v.filePattern,
+          extraPatterns: (v.extraPatterns ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
+        };
       case 'JAVA_EXEC':
         return {
           mainClass: v.mainClass || null,

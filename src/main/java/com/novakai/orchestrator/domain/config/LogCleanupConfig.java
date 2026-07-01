@@ -1,6 +1,9 @@
 package com.novakai.orchestrator.domain.config;
 
+import java.util.List;
+
 public record LogCleanupConfig(
     String directory,
-    String filePattern
+    String filePattern,
+    List<String> extraPatterns
 ) {}

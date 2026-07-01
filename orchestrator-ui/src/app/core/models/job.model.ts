@@ -49,6 +49,7 @@ export interface EnvSetupConfig {
 export interface LogCleanupConfig {
   directory: string;
   filePattern: string;
+  extraPatterns?: string[];
 }
 
 export interface JavaExecConfig {
