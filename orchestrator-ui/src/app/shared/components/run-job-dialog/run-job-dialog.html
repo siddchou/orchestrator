@@ -1,0 +1,67 @@
+<div class="run-dialog">
+  <div class="dialog-header">
+    <div class="header-icon">
+      <mat-icon>play_circle</mat-icon>
+    </div>
+    <h2 class="dialog-title">Run Job</h2>
+  </div>
+
+  <mat-dialog-content class="dialog-content">
+    <div class="job-name">{{ jobName }}</div>
+
+    @if (description) {
+      <p class="job-description">{{ description }}</p>
+    }
+
+    <div class="detail-grid">
+      <div class="detail-item">
+        <mat-icon class="detail-icon">density_medium</mat-icon>
+        <div class="detail-text">
+          <span class="detail-label">Steps</span>
+          <span class="detail-value">
+            {{ stepCount }}/{{ totalSteps }} enabled
+            @if (disabledStepCount > 0) {
+              <span class="detail-helper">({{ disabledStepCount }} disabled)</span>
+            }
+          </span>
+        </div>
+      </div>
+
+      <div class="detail-item">
+        <mat-icon class="detail-icon">folder</mat-icon>
+        <div class="detail-text">
+          <span class="detail-label">Working Directory</span>
+          <span class="detail-value path">{{ data.job.workingDir }}</span>
+        </div>
+      </div>
+
+      @if (hasSchedule) {
+        <div class="detail-item">
+          <mat-icon class="detail-icon">schedule</mat-icon>
+          <div class="detail-text">
+            <span class="detail-label">Schedule</span>
+            <span class="detail-value cron">{{ cronExpression }}</span>
+          </div>
+        </div>
+      }
+
+      @if (isDisabled) {
+        <div class="detail-item warning">
+          <mat-icon class="detail-icon">warning_amber</mat-icon>
+          <div class="detail-text">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">Job is currently disabled</span>
+          </div>
+        </div>
+      }
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" class="dialog-actions">
+    <button mat-stroked-button (click)="cancel()">Cancel</button>
+    <button mat-flat-button color="primary" (click)="confirm()" class="run-button">
+      <mat-icon>play_arrow</mat-icon>
+      <span>Run Now</span>
+    </button>
+  </mat-dialog-actions>
+</div>

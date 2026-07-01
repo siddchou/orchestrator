@@ -18,6 +18,7 @@ import { Subject } from 'rxjs';
 import { JobService } from '../../../core/services/job.service';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
+import { RunJobDialog } from '../../../shared/components/run-job-dialog/run-job-dialog';
 import { JobDefinition } from '../../../core/models/job.model';
 
 @Component({
@@ -113,12 +114,8 @@ export class JobListComponent implements AfterViewInit {
   }
 
   triggerRun(job: JobDefinition) {
-    this.dialog.open(ConfirmDialog, {
-      data: {
-        title: 'Trigger Run',
-        message: `Run "${job.jobName}" now?`,
-        confirmButton: 'Run',
-      },
+    this.dialog.open(RunJobDialog, {
+      data: { job },
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.jobService.triggerRun(job.jobId).subscribe();
