@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -33,6 +33,7 @@ export class RunDetailComponent implements OnInit, OnDestroy {
   private runService = inject(RunService);
   private snack = inject(MatSnackBar);
   private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
 
   runId: number | null = null;
   run: JobRunDetail | null = null;
@@ -74,8 +75,13 @@ export class RunDetailComponent implements OnInit, OnDestroy {
         } else {
           this.stopPolling();
         }
+        this.cdr.markForCheck();
       },
-      error: () => { this.loading = false; this.stopPolling(); },
+      error: () => {
+        this.loading = false;
+        this.stopPolling();
+        this.cdr.markForCheck();
+      },
     });
   }
 
@@ -90,8 +96,12 @@ export class RunDetailComponent implements OnInit, OnDestroy {
           this.stepLog = res.data;
         }
         this.loadingLog = false;
+        this.cdr.markForCheck();
       },
-      error: () => { this.loadingLog = false; },
+      error: () => {
+        this.loadingLog = false;
+        this.cdr.markForCheck();
+      },
     });
   }
 
