@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleGeneral(Exception ex) {
-        log.error("Unhandled exception: {}", ex.getMessage(), ex);
-        return ApiResponse.error("Internal error: " + ex.getMessage());
+        log.error("Unhandled exception: {}", ex.getClass().getName(), ex);
+        return ApiResponse.error("An internal error occurred. Please try again later.");
     }
 }
