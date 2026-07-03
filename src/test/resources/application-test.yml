@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: orchestrator-test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  security:
+    user:
+      name: admin
+      password: test1234
+
+orchestrator:
+  engine:
+    thread-pool-size: 2
+    default-step-timeout-minutes: 5
+    log-retention-days: 7
+  sftp:
+    known-hosts-file: ${java.io.tmpdir}/known_hosts
+  archive:
+    base-dir: ${java.io.tmpdir}/orchestrator/archives
+  security:
+    jwt-secret: test-secret-key-for-testing-purposes-only-32bytes!!
+    jwt-expiry-hours: 8
+
+server:
+  port: 0

@@ -1,14 +1,19 @@
 package com.novakai.orchestrator.api.mapper;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.domain.entity.*;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collections;
 
 @Component
 public class JobDefinitionMapper {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public JobDefinitionResponse toResponse(JobDefinition job) {
         List<JobStepResponse> steps = job.getSteps().stream()
@@ -25,6 +30,8 @@ public class JobDefinitionMapper {
                 job.getJobName(),
                 job.getDescription(),
                 job.getWorkingDir(),
+                job.getJavaHome(),
+                parseClasspath(job.getClasspath()),
                 "Y".equals(job.getEnabled()),
                 job.getCreatedAt(),
                 job.getUpdatedAt(),
@@ -38,6 +45,8 @@ public class JobDefinitionMapper {
         target.setJobName(request.jobName());
         target.setDescription(request.description());
         target.setWorkingDir(request.workingDir());
+        target.setJavaHome(request.javaHome());
+        target.setClasspath(serializeClasspath(request.classpathEntries()));
         return target;
     }
 
@@ -141,5 +150,27 @@ public class JobDefinitionMapper {
                 runStep.getEndedAt(),
                 duration
         );
+    }
+
+    private List<String> parseClasspath(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private String serializeClasspath(List<String> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(entries);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

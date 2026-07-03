@@ -21,7 +21,7 @@ export class JobService {
     return this.http.get<ApiResponse<JobDefinition>>(`${this.api}/jobs/${id}`);
   }
 
-  createJob(body: { jobName: string; description?: string; workingDir: string }): Observable<ApiResponse<JobDefinition>> {
+  createJob(body: { jobName: string; description?: string; workingDir: string; javaHome?: string; classpathEntries?: string[] }): Observable<ApiResponse<JobDefinition>> {
     return this.http.post<ApiResponse<JobDefinition>>(`${this.api}/jobs`, body);
   }
 

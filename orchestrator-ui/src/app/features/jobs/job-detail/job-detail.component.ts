@@ -52,6 +52,8 @@ export class JobDetailComponent implements OnInit {
     jobName: ['', Validators.required],
     description: [''],
     workingDir: ['', Validators.required],
+    javaHome: [''],
+    classpathEntries: [''],
   });
 
   displayedStepCols = ['stepOrder', 'stepName', 'stepType', 'continueOnFailure', 'enabled', 'actions'];
@@ -84,6 +86,8 @@ export class JobDetailComponent implements OnInit {
             jobName: this.job.jobName,
             description: this.job.description,
             workingDir: this.job.workingDir,
+            javaHome: this.job.javaHome ?? '',
+            classpathEntries: (this.job.classpathEntries ?? []).join(','),
           });
           if (this.job.schedule) {
             this.scheduleCron = this.job.schedule.cronExpression;
@@ -111,6 +115,10 @@ export class JobDetailComponent implements OnInit {
       jobName: val.jobName,
       description: val.description,
       workingDir: val.workingDir,
+      javaHome: val.javaHome || null,
+      classpathEntries: val.classpathEntries
+        ? val.classpathEntries.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [],
     }).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
@@ -259,6 +267,10 @@ export class JobDetailComponent implements OnInit {
       jobName: val.jobName,
       description: val.description,
       workingDir: val.workingDir,
+      javaHome: val.javaHome || null,
+      classpathEntries: val.classpathEntries
+        ? val.classpathEntries.split(',').map((s: string) => s.trim()).filter(Boolean)
+        : [],
     }).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {

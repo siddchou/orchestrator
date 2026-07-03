@@ -34,7 +34,7 @@ export class StepFormDialog {
   private dialogRef = inject(MatDialogRef<StepFormDialog>);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
 
-  stepTypes: StepType[] = ['ENV_SETUP', 'LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE'];
+  stepTypes: StepType[] = ['LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE'];
 
   form: FormGroup;
 

@@ -43,6 +43,18 @@
           <textarea matInput formControlName="description" rows="3"></textarea>
         </mat-form-field>
 
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>JAVA_HOME</mat-label>
+            <input matInput formControlName="javaHome" placeholder="/usr/lib/jvm/java-21" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Classpath Entries (comma-separated)</mat-label>
+            <input matInput formControlName="classpathEntries" placeholder="/opt/libs/app.jar,/opt/libs/deps.jar" />
+          </mat-form-field>
+        </div>
+
         @if (pathValidation['workingDir']) {
           <div class="validation-result"
                [class.ok]="pathValidation['workingDir'] === 'OK'"

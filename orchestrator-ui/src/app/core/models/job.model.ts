@@ -7,6 +7,8 @@ export interface JobDefinition {
   jobName: string;
   description: string | null;
   workingDir: string;
+  javaHome: string | null;
+  classpathEntries: string[];
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
