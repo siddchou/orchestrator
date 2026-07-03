@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.domain.entity.*;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -92,6 +93,7 @@ public class JobDefinitionMapper {
         );
     }
 
+    @Transactional(readOnly = true)
     public JobRunSummary toRunSummary(JobRun run) {
         long duration = 0;
         if (run.getStartedAt() != null) {
@@ -111,6 +113,7 @@ public class JobDefinitionMapper {
         );
     }
 
+    @Transactional(readOnly = true)
     public JobRunDetail toRunDetail(JobRun run, List<JobRunStep> runSteps) {
         List<RunStepDetail> steps = runSteps.stream()
                 .map(this::toRunStepDetail)

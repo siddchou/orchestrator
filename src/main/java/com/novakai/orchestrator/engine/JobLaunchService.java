@@ -22,8 +22,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Future;
 
 @Service
@@ -40,7 +41,7 @@ public class JobLaunchService {
 
     private final ConcurrentHashMap<Long, Future<?>> activeFutures = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, ExecutionContext> activeContexts = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> liveLogQueues
+    private final ConcurrentHashMap<Long, BlockingQueue<String>> liveLogQueues
             = new ConcurrentHashMap<>();
 
     public JobLaunchService(JobDefinitionRepository jobRepo,
@@ -77,7 +78,7 @@ public class JobLaunchService {
             .build());
         final Long runId = run.getRunId();
 
-        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
         liveLogQueues.put(runId, logQueue);
 
         ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
@@ -118,7 +119,7 @@ public class JobLaunchService {
             .build());
         final Long runId = run.getRunId();
 
-        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
         liveLogQueues.put(runId, logQueue);
 
         ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
@@ -160,7 +161,7 @@ public class JobLaunchService {
             .build());
         final Long runId = run.getRunId();
 
-        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
         liveLogQueues.put(runId, logQueue);
 
         ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
@@ -202,7 +203,7 @@ public class JobLaunchService {
             .build());
         final Long runId = run.getRunId();
 
-        ConcurrentLinkedQueue<String> logQueue = new ConcurrentLinkedQueue<>();
+        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
         liveLogQueues.put(runId, logQueue);
 
         ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
@@ -236,7 +237,7 @@ public class JobLaunchService {
         }
     }
 
-    public ConcurrentLinkedQueue<String> getLiveLogQueue(Long runId) {
+    public BlockingQueue<String> getLiveLogQueue(Long runId) {
         return liveLogQueues.get(runId);
     }
 
@@ -250,7 +251,7 @@ public class JobLaunchService {
     }
 
     private ExecutionContext buildContext(Long runId, Long jobId, JobDefinition job,
-                                          ConcurrentLinkedQueue<String> logQueue) {
+                                          BlockingQueue<String> logQueue) {
         List<String> classpath = parseJobClasspath(job.getClasspath());
         return ExecutionContext.builder()
             .runId(runId)

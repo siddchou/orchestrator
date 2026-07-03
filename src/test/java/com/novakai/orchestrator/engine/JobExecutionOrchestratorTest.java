@@ -48,7 +48,7 @@ class JobExecutionOrchestratorTest {
                 .javaHome(extractJavaHome())
                 .classpath(List.of())
                 .envVars(System.getenv())
-                .liveLogQueue(new ConcurrentLinkedQueue<>())
+                .liveLogQueue(new java.util.concurrent.LinkedBlockingQueue<>())
                 .cancelRequested(false)
                 .build();
     }

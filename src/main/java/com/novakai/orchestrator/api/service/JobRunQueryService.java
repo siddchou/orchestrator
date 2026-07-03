@@ -54,6 +54,7 @@ public class JobRunQueryService {
         return runStep.getLogOutput() != null ? runStep.getLogOutput() : "";
     }
 
+    @Transactional(readOnly = true)
     public JobRunSummary toRunSummary(JobRun run) {
         return mapper.toRunSummary(run);
     }

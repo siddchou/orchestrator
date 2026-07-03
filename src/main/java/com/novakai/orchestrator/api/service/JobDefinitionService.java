@@ -131,7 +131,8 @@ public class JobDefinitionService {
 
     @Transactional
     public JobStepResponse updateStep(Long jobId, Long stepId, JobStepRequest request) {
-        jobRepo.findById(jobId).orElseThrow(() -> new JobNotFoundException(jobId));
+        jobRepo.findById(jobId)
+            .orElseThrow(() -> new JobNotFoundException(jobId));
         JobStep step = stepRepo.findById(stepId)
             .filter(s -> s.getJobDefinition().getJobId().equals(jobId))
             .orElseThrow(() -> new JobNotFoundException(stepId));

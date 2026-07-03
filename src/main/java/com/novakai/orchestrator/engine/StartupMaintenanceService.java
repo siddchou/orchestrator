@@ -7,11 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @Slf4j
@@ -23,16 +25,30 @@ public class StartupMaintenanceService {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void cleanupStaleRuns() {
-        List<JobRun> stale = runRepo.findAllByStatus(RunStatus.RUNNING);
-        if (stale.isEmpty()) {
-            log.info("No stale RUNNING jobs found at startup");
-            return;
+        int totalCount = 0;
+        int batchSize = 1000;
+        Pageable pageable = PageRequest.of(0, batchSize);
+
+        while (true) {
+            Page<JobRun> page = runRepo.findByStatus(RunStatus.RUNNING, pageable);
+            if (page.isEmpty()) {
+                break;
+            }
+
+            totalCount += page.getContent().size();
+
+            for (JobRun run : page.getContent()) {
+                run.setStatus(RunStatus.FAILED);
+                run.setEndedAt(LocalDateTime.now());
+            }
+            runRepo.saveAll(page.getContent());
+
+            if (!page.hasNext()) {
+                break;
+            }
+            pageable = page.nextPageable();
         }
-        stale.forEach(run -> {
-            run.setStatus(RunStatus.FAILED);
-            run.setEndedAt(LocalDateTime.now());
-        });
-        runRepo.saveAll(stale);
-        log.warn("Marked {} stale RUNNING jobs as FAILED after restart", stale.size());
+
+        log.warn("Marked {} stale RUNNING jobs as FAILED after restart", totalCount);
     }
 }
