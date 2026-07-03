@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ViewChild, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, AfterViewInit, ViewChild, ChangeDetectorRef, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -14,7 +14,7 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { RouterLink, NavigationEnd, Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { JobService } from '../../../core/services/job.service';
 import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
 import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
@@ -31,7 +31,7 @@ import { JobDefinition } from '../../../core/models/job.model';
   templateUrl: './job-list.component.html',
   styleUrl: './job-list.component.scss',
 })
-export class JobListComponent implements AfterViewInit {
+export class JobListComponent implements AfterViewInit, OnDestroy {
   private jobService = inject(JobService);
   private dialog = inject(MatDialog);
   private router = inject(Router);
@@ -47,6 +47,7 @@ export class JobListComponent implements AfterViewInit {
   searchInput?: HTMLInputElement;
 
   private searchSubject = new Subject<string>();
+  private routerSub?: Subscription;
 
   ngAfterViewInit() {
     this.loadJobs();
@@ -60,9 +61,13 @@ export class JobListComponent implements AfterViewInit {
     });
 
     // Reload when navigating back from job detail
-    this.router.events.pipe(
+    this.routerSub = this.router.events.pipe(
       filter(e => e instanceof NavigationEnd)
     ).subscribe(() => this.loadJobs());
+  }
+
+  ngOnDestroy(): void {
+    this.routerSub?.unsubscribe();
   }
 
   loadJobs() {
