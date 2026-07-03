@@ -9,8 +9,10 @@ import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 @Slf4j
@@ -59,9 +61,11 @@ public class JobExecutionOrchestrator {
             }
 
         } finally {
+            boolean cancelled = ctx.isCancelRequested() || Thread.currentThread().isInterrupted();
             run.setEndedAt(LocalDateTime.now());
-            if (ctx.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+            if (cancelled) {
                 run.setStatus(RunStatus.CANCELLED);
+                markRemainingStepsCancelled(ctx.getRunId());
             } else {
                 run.setStatus(anyStepFailed ? RunStatus.PARTIAL : RunStatus.SUCCESS);
             }
@@ -82,9 +86,11 @@ public class JobExecutionOrchestrator {
             stepFailed = executeStep(ctx, run, runStep, targetStep);
 
         } finally {
+            boolean cancelled = ctx.isCancelRequested() || Thread.currentThread().isInterrupted();
             run.setEndedAt(LocalDateTime.now());
-            if (ctx.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+            if (cancelled) {
                 run.setStatus(RunStatus.CANCELLED);
+                markRemainingStepsCancelled(ctx.getRunId());
             } else {
                 run.setStatus(stepFailed ? RunStatus.FAILED : RunStatus.SUCCESS);
             }
@@ -132,5 +138,17 @@ public class JobExecutionOrchestrator {
             .stepOrder(step.getStepOrder())
             .status(RunStatus.PENDING)
             .build();
+    }
+
+    @Transactional
+    void markRemainingStepsCancelled(Long runId) {
+        List<JobRunStep> incomplete = runStepRepo.findIncompleteStepsByRunId(runId);
+        incomplete.forEach(s -> {
+            s.setStatus(RunStatus.CANCELLED);
+            if (s.getEndedAt() == null) {
+                s.setEndedAt(LocalDateTime.now());
+            }
+        });
+        runStepRepo.saveAll(incomplete);
     }
 }
