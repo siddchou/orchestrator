@@ -39,6 +39,7 @@ public class JobLaunchService {
     private final JsonParser jsonParser;
 
     private final ConcurrentHashMap<Long, Future<?>> activeFutures = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, ExecutionContext> activeContexts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<Long, ConcurrentLinkedQueue<String>> liveLogQueues
             = new ConcurrentHashMap<>();
 
@@ -88,10 +89,12 @@ public class JobLaunchService {
                     orchestrator.execute(ctx, job, run);
                 } finally {
                     MDC.clear();
+                    cleanupRun(runId);
                 }
             }
         );
         activeFutures.put(runId, future);
+        activeContexts.put(runId, ctx);
 
         return run;
     }
@@ -127,10 +130,12 @@ public class JobLaunchService {
                     orchestrator.execute(ctx, job, run);
                 } finally {
                     MDC.clear();
+                    cleanupRun(runId);
                 }
             }
         );
         activeFutures.put(runId, future);
+        activeContexts.put(runId, ctx);
 
         return run;
     }
@@ -167,10 +172,12 @@ public class JobLaunchService {
                     orchestrator.executeSingleStep(ctx, job, run, step);
                 } finally {
                     MDC.clear();
+                    cleanupRun(runId);
                 }
             }
         );
         activeFutures.put(runId, future);
+        activeContexts.put(runId, ctx);
 
         return run;
     }
@@ -207,10 +214,12 @@ public class JobLaunchService {
                     orchestrator.executeSingleStep(ctx, job, run, step);
                 } finally {
                     MDC.clear();
+                    cleanupRun(runId);
                 }
             }
         );
         activeFutures.put(runId, future);
+        activeContexts.put(runId, ctx);
 
         return run;
     }
@@ -270,10 +279,12 @@ public class JobLaunchService {
     }
 
     private ExecutionContext findContext(Long runId) {
-        ConcurrentLinkedQueue<String> queue = liveLogQueues.get(runId);
-        if (queue != null) {
-            return ExecutionContext.builder().runId(runId).build();
-        }
-        return null;
+        return activeContexts.get(runId);
+    }
+
+    private void cleanupRun(Long runId) {
+        activeFutures.remove(runId);
+        activeContexts.remove(runId);
+        liveLogQueues.remove(runId);
     }
 }
