@@ -141,7 +141,7 @@ class JavaExecStepExecutorTest {
                 {"mainClass":"java.lang.Object","jarPath":null,"args":[],"jvmArgs":null,"timeoutMinutes":1}
                 """;
         JobStep step = JobStep.builder().stepConfig(config).build();
-        var queue = new java.util.concurrent.ConcurrentLinkedQueue<String>();
+        var queue = new java.util.concurrent.LinkedBlockingQueue<String>();
         ExecutionContext ctx = ExecutionContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of())

@@ -11,8 +11,10 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.ArrayList;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
@@ -26,7 +28,7 @@ public class LogStreamController {
     @GetMapping(value = "/runs/{runId}/log-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamLog(@PathVariable Long runId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        ConcurrentLinkedQueue<String> queue = launchService.getLiveLogQueue(runId);
+        BlockingQueue<String> queue = launchService.getLiveLogQueue(runId);
 
         if (queue == null) {
             try {
@@ -41,26 +43,35 @@ public class LogStreamController {
             MDC.setContextMap(contextMap);
             try {
                 while (true) {
-                    String line = queue.poll();
+                    // Use take() with timeout to block efficiently instead of busy-looping
+                    String line = queue.poll(1, TimeUnit.SECONDS);
                     if (line != null) {
                         emitter.send(SseEmitter.event().data(line));
                     } else {
+                        // No log available in the last second - check if job is complete
                         JobRun run = runRepo.findById(runId).orElse(null);
-                        if (run != null && run.getStatus() != RunStatus.RUNNING
-                                        && run.getStatus() != RunStatus.PENDING) {
-                            String remaining;
-                            while ((remaining = queue.poll()) != null) {
-                                emitter.send(SseEmitter.event().data(remaining));
+                        if (run == null || run.getStatus() != RunStatus.RUNNING) {
+                            // Drain remaining logs before completing
+                            java.util.List<String> lines = new ArrayList<>();
+                            queue.drainTo(lines);
+                            for (String l : lines) {
+                                emitter.send(SseEmitter.event().data(l));
                             }
-                            emitter.send(SseEmitter.event().name("done").data("RUN_COMPLETE"));
+                            emitter.send(SseEmitter.event().name("done").data(
+                                run != null && run.getStatus() == RunStatus.RUNNING
+                                    ? "RUN_COMPLETE"
+                                    : "JOB_NOT_FOUND"));
                             emitter.complete();
                             break;
                         }
-                        Thread.sleep(250);
                     }
                 }
             } catch (java.io.IOException ex) {
                 log.debug("SSE client disconnected for run {}", runId);
+                emitter.completeWithError(ex);
+            } catch (InterruptedException ex) {
+                log.debug("Log stream thread interrupted for run {}", runId);
+                Thread.currentThread().interrupt();
                 emitter.completeWithError(ex);
             } catch (Exception ex) {
                 emitter.completeWithError(ex);

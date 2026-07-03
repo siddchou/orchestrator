@@ -6,7 +6,7 @@ import lombok.Data;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.BlockingQueue;
 
 @Data
 @Builder
@@ -17,6 +17,6 @@ public class ExecutionContext {
     private Map<String, String> envVars;
     private String javaHome;
     private List<String> classpath;
-    private ConcurrentLinkedQueue<String> liveLogQueue;
+    private BlockingQueue<String> liveLogQueue;
     private volatile boolean cancelRequested;
 }
