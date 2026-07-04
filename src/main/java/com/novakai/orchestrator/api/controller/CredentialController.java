@@ -92,11 +92,11 @@ public class CredentialController {
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
+    public ApiResponse<Void> delete(@PathVariable Long id) {
         JobCredential cred = credRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Credential not found: " + id));
         credRepo.delete(cred);
         log.info("Deleted credential id={} ref={}", id, cred.getCredentialRef());
+        return ApiResponse.success(null);
     }
 }

@@ -67,16 +67,31 @@ export class CredentialListComponent implements OnInit {
   }
 
   deleteCredential(id: number) {
-    this.dialog.open(ConfirmDialog, {
+    const dialogRef = this.dialog.open(ConfirmDialog, {
       data: {
         title: 'Delete Credential',
         message: 'Delete this credential?',
         confirmButton: 'Delete',
       },
-    }).afterClosed().subscribe((confirmed: boolean) => {
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
       if (!confirmed) return;
+
+      // Update UI immediately to show item is being deleted
+      this.credentials = this.credentials.filter(c => c.id !== id);
+
       this.credentialService.deleteCredential(id).subscribe({
-        next: () => this.loadCredentials(),
+        next: () => {
+          this.snackBar.open('Credential deleted successfully', 'Undo', { duration: 5000 });
+          // Refresh from server to get latest list
+          setTimeout(() => this.loadCredentials(), 100);
+        },
+        error: (err) => {
+          this.snackBar.open(err.message || 'Failed to delete credential', 'Close', { duration: 5000 });
+          // Restore the credentials list on error
+          this.loadCredentials();
+        }
       });
     });
   }
@@ -98,8 +113,9 @@ export class CredentialListComponent implements OnInit {
     this.credentialService.generateKeys(request).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
+          this.snackBar.open('SSH key pair generated successfully', 'Close', { duration: 3000 });
           this.showPrivateKey(res.data);
-          this.loadCredentials();
+          setTimeout(() => this.loadCredentials(), 100);
           this.resetKeyForm();
         }
         this.generatingKey = false;
