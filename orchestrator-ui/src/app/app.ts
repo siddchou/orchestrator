@@ -42,6 +42,7 @@ export class App implements OnInit, OnDestroy {
     ['/jobs', 'Jobs'],
     ['/jobs/new', 'New Job'],
     ['/runs', 'Run History'],
+    ['/credentials', 'SFTP Credentials'],
     ['/config', 'Configuration'],
   ]);
 
@@ -88,6 +89,10 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
+  get showCredentials(): boolean {
+    return this.userRole === 'ADMIN';
+  }
+
   get showConfig(): boolean {
     return this.userRole === 'ADMIN';
   }
@@ -98,6 +103,9 @@ export class App implements OnInit, OnDestroy {
       { label: 'Jobs', icon: 'work', route: '/jobs', tooltip: 'Manage and monitor all scheduled jobs' },
       { label: 'Runs', icon: 'history', route: '/runs', tooltip: 'View job execution history and logs' },
     ];
+    if (this.showCredentials) {
+      base.push({ label: 'SFTP Credentials', icon: 'vpn_key', route: '/credentials', tooltip: 'Manage SSH key pairs for SFTP operations' });
+    }
     if (this.showConfig) {
       base.push({ label: 'Config', icon: 'settings', route: '/config', tooltip: 'System configuration and environment variables' });
     }

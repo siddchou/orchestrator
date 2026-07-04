@@ -40,6 +40,12 @@ export const routes: Routes = [
         canActivate: [adminGuard],
         loadComponent: () => import('./features/config/global-config/global-config.component').then(m => m.GlobalConfigComponent),
       },
+      {
+        path: 'credentials',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/credentials/credential-list.component')
+          .then(m => m.CredentialListComponent),
+      },
       { path: '**', redirectTo: '/dashboard' },
     ],
   },

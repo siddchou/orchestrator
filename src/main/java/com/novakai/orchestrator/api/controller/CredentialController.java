@@ -3,9 +3,12 @@ package com.novakai.orchestrator.api.controller;
 import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.api.dto.CredentialRequest;
 import com.novakai.orchestrator.api.dto.CredentialSummary;
+import com.novakai.orchestrator.api.dto.KeyGenerationRequest;
+import com.novakai.orchestrator.api.dto.KeyGenerationResponse;
 import com.novakai.orchestrator.domain.entity.JobCredential;
 import com.novakai.orchestrator.domain.enums.CredentialType;
 import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
+import com.novakai.orchestrator.engine.service.KeyGeneratorService;
 import com.novakai.orchestrator.repository.JobCredentialRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
@@ -25,11 +28,14 @@ public class CredentialController {
 
     private final JobCredentialRepository credRepo;
     private final CredentialDecryptionService cryptoService;
+    private final KeyGeneratorService keyGeneratorService;
 
     public CredentialController(JobCredentialRepository credRepo,
-                                CredentialDecryptionService cryptoService) {
+                                CredentialDecryptionService cryptoService,
+                                KeyGeneratorService keyGeneratorService) {
         this.credRepo = credRepo;
         this.cryptoService = cryptoService;
+        this.keyGeneratorService = keyGeneratorService;
     }
 
     @GetMapping
@@ -60,6 +66,29 @@ public class CredentialController {
         log.info("Created credential ref={} type={}", request.ref(), credType);
         return ApiResponse.success(new CredentialSummary(
                 cred.getCredentialId(), cred.getCredentialRef(), cred.getCredType()));
+    }
+
+    @PostMapping("/generate-keys")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<KeyGenerationResponse> generateKeys(@Valid @RequestBody KeyGenerationRequest request) throws Exception {
+        KeyGeneratorService.KeyGenerationResult result = keyGeneratorService.generateKeyPair(request);
+
+        // Store the public key as an SSH_KEY credential
+        JobCredential cred = JobCredential.builder()
+                .credentialRef(request.ref())
+                .credType(CredentialType.SSH_KEY)
+                .credValue(cryptoService.encrypt(result.publicKey()))
+                .createdAt(LocalDateTime.now())
+                .build();
+        cred = credRepo.save(cred);
+
+        log.info("Generated SSH key pair ref={} algorithm={}", request.ref(), result.algorithm());
+
+        return ApiResponse.success(new KeyGenerationResponse(
+                result.privateKey(),
+                result.publicKey(),
+                result.fingerprint(),
+                result.algorithm()));
     }
 
     @DeleteMapping("/{id}")
