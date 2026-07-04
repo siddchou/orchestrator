@@ -58,8 +58,8 @@
   </mat-dialog-content>
 
   <mat-dialog-actions align="end" class="dialog-actions">
-    <button mat-stroked-button (click)="cancel()">Cancel</button>
-    <button mat-flat-button color="primary" (click)="confirm()" class="run-button">
+    <button mat-stroked-button (click)="cancel()" matTooltip="Cancel this run">Cancel</button>
+    <button mat-flat-button color="primary" (click)="confirm()" class="run-button" matTooltip="Start the job execution immediately">
       <mat-icon>play_arrow</mat-icon>
       <span>Run Now</span>
     </button>

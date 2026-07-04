@@ -19,7 +19,7 @@
         <!-- Navigation -->
         <mat-nav-list class="nav-list">
           @for (item of navItems; track item.route) {
-            <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link" #rla="routerLinkActive" [activated]="rla.isActive">
+            <a mat-list-item [routerLink]="item.route" routerLinkActive="active-link" #rla="routerLinkActive" [activated]="rla.isActive" [matTooltip]="item.tooltip">
               <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
               <span matListItemTitle>{{ item.label }}</span>
               @if (rla.isActive) {

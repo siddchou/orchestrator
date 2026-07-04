@@ -63,7 +63,7 @@
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef>Actions</th>
       <td mat-cell *matCellDef="let run">
-        <button mat-icon-button [routerLink]="'/runs/' + run.runId" matTooltip="View">
+        <button mat-icon-button [routerLink]="'/runs/' + run.runId" matTooltip="View run details">
           <mat-icon>visibility</mat-icon>
         </button>
         @if (run.status !== 'RUNNING') {

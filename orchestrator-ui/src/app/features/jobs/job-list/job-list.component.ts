@@ -25,7 +25,7 @@ import { JobDefinition } from '../../../core/models/job.model';
   selector: 'app-job-list',
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
-    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule,
+    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule, MatTooltipModule,
     MatChipsModule, MatSnackBarModule, MatDialogModule, RouterLink,
   ],
   templateUrl: './job-list.component.html',

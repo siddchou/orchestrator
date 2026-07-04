@@ -4,6 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -28,7 +29,7 @@ const CARD_DATA = [
   selector: 'app-dashboard',
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatButtonModule,
-    MatIconModule, MatChipsModule, MatSnackBarModule, MatDialogModule,
+    MatIconModule, MatTooltipModule, MatChipsModule, MatSnackBarModule, MatDialogModule,
     RouterLink, StatusBadge, DurationPipe,
   ],
   templateUrl: './dashboard.component.html',

@@ -11,12 +11,12 @@
     <div class="filters-row">
       <mat-form-field appearance="outline">
         <mat-label>Job ID</mat-label>
-        <input matInput type="number" formControlName="jobId" placeholder="All jobs">
+        <input matInput type="number" formControlName="jobId" placeholder="All jobs" matTooltip="Filter by specific job (leave empty for all)">
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>Status</mat-label>
-        <mat-select formControlName="status">
+        <mat-select formControlName="status" matTooltip="Filter by execution status">
           <mat-option [value]="null">All</mat-option>
           @for (s of allStatuses; track s) {
             <mat-option [value]="s">{{ s }}</mat-option>
@@ -26,23 +26,23 @@
 
       <mat-form-field appearance="outline">
         <mat-label>From</mat-label>
-        <input matInput [matDatepicker]="fromPicker" formControlName="from">
+        <input matInput [matDatepicker]="fromPicker" formControlName="from" matTooltip="Start date for filtering runs">
         <mat-datepicker-toggle matSuffix [for]="fromPicker"></mat-datepicker-toggle>
         <mat-datepicker #fromPicker></mat-datepicker>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>To</mat-label>
-        <input matInput [matDatepicker]="toPicker" formControlName="to">
+        <input matInput [matDatepicker]="toPicker" formControlName="to" matTooltip="End date for filtering runs">
         <mat-datepicker-toggle matSuffix [for]="toPicker"></mat-datepicker-toggle>
         <mat-datepicker #toPicker></mat-datepicker>
       </mat-form-field>
 
       <div class="filter-buttons">
-        <button mat-flat-button color="primary" (click)="applyFilters()">
+        <button mat-flat-button color="primary" (click)="applyFilters()" matTooltip="Apply filters to search results">
           <mat-icon>filter_list</mat-icon> Apply
         </button>
-        <button mat-stroked-button (click)="clearFilters()">
+        <button mat-stroked-button (click)="clearFilters()" matTooltip="Clear all filters">
           <mat-icon>clear</mat-icon> Clear
         </button>
       </div>
@@ -99,7 +99,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef>Actions</th>
         <td mat-cell *matCellDef="let run">
-          <button mat-stroked-button (click)="viewRun(run.runId)" class="view-btn">
+          <button mat-stroked-button (click)="viewRun(run.runId)" class="view-btn" matTooltip="View run details">
             <mat-icon>visibility</mat-icon> View
           </button>
         </td>

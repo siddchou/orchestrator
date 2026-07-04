@@ -70,6 +70,8 @@ export interface SftpConfig {
   remoteDir: string;
   filePattern: string;
   direction: 'UPLOAD' | 'DOWNLOAD';
+  connectionTimeoutSeconds?: number;
+  authTimeoutSeconds?: number;
 }
 
 export interface ArchiveConfig {
