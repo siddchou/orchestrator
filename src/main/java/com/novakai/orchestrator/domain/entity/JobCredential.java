@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.domain.entity;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.enums.CredentialType;
 import jakarta.persistence.*;
 import lombok.*;

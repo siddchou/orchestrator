@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.security;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.entity.AppUser;
 import com.novakai.orchestrator.repository.AppUserRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;

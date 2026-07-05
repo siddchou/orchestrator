@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.repository;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.entity.AuditLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 
