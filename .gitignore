@@ -41,10 +41,20 @@ yarn.lock
 pnpm-lock.yaml
 
 ### Angular build output ###
-src/main/resources/static/
-# Angular chunk files (generated on build)
-**/chunk-*.js
-/src/resources/static/browser/
+# Browser directory (except tracked files)
+src/main/resources/static/browser/*
+!src/main/resources/static/browser/index.html
+!src/main/resources/static/browser/favicon.ico
+
+# Prerendered routes (generated on build)
+src/main/resources/static/prerendered-routes.json
+
+# SVG assets (place your custom SVGs here if needed)
+# src/main/resources/static/*.svg
+
+# Build artifacts with hash in filename (chunk files, main bundle, styles)
+src/main/resources/static/*-*.js
+src/main/resources/static/*-*.css
 
 ### Lock file exceptions - uncomment to track package-lock.json
 # !package-lock.json
