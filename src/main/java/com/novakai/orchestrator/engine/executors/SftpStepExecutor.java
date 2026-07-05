@@ -21,6 +21,8 @@ import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PreDestroy;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -30,6 +32,8 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -39,6 +43,9 @@ public class SftpStepExecutor implements StepExecutor {
     private final JobCredentialRepository credentialRepo;
     private final CredentialDecryptionService decryptionService;
     private final JsonParser jsonParser;
+
+    // Track running clients for graceful shutdown
+    private final Set<SshClient> runningClients = ConcurrentHashMap.newKeySet();
 
     public SftpStepExecutor(JobCredentialRepository credentialRepo,
                             CredentialDecryptionService decryptionService,
@@ -116,6 +123,9 @@ public class SftpStepExecutor implements StepExecutor {
 
         client.start();
 
+        // Track client for graceful shutdown
+        runningClients.add(client);
+
         ClientSession session = null;
         SftpClient sftp = null;
 
@@ -170,17 +180,22 @@ public class SftpStepExecutor implements StepExecutor {
             }
 
         } finally {
-            if (sftp != null) {
-                try {
+            try {
+                if (sftp != null) {
                     sftp.close();
-                } catch (IOException e) {
-                    log.warn("Error closing SFTP client", e);
                 }
+            } catch (IOException e) {
+                log.warn("Error closing SFTP client", e);
             }
             if (session != null) {
                 session.close(false);
             }
-            client.stop();
+            try {
+                client.stop();
+            } finally {
+                // Remove from tracking after proper shutdown
+                runningClients.remove(client);
+            }
         }
 
         return output.toString();
@@ -198,6 +213,9 @@ public class SftpStepExecutor implements StepExecutor {
         }
 
         client.start();
+
+        // Track client for graceful shutdown
+        runningClients.add(client);
 
         ClientSession session = null;
         SftpClient sftp = null;
@@ -281,17 +299,22 @@ public class SftpStepExecutor implements StepExecutor {
             }
 
         } finally {
-            if (sftp != null) {
-                try {
+            try {
+                if (sftp != null) {
                     sftp.close();
-                } catch (IOException e) {
-                    log.warn("Error closing SFTP client", e);
                 }
+            } catch (IOException e) {
+                log.warn("Error closing SFTP client", e);
             }
             if (session != null) {
                 session.close(false);
             }
-            client.stop();
+            try {
+                client.stop();
+            } finally {
+                // Remove from tracking after proper shutdown
+                runningClients.remove(client);
+            }
         }
 
         return output.toString();
@@ -312,6 +335,24 @@ public class SftpStepExecutor implements StepExecutor {
             log.debug("SSH key not found as file, treating as direct key content");
             return SecurityUtils.loadKeyPairIdentities(
                 null, null, new java.io.ByteArrayInputStream(decryptedValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)), null);
+        }
+    }
+
+    /**
+     * Shutdown hook to terminate any running SFTP clients when the application shuts down.
+     */
+    @PreDestroy
+    public void shutdown() {
+        if (!runningClients.isEmpty()) {
+            log.info("Closing {} running SFTP clients on shutdown", runningClients.size());
+            for (SshClient client : runningClients) {
+                try {
+                    client.stop();
+                    log.debug("Stopped SFTP client");
+                } catch (Exception e) {
+                    log.warn("Error stopping SFTP client: {}", e.getMessage());
+                }
+            }
         }
     }
 }

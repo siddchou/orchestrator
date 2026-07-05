@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PreDestroy;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -289,5 +290,33 @@ public class JobLaunchService {
         activeFutures.remove(runId);
         activeContexts.remove(runId);
         liveLogQueues.remove(runId);
+    }
+
+    /**
+     * Graceful shutdown handler - cancels all active runs.
+     * Called when Spring context is closing via @PreDestroy or DisposableBean.
+     */
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down job executor - cancelling {} active runs", activeFutures.size());
+
+        // Cancel all active futures
+        for (Long runId : activeFutures.keySet()) {
+            Future<?> future = activeFutures.get(runId);
+            if (future != null && !future.isDone() && !future.isCancelled()) {
+                future.cancel(true); // interrupt if running
+                log.debug("Cancelled run {}", runId);
+            }
+        }
+
+        // Mark all active contexts as cancelled
+        for (Long runId : activeContexts.keySet()) {
+            ExecutionContext ctx = activeContexts.get(runId);
+            if (ctx != null) {
+                ctx.setCancelRequested(true);
+            }
+        }
+
+        log.info("Job executor shutdown complete");
     }
 }

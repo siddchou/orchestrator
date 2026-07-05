@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PreDestroy;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -41,6 +44,9 @@ public class JavaExecStepExecutor implements StepExecutor {
         Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)*$");
     private static final Pattern SAFE_JAR_PATH_PATTERN =
         Pattern.compile("^[a-zA-Z0-9_./\\\\-]+$");
+
+    // Track running processes for graceful shutdown
+    private final List<RunningProcess> runningProcesses = new CopyOnWriteArrayList<>();
 
     public JavaExecStepExecutor(JsonParser jsonParser) {
         this.jsonParser = jsonParser;
@@ -111,7 +117,16 @@ public class JavaExecStepExecutor implements StepExecutor {
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
+
+        // Track the process for potential shutdown termination
+        long pid = getProcessId(process);
+        RunningProcess runningProcess = new RunningProcess(pid, process);
+        if (pid > 0) {
+            runningProcesses.add(runningProcess);
+        }
+
         int timeout = config.timeoutMinutes() != null ? config.timeoutMinutes() : defaultTimeoutMinutes;
+        boolean completed = false;
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream()))) {
@@ -124,8 +139,18 @@ public class JavaExecStepExecutor implements StepExecutor {
             }
         }
 
-        boolean completed = process.waitFor(timeout, TimeUnit.MINUTES);
-        if (!completed) {
+        // Track cancellation/interruption during execution
+        boolean cancelled = false;
+        try {
+            completed = process.waitFor(timeout, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            log.warn("JavaExec process execution interrupted for PID {}", pid);
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+            cancelled = true;
+        }
+
+        if (!completed && !cancelled) {
             process.destroyForcibly();
             return StepResult.failure(-1, output + "\nPROCESS TIMED OUT after " + timeout + " minutes");
         }
@@ -133,6 +158,9 @@ public class JavaExecStepExecutor implements StepExecutor {
         int exitCode = process.exitValue();
         log.debug("JavaExec: process exited with code {}", exitCode);
         output.append("\nProcess exited with code: ").append(exitCode);
+
+        // Remove from tracking
+        runningProcesses.remove(runningProcess);
 
         return exitCode == 0
             ? StepResult.success(output.toString())
@@ -223,6 +251,51 @@ public class JavaExecStepExecutor implements StepExecutor {
         } catch (Exception e) {
             log.warn("Failed to validate jar path: {}", jarPath, e);
             return null;
+        }
+    }
+
+    /**
+     * Get the process ID from a Process object.
+     * Works on Java 9+ using Process#toHandle().pid()
+     */
+    private long getProcessId(Process process) {
+        try {
+            // Java 9+ approach
+            return process.toHandle().pid();
+        } catch (UnsupportedOperationException | SecurityException e) {
+            log.debug("Could not obtain PID from Process", e);
+            return -1;
+        }
+    }
+
+    /**
+     * Inner class to track running processes for shutdown cleanup.
+     */
+    private static class RunningProcess {
+        final long pid;
+        final Process process;
+
+        RunningProcess(long pid, Process process) {
+            this.pid = pid;
+            this.process = process;
+        }
+    }
+
+    /**
+     * Shutdown hook to terminate any running processes when the application shuts down.
+     */
+    @PreDestroy
+    public void shutdown() {
+        if (!runningProcesses.isEmpty()) {
+            log.info("Terminating {} running JavaExec processes on shutdown", runningProcesses.size());
+            for (RunningProcess p : runningProcesses) {
+                try {
+                    p.process.destroyForcibly();
+                    log.debug("Forcefully terminated process PID {}", p.pid);
+                } catch (Exception e) {
+                    log.warn("Failed to terminate process PID {}: {}", p.pid, e.getMessage());
+                }
+            }
         }
     }
 }
