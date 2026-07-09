@@ -31,7 +31,7 @@ public class CliRunner implements CommandLineRunner {
 
     private static final Set<RunStatus> TERMINAL_STATUSES = Set.of(
             RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.PARTIAL,
-            RunStatus.CANCELLED, RunStatus.SKIPPED
+            RunStatus.CANCELLED
     );
 
     private final JobLaunchService launchService;

@@ -119,7 +119,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   statusColor(status: RunStatus): string {
     const colors: Record<RunStatus, string> = {
       PENDING: '#757575', RUNNING: '#ff9800', SUCCESS: '#4caf50',
-      FAILED: '#f44336', PARTIAL: '#9c27b0', CANCELLED: '#607d8b', SKIPPED: '#9e9e9e',
+      FAILED: '#f44336', PARTIAL: '#9c27b0', CANCELLED: '#607d8b',
     };
     return colors[status] ?? '#757575';
   }

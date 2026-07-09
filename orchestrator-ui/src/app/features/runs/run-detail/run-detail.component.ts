@@ -125,7 +125,7 @@ export class RunDetailComponent implements OnInit, OnDestroy {
   statusIcon(status: RunStatus): string {
     const icons: Record<RunStatus, string> = {
       PENDING: 'schedule', RUNNING: 'pending', SUCCESS: 'check_circle',
-      FAILED: 'error', PARTIAL: 'warning', CANCELLED: 'cancel', SKIPPED: 'step_inplace',
+      FAILED: 'error', PARTIAL: 'warning', CANCELLED: 'cancel',
     };
     return icons[status] ?? 'help';
   }
@@ -133,7 +133,7 @@ export class RunDetailComponent implements OnInit, OnDestroy {
   statusIconColor(status: RunStatus): string {
     const colors: Record<RunStatus, string> = {
       SUCCESS: 'green', FAILED: 'red', RUNNING: 'orange',
-      PENDING: 'grey', PARTIAL: 'orange', CANCELLED: 'purple', SKIPPED: 'grey',
+      PENDING: 'grey', PARTIAL: 'orange', CANCELLED: 'purple',
     };
     return colors[status] ?? 'grey';
   }
