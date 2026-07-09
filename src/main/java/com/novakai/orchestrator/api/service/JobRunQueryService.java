@@ -51,6 +51,9 @@ public class JobRunQueryService {
 
     @Transactional(readOnly = true)
     public String getStepLog(Long runId, Long stepId) {
+        if (!runStepRepo.existsByRunStepIdAndJobRun_RunId(stepId, runId)) {
+            throw new EntityNotFoundException("Step " + stepId + " not found in run " + runId);
+        }
         JobRunStep runStep = runStepRepo.findById(stepId)
                 .orElseThrow(() -> new EntityNotFoundException("Run step not found: " + stepId));
         return runStep.getLogOutput() != null ? runStep.getLogOutput() : "";

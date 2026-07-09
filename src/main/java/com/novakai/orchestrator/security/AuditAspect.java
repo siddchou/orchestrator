@@ -32,21 +32,26 @@ public class AuditAspect {
             returning = "result"
     )
     public void audit(JoinPoint jp, Auditable auditable, Object result) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = auth != null ? auth.getName() : "system";
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth != null ? auth.getName() : "system";
 
-        // Try to extract entity ID from method arguments
-        Long entityId = extractEntityId(jp.getArgs());
+            // Try to extract entity ID from method arguments
+            Long entityId = extractEntityId(jp.getArgs());
 
-        AuditLog entry = AuditLog.builder()
-                .username(username)
-                .action(auditable.action())
-                .entityType(auditable.entityType())
-                .entityId(entityId)
-                .createdAt(LocalDateTime.now())
-                .build();
-        auditRepo.save(entry);
-        log.debug("Audit: user={} action={} entityType={} entityId={}", username, auditable.action(), auditable.entityType(), entityId);
+            AuditLog entry = AuditLog.builder()
+                    .username(username)
+                    .action(auditable.action())
+                    .entityType(auditable.entityType())
+                    .entityId(entityId)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            auditRepo.save(entry);
+            log.debug("Audit: user={} action={} entityType={} entityId={}", username, auditable.action(), auditable.entityType(), entityId);
+        } catch (Exception e) {
+            // Audit logging should not fail the main operation
+            log.error("Failed to save audit log for action={} entityType={}", auditable.action(), auditable.entityType(), e);
+        }
     }
 
     private Long extractEntityId(Object[] args) {
