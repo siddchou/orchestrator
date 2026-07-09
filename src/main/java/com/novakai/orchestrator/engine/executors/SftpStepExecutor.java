@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.engine.executors;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.config.SftpConfig;
 import com.novakai.orchestrator.domain.entity.JobCredential;
 import com.novakai.orchestrator.domain.enums.CredentialType;
@@ -19,14 +21,19 @@ import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PreDestroy;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
 import java.security.KeyPair;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -36,6 +43,9 @@ public class SftpStepExecutor implements StepExecutor {
     private final JobCredentialRepository credentialRepo;
     private final CredentialDecryptionService decryptionService;
     private final JsonParser jsonParser;
+
+    // Track running clients for graceful shutdown
+    private final Set<SshClient> runningClients = ConcurrentHashMap.newKeySet();
 
     public SftpStepExecutor(JobCredentialRepository credentialRepo,
                             CredentialDecryptionService decryptionService,
@@ -58,6 +68,13 @@ public class SftpStepExecutor implements StepExecutor {
             return StepResult.failure("SftpConfig is null or empty");
         }
 
+        // Validate direction configuration
+        String direction = config.direction();
+        if (direction == null || (!"UPLOAD".equalsIgnoreCase(direction) && !"DOWNLOAD".equalsIgnoreCase(direction))) {
+            return StepResult.failure("Invalid or missing direction: must be 'UPLOAD' or 'DOWNLOAD'");
+        }
+        boolean isUpload = "UPLOAD".equalsIgnoreCase(direction);
+
         StringBuilder output = new StringBuilder();
 
         JobCredential cred = credentialRepo.findByCredentialRef(config.credentialRef())
@@ -65,6 +82,23 @@ public class SftpStepExecutor implements StepExecutor {
 
         log.debug("SFTP: credential ref={} type={}", config.credentialRef(), cred.getCredType());
         String decryptedValue = decryptionService.decrypt(cred.getCredValue());
+
+        // Get timeout values with defaults
+        int connectionTimeoutSec = config.connectionTimeoutSeconds() != null ? config.connectionTimeoutSeconds() : 30;
+        int authTimeoutSec = config.authTimeoutSeconds() != null ? config.authTimeoutSeconds() : 30;
+
+        if (isUpload) {
+            output.append(doUpload(ctx, config, cred, decryptedValue, connectionTimeoutSec, authTimeoutSec));
+        } else {
+            output.append(doDownload(ctx, config, cred, decryptedValue, connectionTimeoutSec, authTimeoutSec));
+        }
+
+        return StepResult.success(output.toString());
+    }
+
+    private String doUpload(ExecutionContext ctx, SftpConfig config, JobCredential cred,
+                            String decryptedValue, int connectionTimeoutSec, int authTimeoutSec) throws Exception {
+        StringBuilder output = new StringBuilder();
 
         PathMatcher matcher = java.nio.file.FileSystems.getDefault()
             .getPathMatcher("glob:" + config.filePattern());
@@ -77,50 +111,248 @@ public class SftpStepExecutor implements StepExecutor {
         if (files.isEmpty()) {
             log.debug("SFTP: no files matched pattern {} in {}", config.filePattern(), ctx.getWorkingDir());
             output.append("No files matched pattern: ").append(config.filePattern()).append("\n");
-            return StepResult.success(output.toString());
+            return output.toString();
         }
 
         SshClient client = SshClient.setUpDefaultClient();
 
         if (cred.getCredType() == CredentialType.SSH_KEY) {
-            Iterable<KeyPair> keyPairs = SecurityUtils.loadKeyPairIdentities(
-                null, null, Files.newInputStream(Path.of(decryptedValue)), null);
+            Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
             client.setKeyIdentityProvider(session -> keyPairs);
         }
 
         client.start();
 
+        // Track client for graceful shutdown
+        runningClients.add(client);
+
+        ClientSession session = null;
+        SftpClient sftp = null;
+
         try {
-            ClientSession session = client.connect(config.username(), config.host(), config.port())
-                .verify(30, TimeUnit.SECONDS)
+            session = client.connect(config.username(), config.host(), config.port())
+                .verify(connectionTimeoutSec, TimeUnit.SECONDS)
                 .getSession();
 
-            try {
-                if (cred.getCredType() != CredentialType.SSH_KEY) {
-                    session.addPasswordIdentity(decryptedValue);
-                }
-                session.auth().verify(30, TimeUnit.SECONDS);
+            // Add password identity for password-based auth
+            if (cred.getCredType() != CredentialType.SSH_KEY) {
+                session.addPasswordIdentity(decryptedValue);
+            }
+            session.auth().verify(authTimeoutSec, TimeUnit.SECONDS);
 
-                try (SftpClient sftp = SftpClientFactory.instance().createSftpClient(session)) {
-                    for (Path file : files) {
-                        String remotePath = config.remoteDir() + "/" + file.getFileName();
-                        sftp.put(file, remotePath, List.of(
-                            SftpClient.OpenMode.Write,
-                            SftpClient.OpenMode.Create,
-                            SftpClient.OpenMode.Truncate
-                        ));
-                        long bytes = Files.size(file);
-                        output.append("Uploaded: ").append(file.getFileName())
-                           .append(" (").append(bytes / 1024).append(" KB)\n");
-                    }
+            sftp = SftpClientFactory.instance().createSftpClient(session);
+
+            List<String> failedFiles = new ArrayList<>();
+            long totalBytes = 0;
+
+            for (Path file : files) {
+                if (ctx.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+                    log.info("Upload cancelled by user");
+                    output.append("Upload cancelled by user\n");
+                    return output.toString();
                 }
-            } finally {
+
+                String remotePath = config.remoteDir() + "/" + file.getFileName();
+                try {
+                    long fileSize = Files.size(file);
+                    sftp.put(file, remotePath, List.of(
+                        SftpClient.OpenMode.Write,
+                        SftpClient.OpenMode.Create,
+                        SftpClient.OpenMode.Truncate
+                    ));
+                    totalBytes += fileSize;
+                    output.append("Uploaded: ").append(file.getFileName())
+                       .append(" (").append(String.format("%.2f", fileSize / 1024.0)).append(" KB)\n");
+                } catch (IOException e) {
+                    String errorMsg = "Failed to upload " + file.getFileName() + ": " + e.getMessage();
+                    log.warn(errorMsg);
+                    failedFiles.add(file.getFileName().toString());
+                }
+            }
+
+            output.append("\nUpload Summary: ")
+                  .append(files.size() - failedFiles.size())
+                  .append("/").append(files.size())
+                  .append(" files successful\n");
+
+            if (!failedFiles.isEmpty()) {
+                output.append("Failed files: ").append(String.join(", ", failedFiles)).append("\n");
+            }
+
+        } finally {
+            try {
+                if (sftp != null) {
+                    sftp.close();
+                }
+            } catch (IOException e) {
+                log.warn("Error closing SFTP client", e);
+            }
+            if (session != null) {
                 session.close(false);
             }
-        } finally {
-            client.stop();
+            try {
+                client.stop();
+            } finally {
+                // Remove from tracking after proper shutdown
+                runningClients.remove(client);
+            }
         }
 
-        return StepResult.success(output.toString());
+        return output.toString();
+    }
+
+    private String doDownload(ExecutionContext ctx, SftpConfig config, JobCredential cred,
+                              String decryptedValue, int connectionTimeoutSec, int authTimeoutSec) throws Exception {
+        StringBuilder output = new StringBuilder();
+
+        SshClient client = SshClient.setUpDefaultClient();
+
+        if (cred.getCredType() == CredentialType.SSH_KEY) {
+            Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
+            client.setKeyIdentityProvider(session -> keyPairs);
+        }
+
+        client.start();
+
+        // Track client for graceful shutdown
+        runningClients.add(client);
+
+        ClientSession session = null;
+        SftpClient sftp = null;
+
+        try {
+            session = client.connect(config.username(), config.host(), config.port())
+                .verify(connectionTimeoutSec, TimeUnit.SECONDS)
+                .getSession();
+
+            if (cred.getCredType() != CredentialType.SSH_KEY) {
+                session.addPasswordIdentity(decryptedValue);
+            }
+            session.auth().verify(authTimeoutSec, TimeUnit.SECONDS);
+
+            sftp = SftpClientFactory.instance().createSftpClient(session);
+
+            // List files in remote directory matching pattern
+            String remoteDir = config.remoteDir();
+            if (!remoteDir.endsWith("/")) {
+                remoteDir += "/";
+            }
+
+            List<String> matchedFiles = new ArrayList<>();
+            var entries = sftp.readDir(remoteDir);
+            for (var entry : entries) {
+                String filename = entry.getFilename();
+                if (".".equals(filename) || "..".equals(filename)) {
+                    continue;
+                }
+                PathMatcher matcher = java.nio.file.FileSystems.getDefault()
+                    .getPathMatcher("glob:" + config.filePattern());
+                if (matcher.matches(Path.of(filename))) {
+                    matchedFiles.add(filename);
+                }
+            }
+
+            if (matchedFiles.isEmpty()) {
+                log.debug("SFTP: no files matched pattern {} in remote dir {}", config.filePattern(), config.remoteDir());
+                output.append("No files matched pattern: ").append(config.filePattern())
+                      .append(" in remote directory: ").append(config.remoteDir()).append("\n");
+                return output.toString();
+            }
+
+            Path localDir = Paths.get(ctx.getWorkingDir());
+            Files.createDirectories(localDir);
+
+            List<String> failedDownloads = new ArrayList<>();
+            long totalBytes = 0;
+
+            for (String filename : matchedFiles) {
+                if (ctx.isCancelRequested() || Thread.currentThread().isInterrupted()) {
+                    log.info("Download cancelled by user");
+                    output.append("Download cancelled by user\n");
+                    return output.toString();
+                }
+
+                String remotePath = config.remoteDir() + "/" + filename;
+                Path localPath = localDir.resolve(filename);
+                try {
+                    try (InputStream in = sftp.read(remotePath)) {
+                        Files.copy(in, localPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    long fileSize = Files.size(localPath);
+                    totalBytes += fileSize;
+                    output.append("Downloaded: ").append(filename)
+                       .append(" (").append(String.format("%.2f", fileSize / 1024.0)).append(" KB)\n");
+                } catch (IOException e) {
+                    String errorMsg = "Failed to download " + filename + ": " + e.getMessage();
+                    log.warn(errorMsg);
+                    failedDownloads.add(filename);
+                }
+            }
+
+            output.append("\nDownload Summary: ")
+                  .append(matchedFiles.size() - failedDownloads.size())
+                  .append("/").append(matchedFiles.size())
+                  .append(" files successful\n");
+
+            if (!failedDownloads.isEmpty()) {
+                output.append("Failed downloads: ").append(String.join(", ", failedDownloads)).append("\n");
+            }
+
+        } finally {
+            try {
+                if (sftp != null) {
+                    sftp.close();
+                }
+            } catch (IOException e) {
+                log.warn("Error closing SFTP client", e);
+            }
+            if (session != null) {
+                session.close(false);
+            }
+            try {
+                client.stop();
+            } finally {
+                // Remove from tracking after proper shutdown
+                runningClients.remove(client);
+            }
+        }
+
+        return output.toString();
+    }
+
+    /**
+     * Load KeyPair identities from either a file path or direct key content.
+     * If the decryptedValue is a valid file path, it loads from the file.
+     * Otherwise, it treats the value as key content (PEM format).
+     */
+    private Iterable<KeyPair> loadKeyIdentities(String decryptedValue) throws Exception {
+        try {
+            // Try to load as a file first
+            return SecurityUtils.loadKeyPairIdentities(
+                null, null, Files.newInputStream(Path.of(decryptedValue)), null);
+        } catch (Exception e) {
+            // If file loading fails, treat as direct key content (PEM format)
+            log.debug("SSH key not found as file, treating as direct key content");
+            return SecurityUtils.loadKeyPairIdentities(
+                null, null, new java.io.ByteArrayInputStream(decryptedValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)), null);
+        }
+    }
+
+    /**
+     * Shutdown hook to terminate any running SFTP clients when the application shuts down.
+     */
+    @PreDestroy
+    public void shutdown() {
+        if (!runningClients.isEmpty()) {
+            log.info("Closing {} running SFTP clients on shutdown", runningClients.size());
+            for (SshClient client : runningClients) {
+                try {
+                    client.stop();
+                    log.debug("Stopped SFTP client");
+                } catch (Exception e) {
+                    log.warn("Error stopping SFTP client: {}", e.getMessage());
+                }
+            }
+        }
     }
 }

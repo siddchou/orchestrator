@@ -9,7 +9,7 @@
     <p>{{ data.message }}</p>
   </mat-dialog-content>
   <mat-dialog-actions align="end" class="dialog-actions">
-    <button mat-stroked-button (click)="cancel()">Cancel</button>
-    <button mat-flat-button color="warn" (click)="confirm()">{{ data.confirmButton ?? 'Confirm' }}</button>
+    <button mat-stroked-button (click)="cancel()" matTooltip="Cancel this action">Cancel</button>
+    <button mat-flat-button color="warn" (click)="confirm()" [matTooltip]="data.message.includes('Delete') ? 'This action cannot be undone' : null">{{ data.confirmButton ?? 'Confirm' }}</button>
   </mat-dialog-actions>
 </div>

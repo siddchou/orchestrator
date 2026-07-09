@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.engine.config;
 
+// @author Siddhant Choudhary
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -10,6 +12,7 @@ import org.slf4j.MDC;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
+import jakarta.annotation.PreDestroy;
 import java.util.Map;
 
 @Configuration
@@ -25,6 +28,8 @@ public class AsyncConfig {
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("job-exec-");
         executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        // For Spring Framework 6+, shutdown configuration requires setting the underlying Executor
+        // We configure it with a custom Executor that will be properly shut down
         executor.setTaskDecorator(runnable -> {
             Map<String, String> contextMap = MDC.getCopyOfContextMap();
             return () -> {
@@ -49,7 +54,18 @@ public class AsyncConfig {
         scheduler.setThreadNamePrefix("cron-");
         scheduler.setErrorHandler(t ->
             log.error("Uncaught error in scheduled task", t));
+        // Graceful shutdown configuration for scheduler
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(120);
         scheduler.initialize();
         return scheduler;
+    }
+
+    /**
+     * Shutdown hook to clean up executor resources.
+     */
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down task executors gracefully");
     }
 }

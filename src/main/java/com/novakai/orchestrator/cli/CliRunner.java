@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.cli;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.entity.JobRun;
 import com.novakai.orchestrator.domain.entity.JobRunStep;
 import com.novakai.orchestrator.domain.enums.RunStatus;
@@ -29,7 +31,7 @@ public class CliRunner implements CommandLineRunner {
 
     private static final Set<RunStatus> TERMINAL_STATUSES = Set.of(
             RunStatus.SUCCESS, RunStatus.FAILED, RunStatus.PARTIAL,
-            RunStatus.CANCELLED, RunStatus.SKIPPED
+            RunStatus.CANCELLED
     );
 
     private final JobLaunchService launchService;

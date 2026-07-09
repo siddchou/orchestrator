@@ -1,5 +1,5 @@
 export type StepType = 'ENV_SETUP' | 'LOG_CLEANUP' | 'JAVA_EXEC' | 'SFTP' | 'ARCHIVE';
-export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CANCELLED' | 'SKIPPED';
+export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CANCELLED';
 export type TriggerType = 'MANUAL' | 'SCHEDULED' | 'API';
 
 export interface JobDefinition {
@@ -70,6 +70,8 @@ export interface SftpConfig {
   remoteDir: string;
   filePattern: string;
   direction: 'UPLOAD' | 'DOWNLOAD';
+  connectionTimeoutSeconds?: number;
+  authTimeoutSeconds?: number;
 }
 
 export interface ArchiveConfig {

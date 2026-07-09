@@ -9,7 +9,6 @@ const STATUS_COLORS: Record<RunStatus, { foreground: string; background: string 
   FAILED:    { foreground: '#ffffff', background: '#f44336' },
   PARTIAL:   { foreground: '#ffffff', background: '#9c27b0' },
   CANCELLED: { foreground: '#ffffff', background: '#607d8b' },
-  SKIPPED:   { foreground: '#ffffff', background: '#9e9e9e' },
 };
 
 const STATUS_LABELS: Record<RunStatus, string> = {
@@ -19,7 +18,6 @@ const STATUS_LABELS: Record<RunStatus, string> = {
   FAILED:    'Failed',
   PARTIAL:   'Partial',
   CANCELLED: 'Cancelled',
-  SKIPPED:   'Skipped',
 };
 
 @Component({

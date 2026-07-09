@@ -5,6 +5,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
 import { AuthService } from './core/services/auth.service';
 import { interval } from 'rxjs';
@@ -20,6 +21,7 @@ import { interval } from 'rxjs';
     MatListModule,
     MatIconModule,
     MatButtonModule,
+    MatTooltipModule,
     CommonModule,
   ],
   templateUrl: './app.html',
@@ -40,6 +42,7 @@ export class App implements OnInit, OnDestroy {
     ['/jobs', 'Jobs'],
     ['/jobs/new', 'New Job'],
     ['/runs', 'Run History'],
+    ['/credentials', 'SFTP Credentials'],
     ['/config', 'Configuration'],
   ]);
 
@@ -86,18 +89,25 @@ export class App implements OnInit, OnDestroy {
     });
   }
 
+  get showCredentials(): boolean {
+    return this.userRole === 'ADMIN';
+  }
+
   get showConfig(): boolean {
     return this.userRole === 'ADMIN';
   }
 
   get navItems() {
     const base = [
-      { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
-      { label: 'Jobs', icon: 'work', route: '/jobs' },
-      { label: 'Runs', icon: 'history', route: '/runs' },
+      { label: 'Dashboard', icon: 'dashboard', route: '/dashboard', tooltip: 'Overview of jobs and recent activity' },
+      { label: 'Jobs', icon: 'work', route: '/jobs', tooltip: 'Manage and monitor all scheduled jobs' },
+      { label: 'Runs', icon: 'history', route: '/runs', tooltip: 'View job execution history and logs' },
     ];
+    if (this.showCredentials) {
+      base.push({ label: 'SFTP Credentials', icon: 'vpn_key', route: '/credentials', tooltip: 'Manage SSH key pairs for SFTP operations' });
+    }
     if (this.showConfig) {
-      base.push({ label: 'Config', icon: 'settings', route: '/config' });
+      base.push({ label: 'Config', icon: 'settings', route: '/config', tooltip: 'System configuration and environment variables' });
     }
     return base;
   }

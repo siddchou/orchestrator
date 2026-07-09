@@ -68,7 +68,7 @@
               <app-status-badge [status]="step.status" />
             </div>
           </div>
-          <button mat-stroked-button (click)="viewStepLog(step.runStepId); $event.stopPropagation()" class="log-btn">
+          <button mat-stroked-button (click)="viewStepLog(step.runStepId); $event.stopPropagation()" class="log-btn" matTooltip="View step execution log">
             <mat-icon>visibility</mat-icon> Log
           </button>
         </div>

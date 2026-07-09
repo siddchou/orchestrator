@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink, NavigationEnd, Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
@@ -25,8 +26,9 @@ import { JobDefinition } from '../../../core/models/job.model';
   selector: 'app-job-list',
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
-    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule,
-    MatChipsModule, MatSnackBarModule, MatDialogModule, RouterLink,
+    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule, MatTooltipModule,
+    MatChipsModule, MatSnackBarModule, MatDialogModule, MatProgressSpinnerModule,
+    RouterLink,
   ],
   templateUrl: './job-list.component.html',
   styleUrl: './job-list.component.scss',
@@ -42,6 +44,8 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
   totalElements = 0;
   page = 0;
   size = 20;
+
+  isLoading = false;
 
   @ViewChild('searchInput', { read: HTMLInputElement })
   searchInput?: HTMLInputElement;
@@ -73,12 +77,16 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
 
   loadJobs() {
     const search = this.searchInput?.value || '';
+    this.isLoading = true;
+    this.cd.markForCheck();
+
     this.jobService.listJobs(this.page, this.size, search).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.jobs = res.data.content;
           this.totalElements = res.data.totalElements;
         }
+        this.isLoading = false;
         this.cd.detectChanges();
       },
     });

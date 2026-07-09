@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.api.config;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.engine.exception.InvalidCronExpressionException;
 import com.novakai.orchestrator.engine.exception.JobAlreadyRunningException;
@@ -69,6 +71,6 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleGeneral(Exception ex) {
         log.error("Unhandled exception: {}", ex.getClass().getName(), ex);
-        return ApiResponse.error("An internal error occurred. Please try again later.");
+        return ApiResponse.error("Internal error");
     }
 }

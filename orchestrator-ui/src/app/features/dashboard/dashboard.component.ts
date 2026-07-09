@@ -4,9 +4,11 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 import { RunService } from '../../core/services/run.service';
@@ -28,7 +30,8 @@ const CARD_DATA = [
   selector: 'app-dashboard',
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatButtonModule,
-    MatIconModule, MatChipsModule, MatSnackBarModule, MatDialogModule,
+    MatIconModule, MatTooltipModule, MatChipsModule, MatSnackBarModule, MatDialogModule,
+    MatProgressSpinnerModule,
     RouterLink, StatusBadge, DurationPipe,
   ],
   templateUrl: './dashboard.component.html',
@@ -45,6 +48,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentRuns: JobRunSummary[] = [];
   displayedColumns = ['jobName', 'status', 'triggerType', 'startedAt', 'duration', 'actions'];
 
+  isLoading = false;
+
   private pollSub?: Subscription;
 
   ngOnInit() {
@@ -57,6 +62,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboard() {
+    this.isLoading = true;
+    this.cd.markForCheck();
+
     this.jobService.listJobs(0, 1).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
@@ -81,6 +89,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.summary.runningNow = runs.filter(r => r.status === 'RUNNING').length;
           this.recentRuns = runs.slice(0, 10);
         }
+        this.isLoading = false;
         this.cd.detectChanges();
       },
     });
@@ -110,7 +119,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   statusColor(status: RunStatus): string {
     const colors: Record<RunStatus, string> = {
       PENDING: '#757575', RUNNING: '#ff9800', SUCCESS: '#4caf50',
-      FAILED: '#f44336', PARTIAL: '#9c27b0', CANCELLED: '#607d8b', SKIPPED: '#9e9e9e',
+      FAILED: '#f44336', PARTIAL: '#9c27b0', CANCELLED: '#607d8b',
     };
     return colors[status] ?? '#757575';
   }

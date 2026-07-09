@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.domain.config;
 
+// @author Siddhant Choudhary
+
 public record SftpConfig(
     String host,
     int port,
@@ -7,5 +9,7 @@ public record SftpConfig(
     String credentialRef,
     String remoteDir,
     String filePattern,
-    String direction
+    String direction,
+    Integer connectionTimeoutSeconds,
+    Integer authTimeoutSeconds
 ) {}

@@ -1,5 +1,7 @@
 package com.novakai.orchestrator.engine;
 
+// @author Siddhant Choudhary
+
 import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobRun;
 import com.novakai.orchestrator.domain.entity.JobStep;
@@ -16,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PreDestroy;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,6 +33,11 @@ import java.util.concurrent.Future;
 @Service
 @Slf4j
 public class JobLaunchService {
+
+    @FunctionalInterface
+    private interface TriConsumer<A, B, C> {
+        void accept(A a, B b, C c);
+    }
 
     private final JobDefinitionRepository jobRepo;
     private final JobEnvVarRepository envVarRepo;
@@ -61,138 +69,42 @@ public class JobLaunchService {
     }
 
     public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy) {
-        log.debug("Launching job id={} trigger={} by {}", jobId, triggerType, triggeredBy);
         JobDefinition job = jobRepo.findByIdWithSteps(jobId)
             .orElseThrow(() -> new JobNotFoundException(jobId));
-
-        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
-            throw new JobAlreadyRunningException(jobId);
-        }
-
-        final JobRun run = runRepo.save(JobRun.builder()
-            .jobDefinition(job)
-            .triggerType(triggerType)
-            .triggeredBy(triggeredBy)
-            .status(RunStatus.PENDING)
-            .createdAt(LocalDateTime.now())
-            .build());
-        final Long runId = run.getRunId();
-
-        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
-        liveLogQueues.put(runId, logQueue);
-
-        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
-
-        Future<?> future = taskExecutor.submit(
-            () -> {
-                MDC.put("runId", String.valueOf(runId));
-                try {
-                    orchestrator.execute(ctx, job, run);
-                } finally {
-                    MDC.clear();
-                    cleanupRun(runId);
-                }
-            }
-        );
-        activeFutures.put(runId, future);
-        activeContexts.put(runId, ctx);
-
-        return run;
+        return launchInternal(job, triggerType, triggeredBy, (ctx, j, r) -> orchestrator.execute(ctx, j, r));
     }
 
     public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy) {
         JobDefinition job = jobRepo.findByJobNameWithSteps(jobName)
             .orElseThrow(() -> new JobNotFoundException(jobName));
-
-        Long jobId = job.getJobId();
-
-        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
-            throw new JobAlreadyRunningException(jobId);
-        }
-
-        final JobRun run = runRepo.save(JobRun.builder()
-            .jobDefinition(job)
-            .triggerType(triggerType)
-            .triggeredBy(triggeredBy)
-            .status(RunStatus.PENDING)
-            .createdAt(LocalDateTime.now())
-            .build());
-        final Long runId = run.getRunId();
-
-        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
-        liveLogQueues.put(runId, logQueue);
-
-        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
-
-        Future<?> future = taskExecutor.submit(
-            () -> {
-                MDC.put("runId", String.valueOf(runId));
-                try {
-                    orchestrator.execute(ctx, job, run);
-                } finally {
-                    MDC.clear();
-                    cleanupRun(runId);
-                }
-            }
-        );
-        activeFutures.put(runId, future);
-        activeContexts.put(runId, ctx);
-
-        return run;
+        return launchInternal(job, triggerType, triggeredBy, (ctx, j, r) -> orchestrator.execute(ctx, j, r));
     }
 
     public JobRun launchStep(Long stepId, TriggerType triggerType, String triggeredBy) {
         JobStep step = stepRepo.findStepWithJobDefinition(stepId)
             .orElseThrow(() -> new StepNotFoundException(stepId));
-
         JobDefinition job = step.getJobDefinition();
-        Long jobId = job.getJobId();
-
-        if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
-            throw new JobAlreadyRunningException(jobId);
-        }
-
-        final JobRun run = runRepo.save(JobRun.builder()
-            .jobDefinition(job)
-            .triggerType(triggerType)
-            .triggeredBy(triggeredBy)
-            .status(RunStatus.PENDING)
-            .createdAt(LocalDateTime.now())
-            .build());
-        final Long runId = run.getRunId();
-
-        BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
-        liveLogQueues.put(runId, logQueue);
-
-        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
-
-        Future<?> future = taskExecutor.submit(
-            () -> {
-                MDC.put("runId", String.valueOf(runId));
-                try {
-                    orchestrator.executeSingleStep(ctx, job, run, step);
-                } finally {
-                    MDC.clear();
-                    cleanupRun(runId);
-                }
-            }
-        );
-        activeFutures.put(runId, future);
-        activeContexts.put(runId, ctx);
-
-        return run;
+        return launchInternal(job, triggerType, triggeredBy,
+            (ctx, j, r) -> orchestrator.executeSingleStep(ctx, j, r, step));
     }
 
     public JobRun launchStepByName(String stepName, TriggerType triggerType, String triggeredBy) {
         JobStep step = stepRepo.findStepWithJobDefinitionByStepName(stepName)
             .orElseThrow(() -> new StepNotFoundException(stepName));
-
         JobDefinition job = step.getJobDefinition();
+        return launchInternal(job, triggerType, triggeredBy,
+            (ctx, j, r) -> orchestrator.executeSingleStep(ctx, j, r, step));
+    }
+
+    private JobRun launchInternal(JobDefinition job, TriggerType triggerType, String triggeredBy,
+                                  TriConsumer<ExecutionContext, JobDefinition, JobRun> executionAction) {
         Long jobId = job.getJobId();
 
         if (runRepo.existsByJobDefinition_JobIdAndStatus(jobId, RunStatus.RUNNING)) {
             throw new JobAlreadyRunningException(jobId);
         }
+
+        log.debug("Launching job id={} trigger={} by {}", jobId, triggerType, triggeredBy);
 
         final JobRun run = runRepo.save(JobRun.builder()
             .jobDefinition(job)
@@ -212,7 +124,7 @@ public class JobLaunchService {
             () -> {
                 MDC.put("runId", String.valueOf(runId));
                 try {
-                    orchestrator.executeSingleStep(ctx, job, run, step);
+                    executionAction.accept(ctx, job, run);
                 } finally {
                     MDC.clear();
                     cleanupRun(runId);
@@ -287,5 +199,33 @@ public class JobLaunchService {
         activeFutures.remove(runId);
         activeContexts.remove(runId);
         liveLogQueues.remove(runId);
+    }
+
+    /**
+     * Graceful shutdown handler - cancels all active runs.
+     * Called when Spring context is closing via @PreDestroy or DisposableBean.
+     */
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down job executor - cancelling {} active runs", activeFutures.size());
+
+        // Cancel all active futures
+        for (Long runId : activeFutures.keySet()) {
+            Future<?> future = activeFutures.get(runId);
+            if (future != null && !future.isDone() && !future.isCancelled()) {
+                future.cancel(true); // interrupt if running
+                log.debug("Cancelled run {}", runId);
+            }
+        }
+
+        // Mark all active contexts as cancelled
+        for (Long runId : activeContexts.keySet()) {
+            ExecutionContext ctx = activeContexts.get(runId);
+            if (ctx != null) {
+                ctx.setCancelRequested(true);
+            }
+        }
+
+        log.info("Job executor shutdown complete");
     }
 }
