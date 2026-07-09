@@ -5,6 +5,14 @@
   </div>
 </div>
 
+<!-- Loading Overlay -->
+@if (isLoading) {
+  <div class="loading-overlay">
+    <mat-spinner />
+  </div>
+}
+
+@if (!isLoading) {
 <!-- System Health -->
 <div class="health-card">
   <div class="section-header">
@@ -133,3 +141,4 @@
     </div>
   }
 </div>
+}

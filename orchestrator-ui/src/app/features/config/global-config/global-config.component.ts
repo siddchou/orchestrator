@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -11,6 +11,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SystemService } from '../../../core/services/system.service';
 import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
 import { EnvVar } from '../../../core/models/job.model';
@@ -21,7 +22,7 @@ import { HealthStatus } from '../../../core/models/system.model';
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule,
     MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatTooltipModule,
-    MatSnackBarModule, MatDialogModule, MatChipsModule,
+    MatSnackBarModule, MatDialogModule, MatChipsModule, MatProgressSpinnerModule,
   ],
   templateUrl: './global-config.component.html',
   styleUrl: './global-config.component.scss',
@@ -29,6 +30,7 @@ import { HealthStatus } from '../../../core/models/system.model';
 export class GlobalConfigComponent implements OnInit {
   private systemService = inject(SystemService);
   private dialog = inject(MatDialog);
+  private cd = inject(ChangeDetectorRef);
 
   globalEnvVars: EnvVar[] = [];
   health: HealthStatus | null = null;
@@ -41,18 +43,17 @@ export class GlobalConfigComponent implements OnInit {
   workingDir = '';
   validationResult: string | null = null;
 
+  isLoading = false;
+
   ngOnInit() {
+    this.isLoading = true;
     this.loadGlobalEnvVars();
     this.loadHealth();
   }
 
   loadGlobalEnvVars() {
     this.systemService.getGlobalEnvVars().subscribe({
-      next: (res) => {
-        if (res.status === 'SUCCESS') {
-          this.globalEnvVars = res.data;
-        }
-      },
+      next: () => this.cd.markForCheck(),
     });
   }
 
@@ -62,6 +63,8 @@ export class GlobalConfigComponent implements OnInit {
         if (res.status === 'SUCCESS') {
           this.health = res.data;
         }
+        this.isLoading = false;
+        this.cd.detectChanges();
       },
     });
   }

@@ -8,6 +8,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 import { RunService } from '../../core/services/run.service';
@@ -30,6 +31,7 @@ const CARD_DATA = [
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatButtonModule,
     MatIconModule, MatTooltipModule, MatChipsModule, MatSnackBarModule, MatDialogModule,
+    MatProgressSpinnerModule,
     RouterLink, StatusBadge, DurationPipe,
   ],
   templateUrl: './dashboard.component.html',
@@ -46,6 +48,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   recentRuns: JobRunSummary[] = [];
   displayedColumns = ['jobName', 'status', 'triggerType', 'startedAt', 'duration', 'actions'];
 
+  isLoading = false;
+
   private pollSub?: Subscription;
 
   ngOnInit() {
@@ -58,6 +62,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadDashboard() {
+    this.isLoading = true;
+    this.cd.markForCheck();
+
     this.jobService.listJobs(0, 1).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
@@ -82,6 +89,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.summary.runningNow = runs.filter(r => r.status === 'RUNNING').length;
           this.recentRuns = runs.slice(0, 10);
         }
+        this.isLoading = false;
         this.cd.detectChanges();
       },
     });

@@ -5,6 +5,13 @@
   </div>
 </div>
 
+<!-- Loading Overlay -->
+@if (isLoading) {
+  <div class="loading-overlay">
+    <mat-spinner />
+  </div>
+}
+
 <!-- Stat Cards -->
 <div class="cards-row">
   @for (card of cardData; track card.key) {
@@ -24,11 +31,12 @@
 
 <!-- Recent Runs -->
 <div class="section-card">
-  <div class="section-header">
-    <h3 class="section-title">Recent Runs</h3>
-  </div>
+  @if (!isLoading) {
+    <div class="section-header">
+      <h3 class="section-title">Recent Runs</h3>
+    </div>
 
-  <table mat-table [dataSource]="recentRuns" class="runs-table">
+    <table mat-table [dataSource]="recentRuns" class="runs-table">
     <ng-container matColumnDef="jobName">
       <th mat-header-cell *matHeaderCellDef>Job</th>
       <td mat-cell *matCellDef="let run">
@@ -74,7 +82,8 @@
       </td>
     </ng-container>
 
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-  </table>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  }
 </div>
