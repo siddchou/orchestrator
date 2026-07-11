@@ -129,6 +129,11 @@
           <input matInput formControlName="sftp_filePattern" placeholder="*.pdf" matTooltip="Glob pattern to match files (e.g., *.log, *.txt)" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Remote File Name (optional)</mat-label>
+          <input matInput formControlName="remoteFileName" [attr.placeholder]="'report_${fileName}_${timestamp}.pdf'" matTooltip="Leave empty to keep original name. Supports: ${fileName}, ${fileExtension}, ${timestamp}" />
+          <mat-hint>Template variables: $&#123;fileName&#125;, $&#123;fileExtension&#125;, $&#123;timestamp&#125;</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
           <mat-label>Direction</mat-label>
           <mat-select formControlName="direction">
             <mat-option value="UPLOAD" matTooltip="Upload files from local to remote">Upload</mat-option>

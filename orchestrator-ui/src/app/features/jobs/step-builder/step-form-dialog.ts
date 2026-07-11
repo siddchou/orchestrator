@@ -66,6 +66,7 @@ export class StepFormDialog {
       remoteDir: [''],
       sftp_filePattern: [''],
       direction: ['UPLOAD'],
+      remoteFileName: [''],
       // ARCHIVE
       sourceDir: [''],
       archiveDir: [''],
@@ -86,7 +87,7 @@ export class StepFormDialog {
         javaHome: '', classpath: '',
         cleanupDir: '', filePattern: '', extraPatterns: '',
         mainClass: '', jarPath: '', jvmArgs: '', args: '', timeoutMinutes: null,
-        host: '', port: 22, username: '', credentialRef: '', remoteDir: '', sftp_filePattern: '', direction: 'UPLOAD',
+        host: '', port: 22, username: '', credentialRef: '', remoteDir: '', sftp_filePattern: '', direction: 'UPLOAD', remoteFileName: '',
         sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP', deleteOriginal: false,
       });
     });
@@ -142,6 +143,7 @@ export class StepFormDialog {
             remoteDir: (c as SftpConfig).remoteDir,
             sftp_filePattern: (c as SftpConfig).filePattern,
             direction: (c as SftpConfig).direction,
+            remoteFileName: (c as SftpConfig).remoteFileName,
           };
         case 'ARCHIVE':
           return {
@@ -189,6 +191,7 @@ export class StepFormDialog {
           remoteDir: v.remoteDir,
           filePattern: v.sftp_filePattern,
           direction: v.direction,
+          remoteFileName: v.remoteFileName || null,
         };
       case 'ARCHIVE':
         return {

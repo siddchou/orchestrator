@@ -152,7 +152,11 @@ public class SftpStepExecutor implements StepExecutor {
                     return output.toString();
                 }
 
-                String remotePath = config.remoteDir() + "/" + file.getFileName();
+                String originalName = file.getFileName().toString();
+                String remoteName = config.remoteFileName() != null && !config.remoteFileName().isBlank()
+                        ? resolveRemoteFileName(config.remoteFileName(), originalName)
+                        : originalName;
+                String remotePath = config.remoteDir() + "/" + remoteName;
                 try {
                     long fileSize = Files.size(file);
                     sftp.put(file, remotePath, List.of(
@@ -161,12 +165,13 @@ public class SftpStepExecutor implements StepExecutor {
                         SftpClient.OpenMode.Truncate
                     ));
                     totalBytes += fileSize;
-                    output.append("Uploaded: ").append(file.getFileName())
+                    output.append("Uploaded: ").append(originalName)
+                       .append(" -> ").append(remoteName)
                        .append(" (").append(String.format("%.2f", fileSize / 1024.0)).append(" KB)\n");
                 } catch (IOException e) {
-                    String errorMsg = "Failed to upload " + file.getFileName() + ": " + e.getMessage();
+                    String errorMsg = "Failed to upload " + originalName + ": " + e.getMessage();
                     log.warn(errorMsg);
-                    failedFiles.add(file.getFileName().toString());
+                    failedFiles.add(originalName);
                 }
             }
 
@@ -318,6 +323,25 @@ public class SftpStepExecutor implements StepExecutor {
         }
 
         return output.toString();
+    }
+
+    /**
+     * Resolve the remote file name using template variables.
+     * Supports: ${fileName} (name without extension), ${fileExtension}, ${timestamp}
+     */
+    private String resolveRemoteFileName(String template, String originalName) {
+        String nameWithoutExt = originalName.contains(".")
+                ? originalName.substring(0, originalName.lastIndexOf('.'))
+                : originalName;
+        String extension = originalName.contains(".")
+                ? originalName.substring(originalName.lastIndexOf('.'))
+                : "";
+
+        String result = template.replace("${fileName}", nameWithoutExt)
+                               .replace("${fileExtension}", extension)
+                               .replace("${timestamp}", String.valueOf(System.currentTimeMillis()));
+
+        return result;
     }
 
     /**

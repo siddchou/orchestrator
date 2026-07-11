@@ -10,6 +10,7 @@ public record SftpConfig(
     String remoteDir,
     String filePattern,
     String direction,
+    String remoteFileName,
     Integer connectionTimeoutSeconds,
     Integer authTimeoutSeconds
 ) {}
