@@ -6,7 +6,7 @@
   <div class="header-actions">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Search jobs...</mat-label>
-      <input matInput #searchInput (keyup.enter)="search()" />
+      <input matInput #searchInput (input)="onSearchInput(searchInput.value)" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
     <button mat-flat-button color="primary" routerLink="/jobs/new" class="new-job-btn">
@@ -25,6 +25,7 @@
 
 <div class="section-card">
   @if (!isLoading) {
+    @if (jobs.length > 0) {
     <table mat-table [dataSource]="jobs" class="jobs-table">
     <ng-container matColumnDef="jobName">
       <th mat-header-cell *matHeaderCellDef>Job Name</th>
@@ -71,16 +72,16 @@
       <th mat-header-cell *matHeaderCellDef>Actions</th>
       <td mat-cell *matCellDef="let job">
         <div class="action-group">
-          <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" matTooltip="Edit job details">
+          <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" matTooltip="Edit job details" aria-label="Edit {{ job.jobName }}">
             <mat-icon>edit</mat-icon>
           </button>
-          <button mat-icon-button (click)="triggerRun(job)" matTooltip="Trigger a manual run of this job">
+          <button mat-icon-button (click)="triggerRun(job)" matTooltip="Trigger a manual run of this job" aria-label="Run {{ job.jobName }}">
             <mat-icon>play_arrow</mat-icon>
           </button>
-          <button mat-icon-button (click)="toggleEnabled(job)" matTooltip="{{ job.enabled ? 'Disable' : 'Enable' }} this job">
+          <button mat-icon-button (click)="toggleEnabled(job)" matTooltip="{{ job.enabled ? 'Disable' : 'Enable' }} this job" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
             <mat-icon>{{ job.enabled ? 'toggle_off' : 'toggle_on' }}</mat-icon>
           </button>
-          <button mat-icon-button (click)="deleteJob(job)" matTooltip="Delete this job (cannot be undone)" color="warn">
+          <button mat-icon-button (click)="deleteJob(job)" matTooltip="Delete this job (cannot be undone)" color="warn" aria-label="Delete {{ job.jobName }}">
             <mat-icon>delete</mat-icon>
           </button>
         </div>
@@ -93,13 +94,19 @@
 
     <!-- Pagination -->
     <div class="pagination-bar">
-      <button mat-icon-button (click)="setPage(page - 1)" [disabled]="!hasPrevious">
+      <button mat-icon-button (click)="setPage(page - 1)" [disabled]="!hasPrevious" aria-label="Previous page">
         <mat-icon>chevron_left</mat-icon>
       </button>
       <span class="page-info">Page {{ page + 1 }} of {{ getTotalPages() }} ({{ totalElements }} total)</span>
-      <button mat-icon-button (click)="setPage(page + 1)" [disabled]="!hasNext">
+      <button mat-icon-button (click)="setPage(page + 1)" [disabled]="!hasNext" aria-label="Next page">
         <mat-icon>chevron_right</mat-icon>
       </button>
     </div>
+    } @else {
+      <div class="empty-state">
+        <mat-icon>work_off</mat-icon>
+        <p>No jobs found</p>
+      </div>
+    }
   }
 </div>
