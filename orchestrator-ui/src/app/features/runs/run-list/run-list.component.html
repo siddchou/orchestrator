@@ -56,7 +56,7 @@
     <div class="loading">
       <mat-spinner diameter="32"></mat-spinner>
     </div>
-  } @else {
+  } @else if (runs.length > 0) {
     <table mat-table [dataSource]="runs" class="runs-table">
       <ng-container matColumnDef="jobName">
         <th mat-header-cell *matHeaderCellDef>Job</th>
@@ -87,7 +87,7 @@
       <ng-container matColumnDef="startedAt">
         <th mat-header-cell *matHeaderCellDef>Started</th>
         <td mat-cell *matCellDef="let run">
-          {{ run.startedAt | date:'dd MMM HH:mm:ss' }}
+          {{ run.startedAt | date:'dd MMM yyyy HH:mm' }}
         </td>
       </ng-container>
 
@@ -99,7 +99,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef>Actions</th>
         <td mat-cell *matCellDef="let run">
-          <button mat-stroked-button (click)="viewRun(run.runId)" class="view-btn" matTooltip="View run details">
+          <button mat-stroked-button (click)="viewRun(run.runId)" class="view-btn" matTooltip="View run details" aria-label="View details for run {{ run.runId }}">
             <mat-icon>visibility</mat-icon> View
           </button>
         </td>
@@ -112,6 +112,11 @@
           (click)="viewRun(row.runId)">
       </tr>
     </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>history</mat-icon>
+      <p>No runs found matching your filters</p>
+    </div>
   }
 </div>
 

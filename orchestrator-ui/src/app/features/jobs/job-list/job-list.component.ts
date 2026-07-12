@@ -70,6 +70,10 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
     ).subscribe(() => this.loadJobs());
   }
 
+  onSearchInput(value: string) {
+    this.searchSubject.next(value);
+  }
+
   ngOnDestroy(): void {
     this.searchSubject.complete();
     this.routerSub?.unsubscribe();

@@ -15,9 +15,31 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
 
-  // In-memory token storage (not localStorage) to protect against XSS
-  private _currentUser = new BehaviorSubject<AuthUser | null>(null);
+  private readonly STORAGE_KEY = 'orch_auth';
+
+  // Session storage survives page reloads but clears when browser closes
+  private _currentUser = new BehaviorSubject<AuthUser | null>(this.loadFromStorage());
   currentUser = this._currentUser.asObservable();
+
+  private saveToStorage(user: AuthUser | null): void {
+    if (user) {
+      sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem(this.STORAGE_KEY);
+    }
+  }
+
+  private loadFromStorage(): AuthUser | null {
+    try {
+      const raw = sessionStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        return JSON.parse(raw) as AuthUser;
+      }
+    } catch {
+      // corrupted data — clear
+    }
+    return null;
+  }
 
   login(username: string, password: string) {
     return this.http.post<ApiResponse<{ accessToken: string; expiresInSeconds: number; role: string; passwordExpired: boolean }>>(
@@ -26,11 +48,13 @@ export class AuthService {
     ).pipe(
       tap(resp => {
         if (resp.status === 'SUCCESS' && resp.data) {
-          this._currentUser.next({
+          const user: AuthUser = {
             token: resp.data.accessToken,
             role: resp.data.role,
             passwordExpired: resp.data.passwordExpired,
-          });
+          };
+          this._currentUser.next(user);
+          this.saveToStorage(user);
         }
       }),
       map(() => void 0)
@@ -55,6 +79,7 @@ export class AuthService {
 
   logout(): void {
     this._currentUser.next(null);
+    this.saveToStorage(null);
     this.router.navigate(['/login']);
   }
 }

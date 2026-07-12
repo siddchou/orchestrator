@@ -46,37 +46,6 @@
   align-items: center;
 }
 
-/* Section Card */
-.section-card {
-  background: var(--card-bg);
-  border: var(--card-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  margin-bottom: var(--spacing-md);
-}
-
-.section-header {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.section-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    color: var(--mat-sys-primary);
-  }
-}
-
 /* Live Indicator */
 .live-indicator {
   display: inline-flex;
