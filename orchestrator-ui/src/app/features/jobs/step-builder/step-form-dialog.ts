@@ -1,5 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -30,7 +31,7 @@ export interface StepFormData {
   templateUrl: './step-form-dialog.html',
   styleUrl: './step-form-dialog.scss',
 })
-export class StepFormDialog {
+export class StepFormDialog implements OnDestroy {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<StepFormDialog>);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
@@ -38,6 +39,7 @@ export class StepFormDialog {
   stepTypes: StepType[] = ['LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE'];
 
   form: FormGroup;
+  private typeChangeSub?: Subscription;
 
   constructor() {
     this.form = this.fb.group({
@@ -82,7 +84,7 @@ export class StepFormDialog {
     }
 
     // Clear old-type fields when step type changes
-    this.form.get('stepType')?.valueChanges.subscribe(type => {
+    this.typeChangeSub = this.form.get('stepType')?.valueChanges.subscribe(type => {
       this.form.patchValue({
         javaHome: '', classpath: '',
         cleanupDir: '', filePattern: '', extraPatterns: '',
@@ -91,6 +93,10 @@ export class StepFormDialog {
         sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP', deleteOriginal: false,
       });
     });
+  }
+
+  ngOnDestroy(): void {
+    this.typeChangeSub?.unsubscribe();
   }
 
   get selectedType(): StepType {
