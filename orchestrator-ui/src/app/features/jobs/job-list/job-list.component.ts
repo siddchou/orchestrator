@@ -16,11 +16,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink, NavigationEnd, Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
-import { JobService } from '../../../core/services/job.service';
-import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
-import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
-import { RunJobDialog } from '../../../shared/components/run-job-dialog/run-job-dialog';
-import { JobDefinition } from '../../../core/models/job.model';
+import { JobService } from '@app/core/services/job.service';
+import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
+import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
+import { RunJobDialog } from '@app/shared/components/run-job-dialog/run-job-dialog';
+import { JobDefinition } from '@app/core/models/job.model';
 
 @Component({
   selector: 'app-job-list',

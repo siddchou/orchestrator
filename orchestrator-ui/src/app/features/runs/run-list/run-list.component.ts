@@ -12,11 +12,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
-import { RunService } from '../../../core/services/run.service';
-import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
-import { DurationPipe } from '../../../shared/pipes/duration.pipe';
-import { JobRunSummary } from '../../../core/models/run.model';
-import { RunStatus } from '../../../core/models/job.model';
+import { RunService } from '@app/core/services/run.service';
+import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
+import { DurationPipe } from '@app/shared/pipes/duration.pipe';
+import { JobRunSummary } from '@app/core/models/run.model';
+import { RunStatus } from '@app/core/models/job.model';
 
 @Component({
   selector: 'app-run-list',

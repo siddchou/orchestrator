@@ -6,11 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from '@angular/material/icon';
 import { Subscription } from 'rxjs';
-import { LogStreamService } from '../../../core/services/log-stream.service';
+import { LogStreamService } from '@app/core/services/log-stream.service';
 
 @Component({
   selector: 'app-log-viewer',
   imports: [CommonModule, MatSlideToggleModule, MatButtonModule, MatTooltipModule, MatIconModule, FormsModule],
+  standalone: true,
   templateUrl: './log-viewer.component.html',
   styleUrl: './log-viewer.component.scss',
 })

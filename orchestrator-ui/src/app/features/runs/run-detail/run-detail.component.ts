@@ -11,13 +11,13 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
-import { RunService } from '../../../core/services/run.service';
-import { LogStreamService } from '../../../core/services/log-stream.service';
-import { StatusBadge } from '../../../shared/components/status-badge/status-badge';
-import { DurationPipe } from '../../../shared/pipes/duration.pipe';
+import { RunService } from '@app/core/services/run.service';
+import { LogStreamService } from '@app/core/services/log-stream.service';
+import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
+import { DurationPipe } from '@app/shared/pipes/duration.pipe';
 import { LogViewerComponent } from '../log-viewer/log-viewer.component';
-import { JobRunDetail } from '../../../core/models/run.model';
-import { RunStatus } from '../../../core/models/job.model';
+import { JobRunDetail } from '@app/core/models/run.model';
+import { RunStatus } from '@app/core/models/job.model';
 
 @Component({
   selector: 'app-run-detail',

@@ -14,6 +14,7 @@ export interface KeyDialogData {
 @Component({
   selector: 'app-key-dialog',
   imports: [MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
+  standalone: true,
   template: `
     <h2 mat-dialog-title>SSH Key Generated</h2>
     <mat-dialog-content class="key-dialog-content">

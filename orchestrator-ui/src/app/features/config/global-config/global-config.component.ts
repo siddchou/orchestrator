@@ -12,10 +12,10 @@ import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { SystemService } from '../../../core/services/system.service';
-import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
-import { EnvVar } from '../../../core/models/job.model';
-import { HealthStatus } from '../../../core/models/system.model';
+import { SystemService } from '@app/core/services/system.service';
+import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
+import { EnvVar } from '@app/core/models/job.model';
+import { HealthStatus } from '@app/core/models/system.model';
 
 @Component({
   selector: 'app-global-config',

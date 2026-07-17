@@ -16,8 +16,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTabsModule } from '@angular/material/tabs';
 
-import { CredentialService } from '../../core/services/credential.service';
-import { ConfirmDialog } from '../../shared/components/confirm-dialog/confirm-dialog';
+import { CredentialService } from '@app/core/services/credential.service';
+import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { Credential, KeyGenerationRequest, KeyGenerationResponse } from './credential.model';
 import { KeyDialogComponent } from './key-dialog.component';
 

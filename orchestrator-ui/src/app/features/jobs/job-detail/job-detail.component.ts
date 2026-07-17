@@ -16,11 +16,11 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkDrag, CdkDropList, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { JobService } from '../../../core/services/job.service';
-import { SystemService } from '../../../core/services/system.service';
-import { ConfirmDialog } from '../../../shared/components/confirm-dialog/confirm-dialog';
+import { JobService } from '@app/core/services/job.service';
+import { SystemService } from '@app/core/services/system.service';
+import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { StepFormDialog, StepFormData } from '../step-builder/step-form-dialog';
-import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '../../../core/models/job.model';
+import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
 
 @Component({
   selector: 'app-job-detail',

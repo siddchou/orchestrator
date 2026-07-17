@@ -1,4 +1,4 @@
-import { RunStatus, TriggerType } from './job.model';
+import { RunStatus, TriggerType } from '@app/core/models/job.model';
 
 export interface JobRunSummary {
   runId: number;

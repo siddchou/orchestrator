@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { MatChipsModule } from '@angular/material/chips';
-import { RunStatus } from '../../../core/models/job.model';
+import { RunStatus } from '@app/core/models/job.model';
 
 const STATUS_COLORS: Record<RunStatus, { foreground: string; background: string }> = {
   PENDING:   { foreground: '#ffffff', background: '#757575' },
@@ -23,6 +23,7 @@ const STATUS_LABELS: Record<RunStatus, string> = {
 @Component({
   selector: 'app-status-badge',
   imports: [MatChipsModule],
+  standalone: true,
   templateUrl: './status-badge.html',
   styleUrl: './status-badge.scss',
 })

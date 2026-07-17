@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Page } from '../models/api-response.model';
-import { JobRunSummary, JobRunDetail } from '../models/run.model';
+import { ApiResponse, Page } from '@app/core/models/api-response.model';
+import { JobRunSummary, JobRunDetail } from '@app/core/models/run.model';
 
 @Injectable({ providedIn: 'root' })
 export class RunService {

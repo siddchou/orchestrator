@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, tap } from 'rxjs';
 import { Router } from '@angular/router';
-import { ApiResponse } from '../models/api-response.model';
+import { ApiResponse } from '@app/core/models/api-response.model';
 
 export interface AuthUser {
   token: string;
