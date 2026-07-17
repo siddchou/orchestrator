@@ -1,9 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse } from '../models/api-response.model';
-import { EnvVar } from '../models/job.model';
-import { HealthStatus, EnvValidationResult, CronValidationResult } from '../models/system.model';
+import { ApiResponse } from '@app/core/models/api-response.model';
+import { EnvVar } from '@app/core/models/job.model';
+import { HealthStatus, EnvValidationResult, CronValidationResult } from '@app/core/models/system.model';
 
 @Injectable({ providedIn: 'root' })
 export class SystemService {

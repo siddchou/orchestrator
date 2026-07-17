@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ApiResponse, Page } from '../models/api-response.model';
-import { JobDefinition, JobStep, EnvVar, JobSchedule } from '../models/job.model';
+import { ApiResponse, Page } from '@app/core/models/api-response.model';
+import { JobDefinition, JobStep, EnvVar, JobSchedule } from '@app/core/models/job.model';
 
 @Injectable({ providedIn: 'root' })
 export class JobService {

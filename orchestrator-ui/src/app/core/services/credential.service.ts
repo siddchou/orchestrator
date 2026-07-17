@@ -5,7 +5,7 @@ import {
   Credential,
   KeyGenerationRequest,
   KeyGenerationResponse
-} from '../../features/credentials/credential.model';
+} from '../models/credential.model';
 
 @Injectable({
   providedIn: 'root'

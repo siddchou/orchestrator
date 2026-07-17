@@ -11,13 +11,13 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
-import { RunService } from '../../core/services/run.service';
-import { JobService } from '../../core/services/job.service';
-import { StatusBadge } from '../../shared/components/status-badge/status-badge';
-import { DurationPipe } from '../../shared/pipes/duration.pipe';
-import { JobRunSummary } from '../../core/models/run.model';
-import { RunStatus } from '../../core/models/job.model';
-import { RunJobDialog } from '../../shared/components/run-job-dialog/run-job-dialog';
+import { RunService } from '@app/core/services/run.service';
+import { JobService } from '@app/core/services/job.service';
+import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
+import { DurationPipe } from '@app/shared/pipes/duration.pipe';
+import { JobRunSummary } from '@app/core/models/run.model';
+import { RunStatus } from '@app/core/models/job.model';
+import { RunJobDialog } from '@app/shared/components/run-job-dialog/run-job-dialog';
 
 const CARD_DATA = [
   { label: 'Total Jobs', icon: 'work', key: 'totalJobs' as const },

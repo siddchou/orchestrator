@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
-import { JobDefinition } from '../../../core/models/job.model';
+import { JobDefinition } from '@app/core/models/job.model';
 
 export interface RunJobDialogData {
   job: JobDefinition;
@@ -13,6 +13,7 @@ export interface RunJobDialogData {
 @Component({
   selector: 'app-run-job-dialog',
   imports: [MatDialogModule, MatButtonModule, MatTooltipModule, MatIconModule, MatChipsModule],
+  standalone: true,
   templateUrl: './run-job-dialog.html',
   styleUrl: './run-job-dialog.scss',
 })

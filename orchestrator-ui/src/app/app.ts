@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
-import { AuthService } from './core/services/auth.service';
+import { AuthService } from '@app/core/services/auth.service';
 import { interval } from 'rxjs';
 
 @Component({
