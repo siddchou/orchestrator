@@ -19,6 +19,9 @@ import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
+import org.apache.sshd.client.keyverifier.DefaultKnownHostsServerKeyVerifier;
+import org.apache.sshd.client.keyverifier.RejectAllServerKeyVerifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PreDestroy;
@@ -46,6 +49,9 @@ public class SftpStepExecutor implements StepExecutor {
 
     // Track running clients for graceful shutdown
     private final Set<SshClient> runningClients = ConcurrentHashMap.newKeySet();
+
+    @Value("${orchestrator.sftp.known-hosts-file}")
+    private String knownHostsFile;
 
     public SftpStepExecutor(JobCredentialRepository credentialRepo,
                             CredentialDecryptionService decryptionService,
@@ -115,6 +121,8 @@ public class SftpStepExecutor implements StepExecutor {
         }
 
         SshClient client = SshClient.setUpDefaultClient();
+
+        configureHostKeyVerifier(client);
 
         if (cred.getCredType() == CredentialType.SSH_KEY) {
             Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
@@ -211,6 +219,8 @@ public class SftpStepExecutor implements StepExecutor {
         StringBuilder output = new StringBuilder();
 
         SshClient client = SshClient.setUpDefaultClient();
+
+        configureHostKeyVerifier(client);
 
         if (cred.getCredType() == CredentialType.SSH_KEY) {
             Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
@@ -345,21 +355,37 @@ public class SftpStepExecutor implements StepExecutor {
     }
 
     /**
+     * Configure host key verification using the known_hosts file.
+     */
+    private void configureHostKeyVerifier(SshClient client) {
+        if (knownHostsFile == null || knownHostsFile.isBlank()) {
+            log.warn("SFTP: no known-hosts-file configured; host key verification disabled");
+            return;
+        }
+        Path knownHostsPath = Paths.get(knownHostsFile);
+        if (!Files.exists(knownHostsPath)) {
+            log.warn("SFTP: known_hosts file not found at {}; host key verification disabled", knownHostsFile);
+            return;
+        }
+        client.setServerKeyVerifier(new DefaultKnownHostsServerKeyVerifier(RejectAllServerKeyVerifier.INSTANCE, true, knownHostsPath));
+    }
+
+    /**
      * Load KeyPair identities from either a file path or direct key content.
-     * If the decryptedValue is a valid file path, it loads from the file.
-     * Otherwise, it treats the value as key content (PEM format).
+     * If the decryptedValue is an existing file, it loads from that file.
+     * Otherwise, it treats the value as PEM-encoded key content.
      */
     private Iterable<KeyPair> loadKeyIdentities(String decryptedValue) throws Exception {
-        try {
-            // Try to load as a file first
+        Path potentialPath = Paths.get(decryptedValue);
+        if (Files.exists(potentialPath)) {
+            log.debug("SFTP: loading SSH key from file {}", decryptedValue);
             return SecurityUtils.loadKeyPairIdentities(
-                null, null, Files.newInputStream(Path.of(decryptedValue)), null);
-        } catch (Exception e) {
-            // If file loading fails, treat as direct key content (PEM format)
-            log.debug("SSH key not found as file, treating as direct key content");
-            return SecurityUtils.loadKeyPairIdentities(
-                null, null, new java.io.ByteArrayInputStream(decryptedValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)), null);
+                null, null, Files.newInputStream(potentialPath), null);
         }
+
+        log.debug("SFTP: treating credential value as PEM-encoded key content");
+        return SecurityUtils.loadKeyPairIdentities(
+            null, null, new java.io.ByteArrayInputStream(decryptedValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)), null);
     }
 
     /**
