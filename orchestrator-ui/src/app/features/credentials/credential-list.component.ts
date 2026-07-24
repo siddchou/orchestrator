@@ -30,6 +30,7 @@ import { KeyDialogComponent } from './key-dialog.component';
     MatProgressSpinnerModule, MatChipsModule, MatDividerModule, MatTabsModule,
   ],
   templateUrl: './credential-list.component.html',
+  styleUrl: './credential-list.component.scss',
 })
 export class CredentialListComponent implements OnInit {
   private credentialService = inject(CredentialService);

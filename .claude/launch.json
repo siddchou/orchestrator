@@ -2,12 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "orchestrator-ui",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "cwd": "${workspaceRoot}/orchestrator-ui",
-      "port": 4200,
-      "autoPort": true
+      "name": "orchestrator-ui dev server",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ng", "serve", "--configuration", "development"],
+      "autoPort": true,
+      "cwd": "C:/Users/siddh/IdeaProjects/orchestrator/orchestrator-ui"
     }
   ]
 }

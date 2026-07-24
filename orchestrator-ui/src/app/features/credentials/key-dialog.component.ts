@@ -27,17 +27,17 @@ export interface KeyDialogData {
         <span class="info-value">{{data.algorithm}}</span>
       </div>
 
-      <mat-divider style="margin: 16px 0"></mat-divider>
+      <mat-divider style="margin: var(--spacing-md) 0;"></mat-divider>
 
       <div class="key-container">
         <div class="key-section private-key-section">
           <h4>Private Key</h4>
           <textarea class="key-textarea" readonly>{{data.privateKey}}</textarea>
           <div class="button-group">
-            <button mat-button color="primary" (click)="copyPrivateKey()">
+            <button mat-stroked-button (click)="copyPrivateKey()">
               Copy to Clipboard
             </button>
-            <button mat-button color="accent" (click)="downloadPrivateKey()">
+            <button mat-flat-button color="primary" (click)="downloadPrivateKey()">
               Download Private Key
             </button>
           </div>
@@ -50,7 +50,7 @@ export interface KeyDialogData {
         </div>
       </div>
 
-      <mat-divider style="margin: 16px 0"></mat-divider>
+      <mat-divider style="margin: var(--spacing-md) 0;"></mat-divider>
 
       <div class="security-warning">
         <mat-icon color="warn">warning</mat-icon>
@@ -63,36 +63,36 @@ export interface KeyDialogData {
   `,
   styles: [`
     .key-dialog-content {
-      min-width: 1200px !important;
+      min-width: 600px !important;
       max-height: 95vh;
     }
     .info-row {
       display: flex;
-      gap: 12px;
+      gap: var(--spacing-sm);
       margin-bottom: 4px;
-      font-size: 14px;
+      font-size: var(--font-size-sm);
     }
     .info-label {
-      font-weight: 600;
-      color: #666;
+      font-weight: var(--font-weight-semibold);
+      color: var(--mat-sys-on-surface-variant);
       min-width: 90px;
     }
     .info-value {
       flex: 1;
-      font-family: monospace;
+      font-family: var(--font-mono);
       word-break: break-all;
     }
     h4 {
-      margin-top: 12px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      color: #333;
+      margin-top: var(--spacing-md);
+      margin-bottom: var(--spacing-sm);
+      font-size: var(--font-size-xs);
+      color: var(--mat-sys-on-surface-variant);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
     }
     .key-container {
-      display: flex;
-      gap: 30px;
+      display: grid;
+      gap: var(--spacing-md);
     }
     .key-section {
       flex: 1;
@@ -107,50 +107,51 @@ export interface KeyDialogData {
     .key-textarea {
       width: 100%;
       height: 320px;
-      padding: 12px;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: #f9f9f9;
+      padding: var(--spacing-sm);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-xs);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: rgba(15, 15, 15, 0.03);
+      color: var(--mat-sys-on-surface);
       resize: vertical;
       overflow-x: auto;
     }
-    .key-textarea:focus {
+    .key-textarea:focus-visible {
       outline: none;
-      border-color: #3f51b5;
-      box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.2);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
     }
     .note {
-      color: #777;
-      font-size: 12px;
-      margin-top: 8px;
+      color: var(--mat-sys-on-surface-variant);
+      font-size: var(--font-size-xs);
+      margin-top: var(--spacing-sm);
       line-height: 1.4;
     }
     .security-warning {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      background: #fff3e0;
-      padding: 14px;
-      border-radius: 6px;
-      border-left: 4px solid #ff9800;
+      gap: var(--spacing-sm);
+      background: rgba(234, 88, 12, 0.06);
+      padding: var(--spacing-md);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--accent-warning);
     }
     .security-warning mat-icon {
       margin-top: 2px;
-      color: #f57c00;
+      color: var(--accent-warning);
     }
     .security-warning p {
-      color: #e65100;
-      font-size: 13px;
+      color: #7c2d12;
+      font-size: var(--font-size-sm);
       margin: 0;
       flex: 1;
       line-height: 1.5;
     }
     .button-group {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: var(--spacing-xs);
+      margin-top: var(--spacing-sm);
     }
   `],
 })
