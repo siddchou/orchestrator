@@ -18,7 +18,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 
 import { CredentialService } from '@app/core/services/credential.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
-import { Credential, KeyGenerationRequest, KeyGenerationResponse, CredentialFormData } from './credential.model';
+import { Credential, KeyGenerationRequest, KeyGenerationResponse } from '@app/core/models/credential.model';
 import { KeyDialogComponent } from './key-dialog.component';
 
 @Component({
@@ -54,7 +54,6 @@ export class CredentialListComponent implements OnInit {
   newCredValue = '';
   showPassword = false;
   addingCredential = false;
-  credentialAdded = false;
 
   ngOnInit() {
     this.loadCredentials();
@@ -166,13 +165,7 @@ export class CredentialListComponent implements OnInit {
 
     this.addingCredential = true;
 
-    const formData: CredentialFormData = {
-      ref: this.newCredRef,
-      type: 'PASSWORD',
-      value: this.newCredValue
-    };
-
-    this.credentialService.createCredential(formData.ref, formData.type, formData.value).subscribe({
+    this.credentialService.createCredential(this.newCredRef, 'PASSWORD', this.newCredValue).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.snackBar.open('Password credential added successfully', 'Close', { duration: 3000 });
