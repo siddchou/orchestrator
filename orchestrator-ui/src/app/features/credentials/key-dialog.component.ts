@@ -1,8 +1,9 @@
-import { Component, Inject } from '@angular/core';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { Component, inject } from '@angular/core';
+import { MatDialogRef, MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 export interface KeyDialogData {
   privateKey: string;
@@ -16,153 +17,171 @@ export interface KeyDialogData {
   imports: [MatDialogModule, MatButtonModule, MatIconModule, MatDividerModule],
   standalone: true,
   template: `
-    <h2 mat-dialog-title>SSH Key Generated</h2>
-    <mat-dialog-content class="key-dialog-content">
-      <div class="info-row">
-        <span class="info-label">Fingerprint:</span>
-        <span class="info-value">{{data.fingerprint}}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Algorithm:</span>
-        <span class="info-value">{{data.algorithm}}</span>
+    <div class="dialog">
+      <div class="dialog-header">
+        <div class="dialog-icon">
+          <mat-icon>key</mat-icon>
+        </div>
+        <h3 class="dialog-title">SSH Key Generated</h3>
       </div>
 
-      <mat-divider style="margin: 16px 0"></mat-divider>
+      <mat-dialog-content>
+        <div class="info-row">
+          <span class="info-label">Fingerprint</span>
+          <span class="info-value">{{data.fingerprint}}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Algorithm</span>
+          <span class="info-value">{{data.algorithm}}</span>
+        </div>
 
-      <div class="key-container">
-        <div class="key-section private-key-section">
+        <mat-divider style="margin: var(--spacing-md) 0;"></mat-divider>
+
+        <div class="key-section">
           <h4>Private Key</h4>
           <textarea class="key-textarea" readonly>{{data.privateKey}}</textarea>
           <div class="button-group">
-            <button mat-button color="primary" (click)="copyPrivateKey()">
-              Copy to Clipboard
+            <button mat-stroked-button (click)="copyPrivateKey()">
+              <mat-icon>content_copy</mat-icon> Copy
             </button>
-            <button mat-button color="accent" (click)="downloadPrivateKey()">
-              Download Private Key
+            <button mat-flat-button color="primary" (click)="downloadPrivateKey()">
+              <mat-icon>download</mat-icon> Download
             </button>
           </div>
         </div>
 
-        <div class="key-section public-key-section">
+        <div class="key-section">
           <h4>Public Key</h4>
           <textarea class="key-textarea" readonly>{{data.publicKey}}</textarea>
           <p class="note">Store this public key as a credential in the system.</p>
         </div>
-      </div>
 
-      <mat-divider style="margin: 16px 0"></mat-divider>
+        <mat-divider style="margin: var(--spacing-md) 0;"></mat-divider>
 
-      <div class="security-warning">
-        <mat-icon color="warn">warning</mat-icon>
-        <p><strong>Important:</strong> Your private key will only be shown once. Make sure to save it securely. If you lose it, you'll need to generate a new key pair.</p>
-      </div>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Close</button>
-    </mat-dialog-actions>
+        <div class="validation-result error">
+          <mat-icon class="validation-icon">warning</mat-icon>
+          <span>Your private key will only be shown once. Save it securely — generating a new pair will invalidate this key.</span>
+        </div>
+      </mat-dialog-content>
+
+      <mat-dialog-actions align="end">
+        <button mat-stroked-button mat-dialog-close>Close</button>
+      </mat-dialog-actions>
+    </div>
   `,
   styles: [`
-    .key-dialog-content {
-      min-width: 1200px !important;
-      max-height: 95vh;
+    .dialog {
+      padding: var(--spacing-md);
     }
+
+    .dialog-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--spacing-lg) 0 var(--spacing-sm);
+    }
+
+    .dialog-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--spacing-sm);
+
+      mat-icon {
+        color: var(--accent-primary);
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+    }
+
+    .dialog-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      margin: 0;
+      text-align: center;
+    }
+
     .info-row {
       display: flex;
-      gap: 12px;
+      gap: var(--spacing-sm);
       margin-bottom: 4px;
-      font-size: 14px;
+      font-size: var(--font-size-sm);
     }
+
     .info-label {
-      font-weight: 600;
-      color: #666;
+      font-weight: var(--font-weight-semibold);
+      color: var(--mat-sys-on-surface-variant);
       min-width: 90px;
     }
+
     .info-value {
       flex: 1;
-      font-family: monospace;
+      font-family: var(--font-mono);
       word-break: break-all;
     }
+
     h4 {
-      margin-top: 12px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      color: #333;
+      margin-top: var(--spacing-md);
+      margin-bottom: var(--spacing-sm);
+      font-size: var(--font-size-xs);
+      color: var(--mat-sys-on-surface-variant);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
     }
-    .key-container {
-      display: flex;
-      gap: 30px;
-    }
+
     .key-section {
-      flex: 1;
       display: flex;
       flex-direction: column;
       min-width: 0;
     }
-    .private-key-section,
-    .public-key-section {
-      flex: 1;
-    }
+
     .key-textarea {
       width: 100%;
-      height: 320px;
-      padding: 12px;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      background: #f9f9f9;
+      height: 200px;
+      padding: var(--spacing-sm);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-xs);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: rgba(15, 15, 15, 0.03);
+      color: var(--mat-sys-on-surface);
       resize: vertical;
       overflow-x: auto;
     }
-    .key-textarea:focus {
+
+    .key-textarea:focus-visible {
       outline: none;
-      border-color: #3f51b5;
-      box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.2);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
     }
+
     .note {
-      color: #777;
-      font-size: 12px;
-      margin-top: 8px;
+      color: var(--mat-sys-on-surface-variant);
+      font-size: var(--font-size-xs);
+      margin-top: var(--spacing-sm);
       line-height: 1.4;
     }
-    .security-warning {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      background: #fff3e0;
-      padding: 14px;
-      border-radius: 6px;
-      border-left: 4px solid #ff9800;
-    }
-    .security-warning mat-icon {
-      margin-top: 2px;
-      color: #f57c00;
-    }
-    .security-warning p {
-      color: #e65100;
-      font-size: 13px;
-      margin: 0;
-      flex: 1;
-      line-height: 1.5;
-    }
+
     .button-group {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: var(--spacing-xs);
+      margin-top: var(--spacing-sm);
     }
   `],
 })
 export class KeyDialogComponent {
-  constructor(
-    public dialogRef: MatDialogRef<KeyDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: KeyDialogData
-  ) {}
+  dialogRef = inject(MatDialogRef<KeyDialogComponent>);
+  data = inject(MAT_DIALOG_DATA) as KeyDialogData;
+  private snackBar = inject(MatSnackBar);
 
   copyPrivateKey() {
     navigator.clipboard.writeText(this.data.privateKey).then(() => {
-      // Notification would go here if needed
+      this.snackBar.open('Private key copied to clipboard', 'Close', { duration: 2000 });
     });
   }
 

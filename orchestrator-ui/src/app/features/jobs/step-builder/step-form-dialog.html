@@ -13,13 +13,13 @@
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Step Name</mat-label>
         <mat-icon matPrefix>label</mat-icon>
-        <input matInput formControlName="stepName" required matTooltip="Unique name for this step within the job" />
+        <input matInput formControlName="stepName" required />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>Step Type</mat-label>
         <mat-icon matPrefix>category</mat-icon>
-        <mat-select formControlName="stepType" matTooltip="Type of operation: JAVA_EXEC, SFTP, LOG_CLEANUP, ARCHIVE, ENV_SETUP">
+        <mat-select formControlName="stepType">
           @for (type of stepTypes; track type) {
             <mat-option [value]="type">{{ type }}</mat-option>
           }
@@ -28,8 +28,8 @@
     </div>
 
     <div class="toggles-row">
-      <mat-slide-toggle formControlName="continueOnFailure" matTooltip="Continue executing remaining steps even if this one fails">Continue on failure</mat-slide-toggle>
-      <mat-slide-toggle formControlName="enabled" matTooltip="Enable or disable this step (disabled steps are skipped)">Enabled</mat-slide-toggle>
+      <mat-slide-toggle formControlName="continueOnFailure">Continue on failure</mat-slide-toggle>
+      <mat-slide-toggle formControlName="enabled">Enabled</mat-slide-toggle>
     </div>
 
     <div class="section-divider"></div>
@@ -40,11 +40,11 @@
         <h3 class="config-section-title">Environment Setup</h3>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>JAVA_HOME</mat-label>
-          <input matInput formControlName="javaHome" placeholder="/usr/lib/jvm/java-21" matTooltip="Path to Java home directory for this job" />
+          <input matInput formControlName="javaHome" placeholder="/usr/lib/jvm/java-21" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Classpath Entries (comma-separated)</mat-label>
-          <input matInput formControlName="classpath" placeholder="/opt/libs/app.jar,/opt/libs/deps.jar" matTooltip="Comma-separated JAR paths for the classpath" />
+          <input matInput formControlName="classpath" placeholder="/opt/libs/app.jar,/opt/libs/deps.jar" />
         </mat-form-field>
       </div>
     </ng-container>
@@ -55,16 +55,16 @@
         <h3 class="config-section-title">Log Cleanup</h3>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Directory</mat-label>
-          <input matInput formControlName="cleanupDir" placeholder="/opt/jobs/my-job/logs" matTooltip="Directory containing log files to clean up" />
+          <input matInput formControlName="cleanupDir" placeholder="/opt/jobs/my-job/logs" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>File Pattern (glob)</mat-label>
-          <input matInput formControlName="filePattern" placeholder="*.log" matTooltip="Glob pattern to match files for cleanup (e.g., *.log, job_*.txt)" />
+          <input matInput formControlName="filePattern" placeholder="*.log" />
           <mat-hint>Examples: *.log · job_*.txt</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Additional Patterns (comma-separated)</mat-label>
-          <input matInput formControlName="extraPatterns" placeholder="*.out,*.trace,debug_*.log" matTooltip="Additional glob patterns to match alongside the main pattern" />
+          <input matInput formControlName="extraPatterns" placeholder="*.out,*.trace,debug_*.log" />
           <mat-hint>Add more glob patterns to match alongside the main pattern</mat-hint>
         </mat-form-field>
       </div>
@@ -76,23 +76,23 @@
         <h3 class="config-section-title">Java Execution</h3>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Main Class (or leave blank if using JAR)</mat-label>
-          <input matInput formControlName="mainClass" placeholder="com.example.MainJob" matTooltip="Fully qualified Java class name to execute" />
+          <input matInput formControlName="mainClass" placeholder="com.example.MainJob" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>JAR Path (or leave blank if using Main Class)</mat-label>
-          <input matInput formControlName="jarPath" placeholder="/opt/jobs/my-job/app.jar" matTooltip="Path to executable JAR file" />
+          <input matInput formControlName="jarPath" placeholder="/opt/jobs/my-job/app.jar" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>JVM Args (space-separated)</mat-label>
-          <input matInput formControlName="jvmArgs" placeholder="-Xmx2g -Dspring.profiles.active=prod" matTooltip="JVM arguments (space-separated, e.g., -Xmx2g -Dprop=value)" />
+          <input matInput formControlName="jvmArgs" placeholder="-Xmx2g -Dspring.profiles.active=prod" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Program Args (space-separated)</mat-label>
-          <input matInput formControlName="args" placeholder="--date=today --output=/tmp" matTooltip="Command line arguments for the Java program (space-separated)" />
+          <input matInput formControlName="args" placeholder="--date=today --output=/tmp" />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Timeout (minutes, blank = default)</mat-label>
-          <input matInput type="number" formControlName="timeoutMinutes" matTooltip="Execution timeout in minutes (blank = use default)" />
+          <input matInput type="number" formControlName="timeoutMinutes" />
         </mat-form-field>
       </div>
     </ng-container>
@@ -103,41 +103,41 @@
         <h3 class="config-section-title">SFTP Transfer</h3>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Host</mat-label>
-          <input matInput formControlName="host" matTooltip="SFTP server hostname or IP address" />
+          <input matInput formControlName="host" />
         </mat-form-field>
         <div class="form-row">
           <mat-form-field appearance="outline">
             <mat-label>Port</mat-label>
-            <input matInput type="number" formControlName="port" matTooltip="SSH port (default: 22)" />
+            <input matInput type="number" formControlName="port" />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Username</mat-label>
-            <input matInput formControlName="username" matTooltip="Username for SFTP authentication" />
+            <input matInput formControlName="username" />
           </mat-form-field>
         </div>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Credential Reference</mat-label>
-          <input matInput formControlName="credentialRef" placeholder="my-sftp-cred" matTooltip="Reference name of stored credential (PASSWORD or SSH_KEY type)" />
+          <input matInput formControlName="credentialRef" placeholder="my-sftp-cred" />
           <mat-hint>Name of a stored credential</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Remote Directory</mat-label>
-          <input matInput formControlName="remoteDir" matTooltip="Remote directory path on SFTP server" />
+          <input matInput formControlName="remoteDir" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>File Pattern</mat-label>
-          <input matInput formControlName="sftp_filePattern" placeholder="*.pdf" matTooltip="Glob pattern to match files (e.g., *.log, *.txt)" />
+          <input matInput formControlName="sftp_filePattern" placeholder="*.pdf" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Remote File Name (optional)</mat-label>
-          <input matInput formControlName="remoteFileName" [attr.placeholder]="'report_${fileName}_${timestamp}.pdf'" matTooltip="Leave empty to keep original name. Supports: ${fileName}, ${fileExtension}, ${timestamp}" />
+          <input matInput formControlName="remoteFileName" [attr.placeholder]="'report_${fileName}_${timestamp}.pdf'" />
           <mat-hint>Template variables: $&#123;fileName&#125;, $&#123;fileExtension&#125;, $&#123;timestamp&#125;</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Direction</mat-label>
           <mat-select formControlName="direction">
-            <mat-option value="UPLOAD" matTooltip="Upload files from local to remote">Upload</mat-option>
-            <mat-option value="DOWNLOAD" matTooltip="Download files from remote to local">Download</mat-option>
+            <mat-option value="UPLOAD">Upload</mat-option>
+            <mat-option value="DOWNLOAD">Download</mat-option>
           </mat-select>
         </mat-form-field>
       </div>
@@ -149,24 +149,24 @@
         <h3 class="config-section-title">Archive</h3>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Source Directory</mat-label>
-          <input matInput formControlName="sourceDir" matTooltip="Directory containing files to archive" />
+          <input matInput formControlName="sourceDir" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>File Patterns (comma-separated)</mat-label>
-          <input matInput formControlName="archivePatterns" placeholder="*.log,*.out" matTooltip="Comma-separated glob patterns for files to archive (e.g., *.log, *.txt)" />
+          <input matInput formControlName="archivePatterns" placeholder="*.log,*.out" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Archive Directory</mat-label>
-          <input matInput formControlName="archiveDir" matTooltip="Directory where archive will be stored" />
+          <input matInput formControlName="archiveDir" />
         </mat-form-field>
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Format</mat-label>
           <mat-select formControlName="archiveFormat">
-            <mat-option value="ZIP" matTooltip="Compress files as ZIP archive">ZIP</mat-option>
-            <mat-option value="TAR_GZ" matTooltip="Compress files as gzipped TAR archive">TAR_GZ</mat-option>
+            <mat-option value="ZIP">ZIP</mat-option>
+            <mat-option value="TAR_GZ">TAR_GZ</mat-option>
           </mat-select>
         </mat-form-field>
-        <mat-slide-toggle formControlName="deleteOriginal" matTooltip="Remove source files after successful archiving">Delete original files after archiving</mat-slide-toggle>
+        <mat-slide-toggle formControlName="deleteOriginal">Delete original files after archiving</mat-slide-toggle>
       </div>
     </ng-container>
   </mat-dialog-content>

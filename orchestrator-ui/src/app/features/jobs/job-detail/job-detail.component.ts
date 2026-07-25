@@ -13,7 +13,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkDrag, CdkDropList, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { JobService } from '@app/core/services/job.service';
@@ -28,7 +27,7 @@ import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core
     CommonModule, ReactiveFormsModule, FormsModule, MatTabsModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
-    MatTooltipModule, CdkDrag, CdkDropList, CdkDragHandle,
+    CdkDrag, CdkDropList, CdkDragHandle,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',

@@ -7,7 +7,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
@@ -21,7 +20,7 @@ import { HealthStatus } from '@app/core/models/system.model';
   selector: 'app-global-config',
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule,
-    MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatTooltipModule,
+    MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
     MatSnackBarModule, MatDialogModule, MatChipsModule, MatProgressSpinnerModule,
   ],
   templateUrl: './global-config.component.html',

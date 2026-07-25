@@ -17,3 +17,9 @@ export interface KeyGenerationResponse {
   fingerprint: string;
   algorithm: string;
 }
+
+export interface CredentialFormData {
+  ref: string;
+  type: 'PASSWORD' | 'SSH_KEY';
+  value: string;
+}

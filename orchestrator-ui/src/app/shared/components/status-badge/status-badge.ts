@@ -3,12 +3,12 @@ import { MatChipsModule } from '@angular/material/chips';
 import { RunStatus } from '@app/core/models/job.model';
 
 const STATUS_COLORS: Record<RunStatus, { foreground: string; background: string }> = {
-  PENDING:   { foreground: '#ffffff', background: '#757575' },
-  RUNNING:   { foreground: '#ffffff', background: '#ff9800' },
-  SUCCESS:   { foreground: '#ffffff', background: '#4caf50' },
-  FAILED:    { foreground: '#ffffff', background: '#f44336' },
-  PARTIAL:   { foreground: '#ffffff', background: '#9c27b0' },
-  CANCELLED: { foreground: '#ffffff', background: '#607d8b' },
+  PENDING:   { foreground: '#ffffff', background: 'var(--status-pending-bg)' },
+  RUNNING:   { foreground: '#ffffff', background: 'var(--status-running-bg)' },
+  SUCCESS:   { foreground: '#ffffff', background: 'var(--status-success-bg)' },
+  FAILED:    { foreground: '#ffffff', background: 'var(--status-failed-bg)' },
+  PARTIAL:   { foreground: '#ffffff', background: 'var(--status-partial-bg)' },
+  CANCELLED: { foreground: '#ffffff', background: 'var(--status-cancelled-bg)' },
 };
 
 const STATUS_LABELS: Record<RunStatus, string> = {

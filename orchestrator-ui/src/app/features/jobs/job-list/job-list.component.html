@@ -72,16 +72,16 @@
       <th mat-header-cell *matHeaderCellDef>Actions</th>
       <td mat-cell *matCellDef="let job">
         <div class="action-group">
-          <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" matTooltip="Edit job details" aria-label="Edit {{ job.jobName }}">
+          <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" aria-label="Edit {{ job.jobName }}">
             <mat-icon>edit</mat-icon>
           </button>
-          <button mat-icon-button (click)="triggerRun(job)" matTooltip="Trigger a manual run of this job" aria-label="Run {{ job.jobName }}">
+          <button mat-icon-button (click)="triggerRun(job)" aria-label="Run {{ job.jobName }}">
             <mat-icon>play_arrow</mat-icon>
           </button>
-          <button mat-icon-button (click)="toggleEnabled(job)" matTooltip="{{ job.enabled ? 'Disable' : 'Enable' }} this job" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
+          <button mat-icon-button (click)="toggleEnabled(job)" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
             <mat-icon>{{ job.enabled ? 'toggle_off' : 'toggle_on' }}</mat-icon>
           </button>
-          <button mat-icon-button (click)="deleteJob(job)" matTooltip="Delete this job (cannot be undone)" color="warn" aria-label="Delete {{ job.jobName }}">
+          <button mat-icon-button (click)="deleteJob(job)" color="warn" aria-label="Delete {{ job.jobName }}">
             <mat-icon>delete</mat-icon>
           </button>
         </div>

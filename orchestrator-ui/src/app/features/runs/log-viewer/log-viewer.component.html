@@ -1,6 +1,6 @@
 <div class="log-toolbar">
   <div class="toolbar-left">
-    <mat-slide-toggle [(ngModel)]="autoScroll" matTooltip="Auto-scroll to latest log entry">
+    <mat-slide-toggle [(ngModel)]="autoScroll">
       <span class="toggle-label">Auto-scroll</span>
     </mat-slide-toggle>
     @if (running) {
@@ -13,7 +13,7 @@
   </div>
   <div class="toolbar-right">
     <span class="log-count">{{ logLines.length }} lines</span>
-    <button mat-stroked-button (click)="clearLog()" class="clear-btn" matTooltip="Clear all log lines">
+    <button mat-stroked-button (click)="clearLog()" class="clear-btn">
       <mat-icon>clear_all</mat-icon> Clear
     </button>
   </div>

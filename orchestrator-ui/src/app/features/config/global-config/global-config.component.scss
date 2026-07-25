@@ -3,13 +3,17 @@
 }
 
 .page-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .page-subtitle {
   margin: 4px 0 0;
   color: var(--mat-sys-on-surface-variant);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
 }
 
 /* Health Card */
@@ -24,21 +28,22 @@
 
 .section-header {
   padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .section-title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--mat-sys-on-surface-variant);
   display: flex;
   align-items: center;
   gap: 8px;
 
   mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
     color: var(--mat-sys-primary);
   }
 }
@@ -57,19 +62,19 @@
 }
 
 .health-icon-wrapper {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
-  mat-icon {
-    color: white;
-    font-size: 22px;
-    width: 22px;
-    height: 22px;
+  mat_icon, mat-icon {
+    color: #fff;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -78,7 +83,7 @@
 }
 
 .health-label {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--mat-sys-on-surface-variant);
@@ -86,8 +91,8 @@
 }
 
 .health-value {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* Section Card */
@@ -110,10 +115,10 @@
 
 .env-key {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  background: rgba(0, 0, 0, 0.03);
+  font-size: var(--font-size-sm);
+  background: rgba(15, 15, 15, 0.04);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 /* Validator Card */
@@ -140,14 +145,14 @@
   margin: 0 var(--spacing-lg) var(--spacing-md);
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(var(--mat-sys-primary), 0.06);
-  font-size: 0.85rem;
+  background: rgba(37, 99, 235, 0.06);
+  font-size: var(--font-size-sm);
 
-  mat-icon {
+  mat_icon, mat-icon {
     font-size: 18px;
     width: 18px;
     height: 18px;
-    color: var(--mat-sys-primary);
+    color: var(--accent-primary);
   }
 }
 
@@ -157,16 +162,17 @@
   padding: var(--spacing-2xl);
   color: var(--mat-sys-on-surface-variant);
 
-  mat-icon {
-    font-size: 40px;
-    width: 40px;
-    height: 40px;
+  mat_icon, mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
     opacity: 0.4;
     margin-bottom: var(--spacing-sm);
   }
 
   p {
     margin: 0;
+    font-size: var(--font-size-sm);
   }
 }
 
@@ -181,13 +187,14 @@ table {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(var(--mat-sys-background), 0.85);
+  background: rgba(248, 249, 250, 0.85);
+  backdrop-filter: blur(2px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
 
-  mat-spinner {
+  mat_spinner, mat-spinner {
     margin: auto;
   }
 }

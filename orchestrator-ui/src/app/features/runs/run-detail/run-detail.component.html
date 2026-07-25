@@ -7,7 +7,7 @@
   <!-- Header -->
   <div class="run-header">
     <div class="header-left">
-      <button mat-icon-button routerLink="/runs" matTooltip="Back">
+      <button mat-icon-button routerLink="/runs" aria-label="Back">
         <mat-icon>arrow_back</mat-icon>
       </button>
       <div>
@@ -68,7 +68,7 @@
               <app-status-badge [status]="step.status" />
             </div>
           </div>
-          <button mat-stroked-button (click)="viewStepLog(step.runStepId); $event.stopPropagation()" class="log-btn" matTooltip="View step execution log">
+          <button mat-stroked-button (click)="viewStepLog(step.runStepId); $event.stopPropagation()" class="log-btn">
             <mat-icon>visibility</mat-icon> Log
           </button>
         </div>

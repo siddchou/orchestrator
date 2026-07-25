@@ -8,7 +8,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { RunService } from '@app/core/services/run.service';
@@ -23,7 +22,7 @@ import { RunStatus } from '@app/core/models/job.model';
   selector: 'app-run-detail',
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule,
-    MatProgressSpinnerModule, MatSlideToggleModule, MatTooltipModule, MatSnackBarModule, RouterLink,
+    MatProgressSpinnerModule, MatSlideToggleModule, MatSnackBarModule, RouterLink,
     StatusBadge, DurationPipe, LogViewerComponent,
   ],
   templateUrl: './run-detail.component.html',

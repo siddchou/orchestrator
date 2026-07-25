@@ -69,11 +69,11 @@
   <div class="add-env-row">
     <mat-form-field appearance="outline">
       <mat-label>Variable Name</mat-label>
-      <input matInput [(ngModel)]="newKey" placeholder="MY_VAR" matTooltip="Global environment variable name (e.g., APP_ENV, LOG_LEVEL)" />
+      <input matInput [(ngModel)]="newKey" placeholder="MY_VAR" />
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Value</mat-label>
-      <input matInput [(ngModel)]="newValue" placeholder="/some/path" matTooltip="Global environment variable value" />
+      <input matInput [(ngModel)]="newValue" placeholder="/some/path" />
     </mat-form-field>
     <button mat-flat-button color="primary" (click)="addEnvVar()">
       <mat-icon>add</mat-icon> Add
@@ -97,7 +97,7 @@
       <ng-container matColumnDef="actions">
         <th mat-header-cell *matHeaderCellDef>Actions</th>
         <td mat-cell *matCellDef="let env">
-          <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" matTooltip="Remove this global variable" color="warn">
+          <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" color="warn" aria-label="Remove this variable">
             <mat-icon>delete</mat-icon>
           </button>
         </td>
@@ -124,13 +124,13 @@
   <div class="validator-row">
     <mat-form-field appearance="outline">
       <mat-label>JAVA_HOME</mat-label>
-      <input matInput [(ngModel)]="javaHome" placeholder="/usr/lib/jvm/java-17" matTooltip="Java installation path for system validation" />
+      <input matInput [(ngModel)]="javaHome" placeholder="/usr/lib/jvm/java-17" />
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Working Directory</mat-label>
-      <input matInput [(ngModel)]="workingDir" placeholder="/opt/jobs/my-job" matTooltip="Default working directory for job execution" />
+      <input matInput [(ngModel)]="workingDir" placeholder="/opt/jobs/my-job" />
     </mat-form-field>
-    <button mat-flat-button color="primary" (click)="validatePaths()" matTooltip="Validate configured paths exist and are accessible">
+    <button mat-flat-button color="primary" (click)="validatePaths()">
       <mat-icon>fact_check</mat-icon> Validate
     </button>
   </div>

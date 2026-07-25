@@ -25,7 +25,7 @@
   gap: 6px;
   flex-wrap: wrap;
   margin-top: 6px;
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   color: var(--mat-sys-on-surface-variant);
 }
 
@@ -54,10 +54,10 @@
   margin-left: 8px;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  background: rgba(244, 67, 54, 0.1);
-  color: #d32f2f;
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.05em;
 }
 
@@ -65,7 +65,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #f44336;
+  background: var(--accent-danger);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -83,20 +83,20 @@
   gap: var(--spacing-sm);
   padding: 14px var(--spacing-md);
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.015);
+  background: rgba(15, 15, 15, 0.02);
   border: 1px solid transparent;
   transition: all var(--transition-fast);
   cursor: pointer;
 
   &:hover {
-    background: rgba(var(--mat-sys-primary), 0.04);
-    border-color: rgba(var(--mat-sys-primary), 0.15);
+    background: rgba(37, 99, 235, 0.04);
+    border-color: rgba(37, 99, 235, 0.15);
   }
 
   &.selected {
-    background: rgba(var(--mat-sys-primary), 0.06);
-    border-color: var(--mat-sys-primary);
-    box-shadow: 0 0 0 1px var(--mat-sys-primary);
+    background: rgba(37, 99, 235, 0.06);
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 1px var(--accent-primary);
   }
 }
 
@@ -108,7 +108,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(15, 15, 15, 0.04);
 }
 
 .step-icon {
@@ -123,7 +123,7 @@
 }
 
 .step-name {
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   margin-bottom: 4px;
 }
 
@@ -131,15 +131,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-xs);
   color: var(--mat-sys-on-surface-variant);
 }
 
 .step-type {
   text-transform: uppercase;
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.05em;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .meta-sep {
@@ -150,7 +150,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.8rem;
+  font-size: var(--font-size-sm);
   flex-shrink: 0;
 
   mat-icon {
@@ -174,7 +174,7 @@
   max-height: 500px;
   overflow-y: auto;
   line-height: 1.6;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .log-line {
