@@ -8,7 +8,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
@@ -23,7 +22,7 @@ import { RunStatus } from '@app/core/models/job.model';
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule,
     MatTableModule, MatPaginatorModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatSelectModule, MatTooltipModule,
+    MatButtonModule, MatIconModule, MatSelectModule,
     MatDatepickerModule, MatProgressSpinnerModule, RouterLink,
     StatusBadge, DurationPipe,
   ],

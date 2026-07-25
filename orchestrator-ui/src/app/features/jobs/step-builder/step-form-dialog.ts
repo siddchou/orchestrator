@@ -8,7 +8,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { StepType, EnvSetupConfig, LogCleanupConfig, JavaExecConfig, SftpConfig, ArchiveConfig } from '../../../core/models/job.model';
 
@@ -26,7 +25,7 @@ export interface StepFormData {
   selector: 'app-step-form-dialog',
   imports: [
     CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatSelectModule, MatSlideToggleModule, MatDialogModule, MatTooltipModule,
+    MatButtonModule, MatIconModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
   ],
   templateUrl: './step-form-dialog.html',
   styleUrl: './step-form-dialog.scss',

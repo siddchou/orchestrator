@@ -8,7 +8,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -26,7 +25,7 @@ import { JobDefinition } from '@app/core/models/job.model';
   selector: 'app-job-list',
   imports: [
     CommonModule, MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
-    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule, MatTooltipModule,
+    MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule,
     MatChipsModule, MatSnackBarModule, MatDialogModule, MatProgressSpinnerModule,
     RouterLink,
   ],

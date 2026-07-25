@@ -7,7 +7,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
@@ -25,7 +24,7 @@ import { KeyDialogComponent } from './key-dialog.component';
   selector: 'app-credentials',
   imports: [
     CommonModule, FormsModule, MatCardModule, MatTableModule,
-    MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatTooltipModule,
+    MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule,
     MatSnackBarModule, MatDialogModule, MatSelectModule,
     MatProgressSpinnerModule, MatChipsModule, MatDividerModule, MatTabsModule,
   ],

@@ -74,11 +74,11 @@
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef>Actions</th>
       <td mat-cell *matCellDef="let run">
-        <button mat-icon-button [routerLink]="'/runs/' + run.runId" matTooltip="View run details" aria-label="View run details for {{ run.jobName }}">
+        <button mat-icon-button [routerLink]="'/runs/' + run.runId" aria-label="View run details for {{ run.jobName }}">
           <mat-icon>visibility</mat-icon>
         </button>
         @if (run.status !== 'RUNNING') {
-          <button mat-icon-button (click)="triggerRun(run.jobName, run.jobId)" matTooltip="Run again" aria-label="Re-run {{ run.jobName }}">
+          <button mat-icon-button (click)="triggerRun(run.jobName, run.jobId)" aria-label="Re-run {{ run.jobName }}">
             <mat-icon>play_arrow</mat-icon>
           </button>
         }
