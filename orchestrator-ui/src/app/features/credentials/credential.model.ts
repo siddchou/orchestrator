@@ -5,6 +5,12 @@ export interface Credential {
   createdAt?: string;
 }
 
+export interface CredentialFormData {
+  ref: string;
+  type: 'PASSWORD' | 'SSH_KEY';
+  value: string;
+}
+
 export interface KeyGenerationRequest {
   ref: string;
   algorithm: 'RSA' | 'ED25519';

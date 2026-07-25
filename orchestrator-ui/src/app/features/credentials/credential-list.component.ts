@@ -18,7 +18,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 
 import { CredentialService } from '@app/core/services/credential.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
-import { Credential, KeyGenerationRequest, KeyGenerationResponse } from './credential.model';
+import { Credential, KeyGenerationRequest, KeyGenerationResponse, CredentialFormData } from './credential.model';
 import { KeyDialogComponent } from './key-dialog.component';
 
 @Component({
@@ -39,7 +39,6 @@ export class CredentialListComponent implements OnInit {
 
   credentials: Credential[] = [];
   loading = true;
-  selectedTab = 0; // 0 = list, 1 = generate key
 
   // Key generation form
   keyRef = '';
@@ -48,6 +47,14 @@ export class CredentialListComponent implements OnInit {
   generatingKey = false;
 
   displayedColumns = ['ref', 'type', 'createdAt', 'actions'];
+
+  // Add password credential form state
+  selectedTab = 0; // 0 = list, 1 = generate key, 2 = add password
+  newCredRef = '';
+  newCredValue = '';
+  showPassword = false;
+  addingCredential = false;
+  credentialAdded = false;
 
   ngOnInit() {
     this.loadCredentials();
@@ -145,5 +152,50 @@ export class CredentialListComponent implements OnInit {
     this.keyRef = '';
     this.keyAlgorithm = 'RSA';
     this.rsaKeySize = 2048;
+  }
+
+  togglePasswordVisibility() {
+    this.showPassword = !this.showPassword;
+  }
+
+  addPasswordCredential() {
+    if (!this.newCredRef.trim() || !this.newCredValue.trim()) {
+      this.snackBar.open('Please enter both a reference and password', 'Close', { duration: 3000 });
+      return;
+    }
+
+    this.addingCredential = true;
+
+    const formData: CredentialFormData = {
+      ref: this.newCredRef,
+      type: 'PASSWORD',
+      value: this.newCredValue
+    };
+
+    this.credentialService.createCredential(formData.ref, formData.type, formData.value).subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.snackBar.open('Password credential added successfully', 'Close', { duration: 3000 });
+          this.credentialAdded = true;
+          setTimeout(() => {
+            this.loadCredentials();
+            this.resetAddCredentialForm();
+            this.selectedTab = 0; // Switch back to list tab
+          }, 100);
+        }
+        this.addingCredential = false;
+      },
+      error: () => {
+        this.snackBar.open('Failed to add password credential', 'Close', { duration: 5000 });
+        this.addingCredential = false;
+      }
+    });
+  }
+
+  private resetAddCredentialForm() {
+    this.newCredRef = '';
+    this.newCredValue = '';
+    this.showPassword = false;
+    this.credentialAdded = false;
   }
 }
