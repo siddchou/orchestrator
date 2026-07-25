@@ -176,26 +176,30 @@ export class CredentialListComponent implements OnInit {
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.snackBar.open('Password credential added successfully', 'Close', { duration: 3000 });
-          this.credentialAdded = true;
-          setTimeout(() => {
-            this.loadCredentials();
-            this.resetAddCredentialForm();
-            this.selectedTab = 0; // Switch back to list tab
-          }, 100);
+          // Reset form first
+          this.newCredRef = '';
+          this.newCredValue = '';
+          this.showPassword = false;
+          // Refresh the credentials list immediately
+          this.loadCredentials();
+          // Then switch back to list tab
+          this.selectedTab = 0;
+        } else {
+          this.snackBar.open(res.status || 'Failed to add credential', 'Close', { duration: 3000 });
         }
         this.addingCredential = false;
       },
-      error: () => {
-        this.snackBar.open('Failed to add password credential', 'Close', { duration: 5000 });
+      error: (err) => {
         this.addingCredential = false;
+        this.snackBar.open(err.message || 'Failed to add password credential', 'Close', { duration: 5000 });
       }
     });
   }
 
-  private resetAddCredentialForm() {
-    this.newCredRef = '';
-    this.newCredValue = '';
-    this.showPassword = false;
-    this.credentialAdded = false;
+  onTabChanged(index: number) {
+    // Refresh credentials when switching back to list tab
+    if (index === 0) {
+      setTimeout(() => this.loadCredentials(), 100);
+    }
   }
 }
