@@ -1,0 +1,5 @@
+<div class="dynamic-step-form">
+  @for (field of fields; track field.name) {
+    <app-dynamic-field [fieldDef]="field" [control]="form.get(field.name)" />
+  }
+</div>

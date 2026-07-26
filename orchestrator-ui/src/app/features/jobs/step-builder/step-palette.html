@@ -1,0 +1,38 @@
+<div class="palette-dialog">
+  <h2 mat-dialog-title>Add Step Type</h2>
+
+  <mat-form-field appearance="outline" class="filter-field">
+    <mat-label>Search step types...</mat-label>
+    <input matInput [(ngModel)]="filter" placeholder="Type to filter..." />
+    <mat-icon matPrefix>search</mat-icon>
+  </mat-form-field>
+
+  <mat-dialog-content class="content">
+    @if (loading) {
+      <div class="loading-state">
+        <mat-spinner diameter="32"></mat-spinner>
+      </div>
+    } @else if (filtered.length === 0) {
+      <div class="empty-state">
+        <p>No step types match "<strong>{{ filter }}</strong>"</p>
+      </div>
+    } @else {
+      <div class="palette-grid">
+        @for (schema of filtered; track schema.stepType) {
+          @let meta = metaFor(schema.stepType);
+          <button type="button" class="step-card" (click)="select(schema)" [attr.aria-label]="'Add ' + schema.displayName + ' step'">
+            <mat-icon class="step-icon">{{ meta.icon }}</mat-icon>
+            <span class="step-name">{{ schema.displayName }}</span>
+            <span class="step-type-label">{{ schema.stepType }}</span>
+            <span class="step-desc">{{ meta.description }}</span>
+            <span class="field-count">{{ schema.fields.length }} fields</span>
+          </button>
+        }
+      </div>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="dialogRef.close(null)">Cancel</button>
+  </mat-dialog-actions>
+</div>

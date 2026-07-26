@@ -35,7 +35,7 @@ public class EnvSetupStepExecutor implements StepExecutor {
     public StepConfigSchema getConfigSchema() {
         return new StepConfigSchema("ENV_SETUP", "Environment Setup", List.of(
             new FieldDefinition("javaHome", "Java Home Directory", FieldType.STRING, true, null, null, "Path to the JDK installation"),
-            new FieldDefinition("classpathEntries", "Classpath Entries", FieldType.STRING, false, null, null, "List of JAR paths or directories for the classpath"),
+            new FieldDefinition("classpathEntries", "Classpath Entries", FieldType.LIST_STRING, false, null, null, "Comma-separated list of JAR paths or directories for the classpath"),
             new FieldDefinition("extraEnvVars", "Extra Environment Variables", FieldType.STRING, false, null, null, "JSON map of additional environment variables to merge")
         ));
     }

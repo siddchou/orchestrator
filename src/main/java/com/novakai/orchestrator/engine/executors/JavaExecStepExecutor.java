@@ -62,8 +62,8 @@ public class JavaExecStepExecutor implements StepExecutor {
         return new StepConfigSchema("JAVA_EXEC", "Java Execution", List.of(
             new FieldDefinition("mainClass", "Main Class", FieldType.STRING, false, null, null, "Fully-qualified Java class name to execute"),
             new FieldDefinition("jarPath", "JAR Path", FieldType.FILE_PATTERN, false, null, null, "Path to JAR file (alternative to mainClass)"),
-            new FieldDefinition("args", "Arguments", FieldType.STRING, false, null, null, "JSON array of application arguments"),
-            new FieldDefinition("jvmArgs", "JVM Arguments", FieldType.STRING, false, null, null, "JSON array of JVM flags (e.g., -Xmx256m)"),
+            new FieldDefinition("args", "Arguments", FieldType.LIST_STRING, false, null, null, "Comma-separated application arguments passed to main()"),
+            new FieldDefinition("jvmArgs", "JVM Arguments", FieldType.LIST_STRING, false, null, null, "Comma-separated JVM flags (e.g., -Xmx256m,-Xms128m)"),
             new FieldDefinition("timeoutMinutes", "Timeout (minutes)", FieldType.NUMBER, false, null, null, "Execution timeout in minutes")
         ));
     }

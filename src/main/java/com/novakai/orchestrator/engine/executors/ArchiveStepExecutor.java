@@ -46,7 +46,7 @@ public class ArchiveStepExecutor implements StepExecutor {
     public StepConfigSchema getConfigSchema() {
         return new StepConfigSchema("ARCHIVE", "Archive Files", List.of(
             new FieldDefinition("sourceDir", "Source Directory", FieldType.STRING, true, null, null, "Directory containing files to archive"),
-            new FieldDefinition("filePatterns", "File Patterns", FieldType.STRING, true, null, null, "JSON array of glob patterns for files to include"),
+            new FieldDefinition("filePatterns", "File Patterns", FieldType.LIST_STRING, true, null, null, "Comma-separated glob patterns for files to include (e.g., *.log,*.tmp)"),
             new FieldDefinition("archiveDir", "Archive Output Directory", FieldType.STRING, true, null, null, "Directory where the archive file will be created"),
             new FieldDefinition("archiveFormat", "Archive Format", FieldType.ENUM, false, "ZIP", List.of("TAR_GZ", "ZIP"), "Output format: TAR_GZ or ZIP"),
             new FieldDefinition("deleteOriginal", "Delete Original Files", FieldType.BOOLEAN, false, false, null, "Whether to delete source files after archiving")

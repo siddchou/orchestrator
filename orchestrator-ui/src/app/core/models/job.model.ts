@@ -1,4 +1,24 @@
-export type StepType = 'ENV_SETUP' | 'LOG_CLEANUP' | 'JAVA_EXEC' | 'SFTP' | 'ARCHIVE';
+export type StepType = 'ENV_SETUP' | 'LOG_CLEANUP' | 'JAVA_EXEC' | 'SFTP' | 'ARCHIVE' | 'HTTP_CALL' | 'SHELL_EXEC' | 'DB_QUERY';
+
+// --- Step Type Schema (from GET /api/step-types) ---
+
+export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'ENUM' | 'SECRET_REF' | 'FILE_PATTERN' | 'LIST_STRING';
+
+export interface FieldDefinition {
+  name: string;
+  label: string;
+  type: FieldType;
+  required: boolean;
+  defaultValue?: string | number | boolean | null;
+  enumValues?: string[];
+  helpText?: string;
+}
+
+export interface StepConfigSchema {
+  stepType: string;
+  displayName: string;
+  fields: FieldDefinition[];
+}
 export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CANCELLED';
 export type TriggerType = 'MANUAL' | 'SCHEDULED' | 'API';
 

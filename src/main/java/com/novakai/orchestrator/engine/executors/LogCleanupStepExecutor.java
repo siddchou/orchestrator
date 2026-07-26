@@ -38,7 +38,7 @@ public class LogCleanupStepExecutor implements StepExecutor {
         return new StepConfigSchema("LOG_CLEANUP", "Log Cleanup", List.of(
             new FieldDefinition("directory", "Directory to Clean", FieldType.STRING, true, null, null, "Absolute or relative path to the directory"),
             new FieldDefinition("filePattern", "File Pattern", FieldType.FILE_PATTERN, false, null, null, "Glob pattern for files to delete (e.g., *.log)"),
-            new FieldDefinition("extraPatterns", "Extra Patterns", FieldType.STRING, false, null, null, "Additional glob patterns as JSON array")
+            new FieldDefinition("extraPatterns", "Extra Patterns", FieldType.LIST_STRING, false, null, null, "Additional comma-separated glob patterns to delete")
         ));
     }
 

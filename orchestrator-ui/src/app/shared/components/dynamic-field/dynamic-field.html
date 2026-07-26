@@ -1,0 +1,78 @@
+<ng-container [ngSwitch]="fieldType">
+  <!-- STRING / FILE_PATTERN -->
+  <mat-form-field *ngSwitchCase="'STRING'" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</mat-label>
+    <input [formControl]="control" matInput [placeholder]="placeholder" />
+  </mat-form-field>
+
+  <mat-form-field *ngSwitchCase="'FILE_PATTERN'" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</mat-label>
+    <input [formControl]="control" matInput [placeholder]="placeholder" />
+    @if (fieldDef.helpText) {
+      <mat-hint>{{ fieldDef.helpText }}</mat-hint>
+    }
+  </mat-form-field>
+
+  <!-- LIST_STRING - chip/tag input -->
+  <div *ngSwitchCase="'LIST_STRING'" class="list-string-field">
+    <div class="list-label">{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</div>
+    <div class="chip-container" [attr.aria-label]="fieldDef.label">
+      @for (chip of chips; track chip; let i = $index) {
+        <mat-chip class="value-chip" removable (removed)="removeChip(i)">
+          {{ chip }}
+        </mat-chip>
+      }
+      <input
+        matInput
+        placeholder="{{ fieldDef.helpText || 'Type and press Enter' }}"
+        (keydown.enter)="onAddChip($event)"
+        (keydown.backspace)="chips.length > 0 && removeChip(chips.length - 1)"
+        #chipInput
+      />
+    </div>
+    @if (fieldDef.helpText) {
+      <div class="help-text">{{ fieldDef.helpText }}</div>
+    }
+  </div>
+
+  <!-- NUMBER -->
+  <mat-form-field *ngSwitchCase="'NUMBER'" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</mat-label>
+    <input [formControl]="control" matInput type="number" [placeholder]="placeholder" />
+  </mat-form-field>
+
+  <!-- BOOLEAN -->
+  <div *ngSwitchCase="'BOOLEAN'" class="dynamic-boolean-field">
+    <mat-checkbox [formControl]="control" color="primary">
+      {{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}
+    </mat-checkbox>
+    @if (fieldDef.helpText) {
+      <span class="help-text">{{ fieldDef.helpText }}</span>
+    }
+  </div>
+
+  <!-- ENUM -->
+  <mat-form-field *ngSwitchCase="'ENUM'" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</mat-label>
+    <mat-select [formControl]="control">
+      @for (val of fieldDef.enumValues; track val) {
+        <mat-option [value]="val">{{ val }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <!-- SECRET_REF -->
+  <mat-form-field *ngSwitchCase="'SECRET_REF'" appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}{{ fieldDef.required ? ' *' : '' }}</mat-label>
+    <input [formControl]="control" matInput placeholder="credential name reference" />
+    @if (fieldDef.helpText) {
+      <mat-hint>{{ fieldDef.helpText }}</mat-hint>
+    }
+  </mat-form-field>
+
+  <!-- Fallback -->
+  <mat-form-field *ngSwitchDefault appearance="outline" subscriptSizing="dynamic">
+    <mat-label>{{ fieldDef.label }}</mat-label>
+    <input [formControl]="control" matInput [placeholder]="placeholder" />
+  </mat-form-field>
+</ng-container>
