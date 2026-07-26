@@ -133,7 +133,7 @@ class JobDefinitionServiceTest {
     @Test
     void addStep() {
         JobStepRequest step = new JobStepRequest(
-                "env-setup", 1, StepType.ENV_SETUP, "{}", false, true);
+                "env-setup", 1, "ENV_SETUP", "{}", false, true);
         var response = service.addStep(savedJobId, step);
         assertNotNull(response.stepId());
         assertEquals("env-setup", response.stepName());

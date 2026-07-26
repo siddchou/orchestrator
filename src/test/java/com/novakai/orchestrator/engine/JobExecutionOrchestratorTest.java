@@ -4,12 +4,10 @@ import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobRun;
 import com.novakai.orchestrator.domain.entity.JobStep;
 import com.novakai.orchestrator.domain.enums.RunStatus;
-import com.novakai.orchestrator.domain.enums.StepType;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -55,7 +52,6 @@ class JobExecutionOrchestratorTest {
 
     @Test
     void execute_single_step_success() throws Exception {
-        // Skip on Windows - ENV_SETUP executor requires real filesystem paths
         if (System.getProperty("os.name").toLowerCase().contains("windows")) {
             return;
         }
@@ -72,7 +68,7 @@ class JobExecutionOrchestratorTest {
                 .jobDefinition(job)
                 .stepName("env-setup")
                 .stepOrder(1)
-                .stepType(StepType.ENV_SETUP)
+                .stepType("ENV_SETUP")
                 .stepConfig("{\"javaHome\":\"" + extractJavaHome() + "\",\"classpathEntries\":[],\"extraEnvVars\":null}")
                 .enabled("Y")
                 .continueOnFailure("N")
@@ -111,7 +107,7 @@ class JobExecutionOrchestratorTest {
                 .jobDefinition(job)
                 .stepName("env-setup")
                 .stepOrder(1)
-                .stepType(StepType.ENV_SETUP)
+                .stepType("ENV_SETUP")
                 .stepConfig("{\"javaHome\":\"" + extractJavaHome() + "\",\"classpathEntries\":[],\"extraEnvVars\":null}")
                 .enabled("Y")
                 .continueOnFailure("N")
@@ -154,7 +150,7 @@ class JobExecutionOrchestratorTest {
                 .jobDefinition(job)
                 .stepName("env-setup")
                 .stepOrder(1)
-                .stepType(StepType.ENV_SETUP)
+                .stepType("ENV_SETUP")
                 .stepConfig("{\"javaHome\":\"" + extractJavaHome() + "\",\"classpathEntries\":[],\"extraEnvVars\":null}")
                 .enabled("Y")
                 .continueOnFailure("N")

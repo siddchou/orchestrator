@@ -59,7 +59,7 @@ class JobLaunchServiceTest {
                 .jobDefinition(job)
                 .stepName("env-setup")
                 .stepOrder(1)
-                .stepType(StepType.ENV_SETUP)
+                .stepType("ENV_SETUP")
                 .stepConfig("{\"paths\":[]}")
                 .enabled("Y")
                 .continueOnFailure("N")

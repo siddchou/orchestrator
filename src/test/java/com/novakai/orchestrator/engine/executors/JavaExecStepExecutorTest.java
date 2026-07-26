@@ -1,14 +1,13 @@
 package com.novakai.orchestrator.engine.executors;
 
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.JsonParser;
-import com.novakai.orchestrator.engine.StepResult;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,23 +27,24 @@ class JavaExecStepExecutorTest {
     }
 
     @Test
-    void getSupportedType_returns_JAVA_EXEC() {
-        assertEquals(StepType.JAVA_EXEC, executor.getSupportedType());
+    void getType_returns_JAVA_EXEC() {
+        assertEquals("JAVA_EXEC", executor.getType());
     }
 
     @Test
     void execute_returns_failure_when_config_is_null() throws Exception {
-        JobStep step = JobStep.builder().stepConfig("").build();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var ctx = StepContext.builder()
                 .javaHome(getJavaHomeRoot())
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig("")
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("null or empty"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("null or empty"));
     }
 
     @Test
@@ -54,18 +54,19 @@ class JavaExecStepExecutorTest {
         String config = """
                 {"mainClass":"java.lang.Object","jarPath":null,"args":[],"jvmArgs":null,"timeoutMinutes":1}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var ctx = StepContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of())
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
         assertNotNull(result);
-        assertTrue(result.logOutput().contains("Executing:"));
+        assertTrue(result.getLogOutput().contains("Executing:"));
     }
 
     @Test
@@ -75,17 +76,18 @@ class JavaExecStepExecutorTest {
         String config = """
                 {"mainClass":"java.lang.Object","jarPath":null,"args":[],"jvmArgs":["-Xmx256m"],"timeoutMinutes":1}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var ctx = StepContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of())
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.logOutput().contains("-Xmx256m"));
+        assertTrue(result.getLogOutput().contains("-Xmx256m"));
     }
 
     @Test
@@ -95,20 +97,21 @@ class JavaExecStepExecutorTest {
         String config = """
                 {"mainClass":"java.lang.Object","jarPath":null,"args":[],"jvmArgs":null,"timeoutMinutes":1}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var ctx = StepContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of("lib/a.jar", "lib/b.jar"))
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.logOutput().contains("-cp"));
+        assertTrue(result.getLogOutput().contains("-cp"));
         String expectedSep = System.getProperty("path.separator");
-        String cpSection = result.logOutput()
-                .substring(result.logOutput().indexOf("-cp"));
+        String cpSection = result.getLogOutput()
+                .substring(result.getLogOutput().indexOf("-cp"));
         assertTrue(cpSection.contains(expectedSep),
                 "Classpath should use platform separator '" + expectedSep + "'");
     }
@@ -120,15 +123,16 @@ class JavaExecStepExecutorTest {
         String config = """
                 {"mainClass":"java.lang.Object","jarPath":null,"args":null,"jvmArgs":null,"timeoutMinutes":1}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var ctx = StepContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of())
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
         assertNotNull(result);
     }
@@ -140,17 +144,17 @@ class JavaExecStepExecutorTest {
         String config = """
                 {"mainClass":"java.lang.Object","jarPath":null,"args":[],"jvmArgs":null,"timeoutMinutes":1}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        var queue = new java.util.concurrent.LinkedBlockingQueue<String>();
-        ExecutionContext ctx = ExecutionContext.builder()
+        var queue = new LinkedBlockingQueue<String>();
+        var ctx = StepContext.builder()
                 .javaHome(javaHomeRoot)
                 .classpath(List.of())
-                .workingDir(System.getProperty("user.dir").replace("\\", "/"))
-                .envVars(new HashMap<>())
-                .liveLogQueue(queue)
+                .workDir(java.nio.file.Path.of(System.getProperty("user.dir").replace("\\", "/")))
+                .envVars(new java.util.HashMap<>())
+                .logSink(new StepContext.LogSink(queue))
+                .stepConfig(config)
                 .build();
 
-        executor.execute(ctx, step);
+        executor.execute(ctx);
 
         assertFalse(queue.isEmpty(), "Live log queue should have entries");
         assertTrue(queue.stream().anyMatch(s -> s.contains("Executing:")));

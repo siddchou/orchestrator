@@ -1,15 +1,12 @@
 package com.novakai.orchestrator.api.dto;
 
-// @author Siddhant Choudhary
-
 import com.novakai.orchestrator.domain.enums.RunStatus;
-import com.novakai.orchestrator.domain.enums.StepType;
 import java.time.LocalDateTime;
 
 public record RunStepDetail(
     Long runStepId,
     String stepName,
-    StepType stepType,
+    String stepType,
     Integer stepOrder,
     RunStatus status,
     Integer exitCode,

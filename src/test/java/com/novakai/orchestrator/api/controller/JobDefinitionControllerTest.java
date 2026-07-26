@@ -135,7 +135,7 @@ class JobDefinitionControllerTest {
     @Test
     void add_step() {
         JobStepRequest step = new JobStepRequest(
-                "env-setup", 1, StepType.ENV_SETUP, "{}", false, true);
+                "env-setup", 1, "ENV_SETUP", "{}", false, true);
         ResponseEntity<String> response = restTemplate.postForEntity(
                 base() + "/api/jobs/" + savedJobId + "/steps", step, String.class);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
