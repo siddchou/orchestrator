@@ -3,30 +3,29 @@ package com.novakai.orchestrator.engine;
 // @author Siddhant Choudhary
 
 import com.novakai.orchestrator.domain.enums.StepType;
-import org.springframework.stereotype.Component;
-
-import lombok.extern.slf4j.Slf4j;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-@Component
-@Slf4j
+/**
+ * @deprecated Replaced by {@link com.novakai.orchestrator.engine.spi.StepExecutorRegistry}.
+ *   This class is retained only so that any code that references the symbol still compiles.
+ *   It is not a Spring bean and should not be instantiated — all executors now implement
+ *   {@code engine.spi.StepExecutor} which this old interface does not match.
+ */
+@Deprecated
 public class StepExecutorFactory {
 
-    private final Map<StepType, StepExecutor> executorMap;
+    private final List<StepExecutor> executors;
 
     public StepExecutorFactory(List<StepExecutor> executors) {
-        this.executorMap = executors.stream()
-            .collect(Collectors.toMap(StepExecutor::getSupportedType, e -> e));
+        this.executors = executors;
     }
 
+    /**
+     * @deprecated Use {@link com.novakai.orchestrator.engine.spi.StepExecutorRegistry#get(String)}.
+     */
+    @Deprecated
     public StepExecutor resolve(StepType type) {
-        StepExecutor executor = executorMap.get(type);
-        if (executor == null) {
-            throw new IllegalArgumentException("No executor registered for step type: " + type);
-        }
-        log.debug("Resolved executor {} for step type {}", executor.getClass().getSimpleName(), type);
-        return executor;
+        throw new UnsupportedOperationException(
+            "StepExecutorFactory is deprecated — use StepExecutorRegistry.get(\"...\") instead");
     }
 }
