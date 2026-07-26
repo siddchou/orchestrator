@@ -1,9 +1,15 @@
 package com.novakai.orchestrator.engine.spi;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 
@@ -76,6 +82,9 @@ public class StepContext {
 
     // --- LogSink (wraps BlockingQueue for SSE compatibility) ---
     public static class LogSink {
+        private static final Logger LOG = LoggerFactory.getLogger(LogSink.class);
+        private static final int QUEUE_WARNING_THRESHOLD = 10_000;
+
         private final BlockingQueue<String> queue;
 
         public LogSink(BlockingQueue<String> queue) {
@@ -85,6 +94,12 @@ public class StepContext {
         public void log(String line) {
             if (queue != null && !line.isBlank()) {
                 queue.add(line);
+                int size = queue.size();
+                if (size == QUEUE_WARNING_THRESHOLD) {
+                    LOG.warn("Live log queue has {} entries — consider consuming logs faster to avoid memory pressure", size);
+                } else if (size > QUEUE_WARNING_THRESHOLD && size % 10_000 == 0) {
+                    LOG.warn("Live log queue still growing: {} entries", size);
+                }
             }
         }
 
