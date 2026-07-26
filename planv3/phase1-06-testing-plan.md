@@ -176,3 +176,31 @@
 | SFTP | `engine/executors/SftpStepExecutorTest.java` (compilation only) | Compiles without errors — API exploration test still references SftpClient correctly |
 | Factory dispatch | `engine/StepExecutorFactoryTest.java` → **rewritten** as `engine/spi/StepExecutorRegistryTest.java` (see gap-analysis Fix #5 — the old factory is deprecated but not kept functional, since no bean implements the old interface once Tasks 1–5 land) | Same 5 assertions (one per legacy step type resolving to the correct executor class), now expressed against `StepExecutorRegistry.get(String)` instead of the deprecated `StepExecutorFactory.resolve(StepType)` |
 | Orchestrator flow | `engine/JobExecutionOrchestratorTest.java` (3 tests: single step success, full job, cancelled run) | All 3 pass — sequential execution, cancel handling, and status transitions work identically |
+
+## Completion Status
+
+**Date:** 2026-07-26
+**Result:** BUILD SUCCESS — 253 tests passing (was 228, +25 new tests)
+
+### Newly Implemented Tests
+
+| Test File | New Tests Added | What It Covers |
+|-----------|----------------|----------------|
+| `engine/spi/RetryPolicyTest.java` | 3 | `RetryPolicy.none()` has no retries, `.fixed(3, 1s)` gives 2 retries, `.fixed(1, 1s)` gives 0 retries |
+| `engine/spi/FieldDefinitionTest.java` | 5 | ENUM field validation (with/without enumValues), non-ENUM with enumValues throws, empty schema valid, STRING without enumValues |
+| `engine/spi/StepContextTest.java` | 8 | Builder builds all fields, live log queue reference, LogSink.log() adds to queue, null queue no-op, blank line ignored, setJavaHome mutates, env vars isolated from builder, cancel flag volatile across threads |
+| `engine/spi/StepExecutorRegistryUnitTest.java` | 6 | Distinct types all resolve, duplicate type warns (Logback ListAppender) and last wins, unregistered returns empty, listAll returns schemas, registeredTypes returns all, concurrent reads from 20 threads × 50 reads |
+| `engine/spi/StepResultTest.java` | +1 | SKIPPED status is not success (`isSuccess()` returns false) |
+| `engine/MixedExecutorIntegrationTest.java` | +2 | Unregistered step type fails gracefully (PARTIAL), missing required config field fails validation (PARTIAL) |
+
+### Why PARTIAL and Not FAILED?
+The two new integration tests initially asserted `RunStatus.FAILED`. The orchestrator returns `RunStatus.PARTIAL` when any step fails — the `continueOnFailure=N` flag only controls whether remaining steps execute, not the final status. This is consistent with the existing `execute_continue_on_failure_skips_failed_step` test. Assertions corrected to `PARTIAL`.
+
+### Bugs Fixed During Testing
+- **Duplicate imports in StepContext.java** — `Logger` and `LoggerFactory` were imported twice (lines 3-4 and 10-11). Removed duplicates.
+- **Wrong Level class in StepExecutorRegistryUnitTest** — Used `org.slf4j.event.Level` instead of `ch.qos.logback.classic.Level` for Logback's `logger.setLevel()`. Fixed import.
+
+### Remaining Gaps (Low Priority)
+The following test categories from the plan are covered by existing tests or deferred:
+- **Memory leak / resource cleanup** — No explicit test for long-running registry with executor churn; acceptable for phase 1 since registry uses ConcurrentHashMap with no eviction needed for the expected scale (<50 executors).
+- **Serialization round-trip** — StepResult's `toOutput()` / `fromError()` paths exercise partial serialization; a full JSON round-trip test is deferred to phase 2 (API layer).

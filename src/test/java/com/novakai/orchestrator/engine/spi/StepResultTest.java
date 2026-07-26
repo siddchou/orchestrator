@@ -51,4 +51,11 @@ class StepResultTest {
         StepResult result = new StepResult(StepStatus.FAILED, Map.of(), null, Duration.ZERO);
         assertEquals("", result.getLogOutput());
     }
+
+    @Test
+    void skipped_status_is_not_success() {
+        StepResult result = new StepResult(StepStatus.SKIPPED, Map.of(), "skipped", Duration.ZERO);
+        assertFalse(result.isSuccess(), "SKIPPED should not be considered SUCCESS");
+        assertEquals("skipped", result.getLogOutput());
+    }
 }

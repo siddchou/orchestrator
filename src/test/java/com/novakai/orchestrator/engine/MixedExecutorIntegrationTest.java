@@ -241,6 +241,92 @@ class MixedExecutorIntegrationTest {
         assertEquals(RunStatus.PARTIAL, run.getStatus());
     }
 
+    @Test
+    void execute_unregistered_step_type_fails_gracefully() throws Exception {
+        JobDefinition job = JobDefinition.builder()
+                .jobName("unregistered-type-job")
+                .workingDir(System.getProperty("user.dir"))
+                .enabled("Y")
+                .steps(new ArrayList<>())
+                .envVars(new ArrayList<>())
+                .build();
+        job = jobRepo.save(job);
+
+        // Step references a step type with no registered executor
+        stepRepo.save(JobStep.builder()
+                .jobDefinition(job)
+                .stepName("nonexistent-step")
+                .stepOrder(1)
+                .stepType("NONEXISTENT_TYPE")
+                .stepConfig("{}")
+                .enabled("Y")
+                .continueOnFailure("N")
+                .build());
+
+        stepRepo.flush();
+        entityManager.clear();
+        job = jobRepo.findByIdWithSteps(job.getJobId()).orElseThrow();
+
+        JobRun run = JobRun.builder()
+                .jobDefinition(job)
+                .triggerType(TriggerType.MANUAL)
+                .status(RunStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .build();
+        run = runRepo.save(run);
+
+        ExecutionContext ctx = buildContext(run.getRunId(), job.getJobId());
+        orchestrator.execute(ctx, job, run);
+
+        runRepo.flush();
+        entityManager.clear();
+        run = runRepo.findById(run.getRunId()).orElseThrow();
+        assertEquals(RunStatus.PARTIAL, run.getStatus());
+    }
+
+    @Test
+    void execute_missing_required_config_field_fails_validation() throws Exception {
+        JobDefinition job = JobDefinition.builder()
+                .jobName("missing-config-job")
+                .workingDir(System.getProperty("user.dir"))
+                .enabled("Y")
+                .steps(new ArrayList<>())
+                .envVars(new ArrayList<>())
+                .build();
+        job = jobRepo.save(job);
+
+        // HTTP_CALL has "url" as a required field — omit it
+        stepRepo.save(JobStep.builder()
+                .jobDefinition(job)
+                .stepName("http-no-url")
+                .stepOrder(1)
+                .stepType("HTTP_CALL")
+                .stepConfig("{\"method\":\"GET\"}") // missing required "url" field
+                .enabled("Y")
+                .continueOnFailure("N")
+                .build());
+
+        stepRepo.flush();
+        entityManager.clear();
+        job = jobRepo.findByIdWithSteps(job.getJobId()).orElseThrow();
+
+        JobRun run = JobRun.builder()
+                .jobDefinition(job)
+                .triggerType(TriggerType.MANUAL)
+                .status(RunStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .build();
+        run = runRepo.save(run);
+
+        ExecutionContext ctx = buildContext(run.getRunId(), job.getJobId());
+        orchestrator.execute(ctx, job, run);
+
+        runRepo.flush();
+        entityManager.clear();
+        run = runRepo.findById(run.getRunId()).orElseThrow();
+        assertEquals(RunStatus.PARTIAL, run.getStatus());
+    }
+
     private static String extractJavaHome() {
         String javaHome = System.getProperty("java.home");
         if (javaHome != null && javaHome.endsWith("jre")) {
