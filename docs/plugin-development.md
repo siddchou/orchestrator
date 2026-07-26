@@ -4,9 +4,18 @@ This guide explains how to create custom step types for the orchestrator by impl
 
 ## Overview
 
-A plugin is a Java class that implements `com.novakai.orchestrator.engine.spi.StepExecutor`. Spring Boot's component scanning discovers it at startup — no factory registration, no XML config, no service loader files.
+A plugin is a Java class that implements `com.novakai.orchestrator.engine.spi.StepExecutor`. There are two ways to load plugins:
 
-## Quick Start: HELLO_WORLD Executor
+| Method | Use Case | Discovery |
+|--------|----------|-----------|
+| **Classpath** (`@Component`) | Bundled with the app or placed in `lib/` | Spring component scanning — automatic |
+| **Plugin directory** (ServiceLoader) | External JARs dropped into a plugins folder at runtime | `META-INF/services` file + `PluginScanner` |
+
+The plugin directory approach is recommended for distributable plugins since it requires no rebuild of the orchestrator.
+
+---
+
+## Quick Start: HELLO_WORLD Executor (Plugin Directory)
 
 ### 1. Create a Maven module
 
@@ -28,12 +37,10 @@ A plugin is a Java class that implements `com.novakai.orchestrator.engine.spi.St
 package com.example.plugin;
 
 import com.novakai.orchestrator.engine.spi.*;
-import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-@Component
 public class HelloWorldStepExecutor implements StepExecutor {
 
     @Override
@@ -57,10 +64,9 @@ public class HelloWorldStepExecutor implements StepExecutor {
     public StepResult execute(StepContext ctx) throws Exception {
         long startTime = System.nanoTime();
 
-        String name = "World"; // default
+        String name = "World";
         if (ctx.getStepConfig() != null && !ctx.getStepConfig().isBlank()) {
             // parse config from ctx.getStepConfig() JSON string
-            // use JsonParser or your preferred library
         }
 
         ctx.getLogSink().log("Hello, " + name + "!");
@@ -72,20 +78,74 @@ public class HelloWorldStepExecutor implements StepExecutor {
 }
 ```
 
-### 3. Package as JAR
+Note: No `@Component` annotation needed — the ServiceLoader instantiates via no-arg constructor.
 
-Build with your build tool (Maven/Gradle). The output is a standard JAR containing the compiled class and a `@Component` annotation.
+### 3. Register with ServiceLoader
 
-### 4. Deploy
+Create the file `src/main/resources/META-INF/services/com.novakai.orchestrator.engine.spi.StepExecutor` with one line:
 
-Copy the JAR into the orchestrator's `lib/` directory alongside `orchestrator.jar`, then restart:
+```
+com.example.plugin.HelloWorldStepExecutor
+```
+
+### 4. Package as JAR
 
 ```bash
-cp target/hello-world-plugin.jar /opt/orchestrator/lib/
+mvn package
+```
+
+The output is a standard thin JAR (no fat-jar packaging needed — the orchestrator provides all dependencies at runtime).
+
+### 5. Deploy
+
+Copy the JAR into the plugins directory configured by `orchestrator.plugins.dir` (default: `/opt/orchestrator/plugins`), then restart:
+
+```bash
+cp target/hello-world-plugin.jar /opt/orchestrator/plugins/
 systemctl restart orchestrator
 ```
 
-Spring Boot picks up all JARs in `lib/`. The `@Component` annotation triggers automatic discovery. No additional configuration needed.
+The `PluginScanner` component discovers and registers all executor JARs at startup. Check the logs for:
+
+```
+INFO  PluginScanner - Scanning 1 JAR(s) in '/opt/orchestrator/plugins' for step executor plugins
+INFO  PluginScanner - Registered plugin executor: type='HELLO_WORLD', class=com.example.plugin.HelloWorldStepExecutor
+```
+
+---
+
+## Classpath Plugins (Alternative)
+
+For plugins bundled at build time, annotate with `@Component` instead of using ServiceLoader:
+
+```java
+import org.springframework.stereotype.Component;
+
+@Component
+public class BundledHelloWorldExecutor implements StepExecutor { ... }
+```
+
+Spring's component scanning discovers it automatically. No `META-INF/services` file needed. This approach is suitable for internal plugins that ship with the orchestrator and need Spring DI (`@Autowired`).
+
+---
+
+## Configuration
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `orchestrator.plugins.dir` | `${ORCH_HOME}/plugins` | Directory to scan for plugin JARs at startup |
+
+Set via environment variable or override in `application.yml`:
+
+```yaml
+orchestrator:
+  plugins:
+    dir: /custom/path/to/plugins
+```
+
+The scanner runs once at application startup. If the directory doesn't exist, it is silently skipped. Only `.jar` files are considered.
+
+---
 
 ## API Reference
 
@@ -93,7 +153,7 @@ Spring Boot picks up all JARs in `lib/`. The `@Component` annotation triggers au
 
 | Method | Return | Description |
 |--------|--------|-------------|
-| `getType()` | `String` | Unique type identifier (e.g., `"HTTP_CALL"`). Used for registry dispatch and DB storage. Must be uppercase, no spaces or special characters. |
+| `getType()` | `String` | Unique type identifier (e.g., `"HTTP_CALL"`). Must be uppercase, no spaces or special characters. |
 | `getConfigSchema()` | `StepConfigSchema` | Declares the step's configuration fields. Drives UI form generation and runtime validation. |
 | `execute(StepContext ctx)` | `StepResult` | Performs the step work. Called by the orchestrator for each job run. |
 | `defaultRetryPolicy()` | `RetryPolicy` | Optional override. Defaults to `RetryPolicy.none()`. |
@@ -140,7 +200,7 @@ record FieldDefinition(
 ```java
 record StepResult(
     StepStatus status,              // SUCCESS | FAILED | SKIPPED
-    Map<String, Object> outputs,    // structured data for downstream steps (Phase 3)
+    Map<String, Object> outputs,    // structured data for downstream steps
     String message,                 // human-readable summary
     Duration executionTime          // wall-clock time of execute() call
 )
@@ -149,6 +209,24 @@ record StepResult(
 Factory methods:
 - `StepResult.success(outputs, message, duration)` — status SUCCESS
 - `StepResult.failure(message, duration)` — status FAILED with empty outputs
+
+---
+
+## Dependency Injection
+
+Plugins loaded from the plugin directory are **instantiated via ServiceLoader**, not Spring. They cannot use `@Autowired` or constructor injection. All dependencies are accessed through `StepContext`:
+
+| Need | How to Access |
+|------|---------------|
+| Logging | `ctx.getLogSink().log(line)` |
+| Credentials | `ctx.getCredentials().resolve(ref)` |
+| Environment vars | `ctx.getEnvVars()` |
+| Working directory | `ctx.getWorkDir()` |
+| Java home / classpath | `ctx.getJavaHome()`, `ctx.getClasspath()` |
+
+If you need access to Spring beans (JdbcTemplate, RestClient), use the **classpath plugin** approach with `@Component` instead.
+
+---
 
 ## Patterns & Conventions
 
@@ -161,8 +239,6 @@ long startTime = System.nanoTime();
 // ... work ...
 return StepResult.success(outputs, "done", Duration.ofNanos(System.nanoTime() - startTime));
 ```
-
-The orchestrator uses this for per-step timing metrics.
 
 ### Logging
 
@@ -188,11 +264,10 @@ Return a failure result rather than throwing exceptions when possible. The orche
 For sensitive values (passwords, private keys), declare the field as `FieldType.SECRET_REF` in your schema. Users provide a credential reference string, and you resolve it at runtime:
 
 ```java
-String credentialRef = (String) config.get("credentialRef");
 String decryptedValue = ctx.getCredentials().resolve(credentialRef);
 ```
 
-The resolver throws if the reference is not found — let it propagate; the orchestrator catches it.
+---
 
 ## Testing
 
@@ -210,11 +285,15 @@ StepResult result = executor.execute(ctx);
 assert result.isSuccess();
 ```
 
+---
+
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Executor not registered | Missing `@Component` or JAR not on classpath | Verify annotation and that the JAR is in `lib/` |
+| Executor not registered (classpath) | Missing `@Component` or JAR not on classpath | Verify annotation and that the JAR is in `lib/` |
+| Executor not registered (plugin dir) | Missing `META-INF/services` file or wrong fully-qualified class name | Check the services file exists and lists the correct class |
+| No-arg constructor error | ServiceLoader requires a public no-arg constructor | Add one, or use the classpath plugin approach with Spring DI |
 | Duplicate type warning | Two executors return the same `getType()` string | Use a unique type identifier per executor |
 | Credential resolve fails | Reference doesn't match any stored credential | Check the credential ref matches exactly (case-sensitive) |
 | Step times out | Orchestrator's default-step-timeout-minutes exceeded | Increase timeout in application config or optimize executor |

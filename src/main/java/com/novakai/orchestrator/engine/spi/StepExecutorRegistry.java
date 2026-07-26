@@ -4,10 +4,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -18,19 +20,24 @@ import java.util.stream.Collectors;
 @Slf4j
 public class StepExecutorRegistry {
 
-    private final Map<String, StepExecutor> executorMap;
-    private final List<StepConfigSchema> schemas;
+    private final Map<String, StepExecutor> executorMap = new ConcurrentHashMap<>();
+    private final List<StepConfigSchema> schemas = Collections.synchronizedList(new ArrayList<>());
 
     public StepExecutorRegistry(List<StepExecutor> executors) {
-        this.executorMap = executors.stream()
-            .collect(Collectors.toMap(StepExecutor::getType, e -> e, (a, b) -> {
-                log.warn("Duplicate executor for type '{}': {} wins over {}", a.getType(), b.getClass().getSimpleName(), a.getClass().getSimpleName());
-                return b; // last-registered wins
-            }));
+        for (StepExecutor e : executors) {
+            register(e);
+        }
+    }
 
-        this.schemas = executors.stream()
-            .map(StepExecutor::getConfigSchema)
-            .collect(Collectors.toCollection(ArrayList::new));
+    /** Register an executor discovered at runtime (e.g. from a plugin JAR). */
+    public void register(StepExecutor executor) {
+        String type = executor.getType();
+        StepExecutor previous = this.executorMap.put(type, executor);
+        if (previous != null) {
+            log.warn("Duplicate executor for type '{}': {} replaces {}",
+                type, executor.getClass().getSimpleName(), previous.getClass().getSimpleName());
+        }
+        this.schemas.add(executor.getConfigSchema());
     }
 
     /** Resolve executor by type string. */
@@ -51,6 +58,6 @@ public class StepExecutorRegistry {
 
     /** Return the set of registered type strings. */
     public Set<String> registeredTypes() {
-        return executorMap.keySet();
+        return Collections.unmodifiableSet(executorMap.keySet());
     }
 }
