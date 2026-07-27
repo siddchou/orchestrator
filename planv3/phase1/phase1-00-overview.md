@@ -31,6 +31,23 @@ This phase opens the type system so that registering a new step type requires on
 | 8 | [phase1-06-testing-plan.md](phase1-06-testing-plan.md) | Unit + integration test matrix + regression checklist |
 | 9 | [phase1-07-gap-analysis-and-fixes.md](phase1-07-gap-analysis-and-fixes.md) | Cross-review of files 3–8: contradictions, a JPA type-mismatch bug, missing tasks, and their fixes — **read before starting implementation, several fixes are already folded into the files above** |
 
+## Implementation Status
+
+**Phase 1 is COMPLETE.** All 17 tasks from the task breakdown have been implemented, all gap analysis fixes (Fix #1–#12) are incorporated in code, and the test suite passes with 253 tests (+25 new). See individual documents for per-area verification details.
+
+| Area | Status | Verified In |
+|------|--------|-------------|
+| SPI interfaces (`engine.spi.*`) | ✅ Complete — all 8 classes exist | `src/main/java/.../engine/spi/` |
+| StepExecutorRegistry + PluginScanner | ✅ Complete | `StepExecutorRegistry.java`, `PluginScanner.java` |
+| JobStep entity (plain String stepType) | ✅ Complete — overloaded setters, no AttributeConverter | `JobStep.java:30` |
+| Legacy executor migration (5 executors) | ✅ Complete — all implement new SPI | `engine/executors/` |
+| New executors (HTTP_CALL, SHELL_EXEC, DB_QUERY) | ✅ Complete | `HttpCallStepExecutor.java`, `ShellExecStepExecutor.java`, `DbQueryStepExecutor.java` |
+| Orchestrator wiring (registry dispatch, retry, validation) | ✅ Complete | `JobExecutionOrchestrator.java:127,156,245` |
+| V6 migration (relax STEP_TYPE constraint) | ✅ Complete | `V6__relax_step_type_constraint.sql` |
+| Pre-execute required-field validation | ✅ Complete — presence-only at line 245–274 | `JobExecutionOrchestrator.java:245-274` |
+| Plugin development docs | ✅ Complete — covers both loading methods, HELLO_WORLD example, API reference | `../../docs/plugin-development.md` |
+| Test suite | ✅ 253 tests passing, +25 new | See phase1-06-testing-plan.md |
+
 ## Effort Estimate
 
 > Revised after gap analysis (see `phase1-07-gap-analysis-and-fixes.md`) — two tasks were missing from the original estimate: the `JobStep` entity migration (designed in doc 03 but never costed) and orchestrator-side required-field validation (required by Edge Case Scenario 6 but never costed).

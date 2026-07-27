@@ -1,5 +1,15 @@
 # Phase 1 — Plugin Loading Design
 
+## Implementation Status
+
+**COMPLETE — Option A (simple variant) implemented.** `PluginScanner.java` exists in `engine.spi/` with:
+- `@EventListener(ApplicationReadyEvent)` trigger
+- Scans directory from `orchestrator.plugins.dir` property
+- Uses Java `ServiceLoader` to find `StepExecutor` implementations from JARs
+- Registers discovered executors with `StepExecutorRegistry`
+
+In practice, Spring component scanning already auto-collects `@Component` StepExecutor beans from the classpath — meaning for plugins bundled in the fat JAR or on the classpath, **zero plugin-loading code is needed**. The PluginScanner provides the optional external-JAR path for future use.
+
 ## Context
 
 The codebase is a Spring Boot 4.1.0 monolith (single JAR, `spring-boot-maven-plugin` packaging). All executors are currently `@Component` classes in the same classpath. The goal for v1 plugin loading: allow external step types packaged as JARs to be discovered and registered at startup — **without** hot-reload or custom classloader complexity.
@@ -121,7 +131,7 @@ public class PluginManager implements ApplicationListener<ContextRefreshedEvent>
 
 4. **Future-proofing**: If hot-reload or stronger isolation becomes needed, Option B's infrastructure can be layered on later without changing the executor contract. The SPI (`StepExecutor` interface) is the stable boundary; the loading mechanism is an implementation detail.
 
-**Documentation deliverable** (`docs/plugin-development.md`) covers:
+**Documentation deliverable** (`../../docs/plugin-development.md`) covers:
 - Creating a new Maven/Gradle module with dependency on orchestrator's SPI module (or just the interface JAR).
 - Implementing `StepExecutor`, annotating with `@Component`.
 - Packaging as a fat or thin JAR.

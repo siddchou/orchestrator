@@ -6,6 +6,23 @@
 2. **SSE-safe**: `StepContext` carries the same `BlockingQueue<String> liveLogQueue` that executors write to today — the SSE controller at `LogStreamController.java:30-86` reads from it unchanged.
 3. **Open type system**: Replace `StepType` enum key with `String getType()`. The factory's map becomes `Map<String, StepExecutor>`. Existing enum values still work via `.name()` bridge.
 
+### Verification Against Codebase
+
+All 8 interface classes exist in `engine.spi` and match the definitions below. Key confirmations:
+
+| Interface | File | Matches Spec | Notes |
+|-----------|------|--------------|-------|
+| `FieldDefinition` | `spi/FieldDefinition.java` | ✅ | Record with validation fields |
+| `FieldType` | `spi/FieldType.java` | ✅ | Enum: STRING, NUMBER, BOOLEAN, ENUM, SECRET_REF, FILE_PATTERN |
+| `StepConfigSchema` | `spi/StepConfigSchema.java` | ✅ | Descriptive-only contract |
+| `RetryPolicy` | `spi/RetryPolicy.java` | ✅ | Record with maxAttempts, delayBetweenAttempts |
+| `StepStatus` | `spi/StepStatus.java` | ✅ | Enum: SUCCESS, FAILED, SKIPPED, CANCELLED |
+| `StepResult` v2 | `spi/StepResult.java` | ✅ | Includes backward-compat `getExitCode()`, `getLogOutput()` |
+| `StepContext` v2 | `spi/StepContext.java` | ✅ | Builder pattern, LogSink wrapper, CredentialResolver functional interface |
+| `StepExecutor` v2 | `spi/StepExecutor.java` | ✅ | 4 methods: getType(), getConfigSchema(), execute(StepContext), defaultRetryPolicy() |
+
+Old interfaces (`engine.StepExecutor`, `engine.ExecutionContext`) retained but deprecated. No executor implements the old interface anymore.
+
 ---
 
 ## 1. FieldDefinition

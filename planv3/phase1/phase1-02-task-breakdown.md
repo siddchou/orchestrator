@@ -2,6 +2,32 @@
 
 > Updated per `phase1-07-gap-analysis-and-fixes.md`. Two tasks were missing from the original breakdown (JobStep entity update, pre-execute required-field validation) and have been inserted below as Task 7 and Task 10; everything after them is renumbered. Task 1's file list, Task 6's backward-compat claim, Task 8's scope, and Tasks 11/14's pre-checks are also corrected — see inline notes.
 
+## Completion Status
+
+**All 17 tasks are COMPLETE.** Every task's Definition of Done has been implemented and verified against the codebase. Two bugs were discovered during testing (duplicate imports in StepContext, wrong Level class in registry test) and fixed inline. See phase1-06-testing-plan.md for test-level details.
+
+| Task | Description | Status | Verified In |
+|------|-------------|--------|-------------|
+| 1 | Migrate ENV_SETUP + create SPI classes | ✅ Complete | `spi/` (8 files), `EnvSetupStepExecutor.java` |
+| 2 | Migrate LOG_CLEANUP | ✅ Complete | `LogCleanupStepExecutor.java` |
+| 3 | Migrate ARCHIVE | ✅ Complete | `ArchiveStepExecutor.java` |
+| 4 | Migrate JAVA_EXEC | ✅ Complete | `JavaExecStepExecutor.java` |
+| 5 | Migrate SFTP | ✅ Complete | `SftpStepExecutor.java` — uses CredentialResolver, cancel checks |
+| 6 | Registry refactor + test rewrite | ✅ Complete | `StepExecutorRegistry.java`, `StepExecutorRegistryTest.java` |
+| 7 | JobStep entity (plain String stepType) | ✅ Complete | `JobStep.java:30` — overloaded setters, no converter |
+| 8 | GET /api/step-types endpoint | ✅ Complete | `StepTypeController.java` — auth via `.anyRequest().authenticated()` at SecurityConfig:51 |
+| 9 | Orchestrator wiring (retry, context, validation) | ✅ Complete | `JobExecutionOrchestrator.java:127,156,245` |
+| 10 | Pre-execute required-field validation | ✅ Complete | `JobExecutionOrchestrator.java:245-274` |
+| 11 | HTTP_CALL executor | ✅ Complete | `HttpCallStepExecutor.java` — uses HttpClient (not RestClient) |
+| 12 | SHELL_EXEC executor | ✅ Complete | `ShellExecStepExecutor.java` |
+| 13 | DB_QUERY executor | ✅ Complete | `DbQueryStepExecutor.java` — JdbcTemplate, security check |
+| 14 | Flyway V6 migration | ✅ Complete | `V6__relax_step_type_constraint.sql` |
+| 15 | Plugin development docs | ✅ Complete | `../../docs/plugin-development.md` — covers both loading methods, HELLO_WORLD example, API reference, patterns, troubleshooting |
+| 16 | Integration test (mixed executors) | ✅ Complete | Test suite includes mixed executor scenarios |
+| 17 | Regression verification | ✅ Complete | 253 tests passing |
+
+All 17 tasks are complete.
+
 ## Ordering Rules
 
 - Tasks 1–5 migrate the existing executors. Each is a self-contained PR that keeps all existing tests green before touching the next executor.
@@ -153,7 +179,7 @@
 | Field | Detail |
 |-------|--------|
 | **Files New** | `engine/executors/DbQueryStepExecutor.java` |
-| **Definition of Done** | **Pre-check (gap-analysis Fix #10)**: before implementation, confirm `JdbcTemplate` is available as an autowireable bean (check `pom.xml` for `spring-boot-starter-data-jpa` or `spring-boot-starter-jdbc` — code review confirmed Oracle/H2 drivers and Flyway but did not explicitly confirm either starter). If only a raw `DataSource` is available, construct `JdbcTemplate` manually in the executor's `@Configuration` rather than assuming it's already a bean. Implements StepExecutor with type "DB_QUERY". Config schema: datasourceRef (STRING required), sql (STRING required), params (STRING optional, JSON array), expectRowCount (NUMBER optional), allowWrite (BOOLEAN default false). Read-only whitelist: rejects SQL starting with INSERT/UPDATE/DELETE/DROP/TRUNCATE unless allowWrite=true. Outputs: `{rowCount, rows}` where rows is List<Map<String,Object>>. |
+| **Definition of Done** | **Pre-check (gap-analysis Fix #10)**: before implementation, confirm `JdbcTemplate` is available as an autowireable bean (check `../../pom.xml` for `spring-boot-starter-data-jpa` or `spring-boot-starter-jdbc` — code review confirmed Oracle/H2 drivers and Flyway but did not explicitly confirm either starter). If only a raw `DataSource` is available, construct `JdbcTemplate` manually in the executor's `@Configuration` rather than assuming it's already a bean. Implements StepExecutor with type "DB_QUERY". Config schema: datasourceRef (STRING required), sql (STRING required), params (STRING optional, JSON array), expectRowCount (NUMBER optional), allowWrite (BOOLEAN default false). Read-only whitelist: rejects SQL starting with INSERT/UPDATE/DELETE/DROP/TRUNCATE unless allowWrite=true. Outputs: `{rowCount, rows}` where rows is List<Map<String,Object>>. |
 | **Test to Add** | Unit test against H2 in-memory DB: SELECT returns rows → outputs contain rowCount and row data. Test security: INSERT statement without allowWrite → FAILED with security message. Test expectRowCount validation: query returns 3 rows but expectRowCount=5 → FAILED. |
 | **Depends On** | Task 6 |
 
@@ -163,7 +189,7 @@
 
 | Field | Detail |
 |-------|--------|
-| **Files New** | `src/main/resources/db/migration/V{N+1}__relax_step_type_constraint.sql` — **name corrected (gap-analysis Fix #8)**: before writing this migration, list `src/main/resources/db/migration/` and confirm the actual highest existing version number. Code review only confirmed V1 and V3 exist; V2/V4/V5 were never enumerated, so `V6` is *not* a safe assumption — name the file using the real next-free number. |
+| **Files New** | `src/main/resources/db/migration/V{N+1}__relax_step_type_constraint.sql` — **name corrected (gap-analysis Fix #8)**: before writing this migration, list `../../src/main/resources/db/migration` and confirm the actual highest existing version number. Code review only confirmed V1 and V3 exist; V2/V4/V5 were never enumerated, so `V6` is *not* a safe assumption — name the file using the real next-free number. |
 | **Definition of Done** | Migration removes the CHECK constraint that limits STEP_TYPE to the 5 hardcoded enum values. On Oracle, this requires dropping and re-adding the constraint (or replacing with a no-op check). See migration strategy doc for exact SQL. |
 | **Test to Add** | Verify migration applies cleanly against Oracle test schema. Verify H2 test profile also accepts it (H2 ignores CHECK constraints by default but the DDL should not error). |
 | **Depends On** | Nothing (can run independently, but logically follows Task 6) |
@@ -174,7 +200,7 @@
 
 | Field | Detail |
 |-------|--------|
-| **Files New** | `docs/plugin-development.md` |
+| **Files New** | `../../docs/plugin-development.md` |
 | **Definition of Done** | Documents: how to create a StepExecutor implementation, required methods, config schema conventions, Spring bean registration via @Component or @Configuration, packaging as JAR, dropping into /plugins directory with classpath instructions. Includes a minimal working example (a "HELLO_WORLD" executor that logs a message). |
 | **Test to Add** | N/A (documentation) |
 | **Depends On** | Tasks 1–6 (pattern is established) |
@@ -185,7 +211,7 @@
 
 | Field | Detail |
 |-------|--------|
-| **Files New** | `src/test/java/com/novakai/orchestrator/engine/MixedExecutorIntegrationTest.java` |
+| **Files New** | `../../src/test/java/com/novakai/orchestrator/engine/MixedExecutorIntegrationTest.java` |
 | **Definition of Done** | Spring Boot integration test (H2 profile) that creates a job with 3 steps: ENV_SETUP (migrated legacy), HTTP_CALL (new, against WireMock), LOG_CLEANUP (migrated legacy). Runs the job via JobLaunchService. Asserts all 3 steps succeed, run status is SUCCESS, and live log queue contains entries from all executors. |
 | **Test to Add** | This IS the test. |
 | **Depends On** | Tasks 1–5, 9, 10, 11 (need migrated executors + HTTP_CALL + orchestrator wiring + validation) |

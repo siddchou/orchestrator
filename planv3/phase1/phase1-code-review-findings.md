@@ -8,8 +8,8 @@
 
 | Aspect | Finding | File |
 |--------|---------|------|
-| **StepExecutor interface** | Already exists with two methods: `StepType getSupportedType()` and `StepResult execute(ExecutionContext ctx, JobStep step) throws Exception` | `src/main/java/com/novakai/orchestrator/engine/StepExecutor.java` |
-| **Factory / Registry** | `StepExecutorFactory` (Spring `@Component`) auto-collects `List<StepExecutor>` via constructor injection, builds `Map<StepType, StepExecutor>`. Exposes `resolve(StepType)` which throws `IllegalArgumentException` if type not found. | `src/main/java/com/novakai/orchestrator/engine/StepExecutorFactory.java` |
+| **StepExecutor interface** | Already exists with two methods: `StepType getSupportedType()` and `StepResult execute(ExecutionContext ctx, JobStep step) throws Exception` | `../../src/main/java/com/novakai/orchestrator/engine/StepExecutor.java` |
+| **Factory / Registry** | `StepExecutorFactory` (Spring `@Component`) auto-collects `List<StepExecutor>` via constructor injection, builds `Map<StepType, StepExecutor>`. Exposes `resolve(StepType)` which throws `IllegalArgumentException` if type not found. | `../../src/main/java/com/novakai/orchestrator/engine/StepExecutorFactory.java` |
 | **Orchestrator** | `JobExecutionOrchestrator.execute()` iterates steps sequentially (for-loop over `job.getSteps()` filtered by enabled flag). Calls `executorFactory.resolve(step.getStepType())` then `executor.execute(ctx, step)`. Supports `continueOnFailure=N` abort. | `src/main/java/com/novakai/orchestrator/engine/JobExecutionOrchestrator.java:48-63` |
 | **Single-step execution** | `executeSingleStep()` method exists for test/re-run of individual steps. | `src/main/java/com/novakai/orchestrator/engine/JobExecutionOrchestrator.java:79-101` |
 
@@ -151,3 +151,18 @@ Nothing critical was missed. All items from the Step 0 checklist were located:
 | "JOB_STEP may have rigid per-type columns needing migration to config_json" | `STEP_CONFIG CLOB` already exists as a generic JSON blob since V1 | No data migration needed for config format. The real DB change is relaxing the CHECK constraint on STEP_TYPE column |
 | "StepContext design — new concept" | `ExecutionContext` already exists with most needed fields (runId, jobId, workingDir, envVars, liveLogQueue, cancelRequested) | New StepContext should extend or replace ExecutionContext, not start from scratch |
 | "StepResult needs outputs map + execution time" | Current StepResult is `(boolean success, int exitCode, String logOutput)` — minimal | Needs expansion but backward compat with existing consumers matters |
+
+---
+
+## Post-Implementation Note
+
+These findings were captured **before** Phase 1 implementation. The subsequent plan documents (phase1-00 through phase1-07) describe the design derived from these findings. All identified gaps have been addressed in code:
+
+| Finding | Resolution | Code Location |
+|---------|-----------|---------------|
+| Closed `StepType` enum | Opened to plain String with overloaded setters | `JobStep.java:30`, `V6__relax_step_type_constraint.sql` |
+| No config schema contract | Added via `StepConfigSchema` + `FieldDefinition` in SPI | `engine/spi/StepConfigSchema.java` |
+| Minimal StepResult | Expanded to include outputs map, execution time, status enum with backward-compat methods | `engine/spi/StepResult.java` |
+| No retry logic | Added via `RetryPolicy` + orchestrator retry loop | `JobExecutionOrchestrator.java:156-180` |
+| SPI already exists but closed | Extended to open system: new `engine.spi.StepExecutor` with String-based type, registry dispatch | `engine/spi/StepExecutorRegistry.java`, `engine/spi/StepExecutor.java` |
+| No pre-execute validation | Added presence-only required-field validation in orchestrator | `JobExecutionOrchestrator.java:245-274` |

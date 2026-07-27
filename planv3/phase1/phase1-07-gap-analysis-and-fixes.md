@@ -6,20 +6,20 @@
 
 ## Gap Summary
 
-| # | Severity | Gap | File(s) Affected |
-|---|----------|-----|-------------------|
-| 1 | **Critical (bug)** | `StepTypeConverter` declared as `AttributeConverter<StepType, String>` but the entity field is declared `String` — type mismatch, won't compile | phase1-03-migration-strategy.md |
-| 2 | **High** | No task exists for the `JobStep` entity change — it's designed in doc 03 but never appears in doc 02's task list | phase1-02-task-breakdown.md |
-| 3 | **High** | Self-contradiction: doc 01 says executors receive pre-validated `resolvedParams`, then says config parsing stays inside executors for Phase 1 — two incompatible designs | phase1-01-interfaces-and-data-model.md |
-| 4 | **High** | Edge Case #6 requires orchestrator-side schema validation as "Required Handling" — no task implements it | phase1-05-edge-cases-and-failure-modes.md, phase1-02-task-breakdown.md |
-| 5 | **Medium** | Task 6's "deprecated factory alias, compiles without changes" claim isn't achievable once the interface is replaced rather than extended | phase1-02-task-breakdown.md |
-| 6 | **Medium** | Ambiguous whether `engine.spi.StepExecutor` is a new interface or an in-place edit of `engine.StepExecutor` — doc 02 Task 1 says one thing, doc 01's code says another | phase1-01, phase1-02 |
-| 7 | **Medium** | Task 8 never assigns who builds `CredentialResolver` and `LogSink` — Task 5 depends on both existing | phase1-02-task-breakdown.md |
-| 8 | **Low** | Flyway `V6` assumed free, but only V1 and V3 were confirmed — V2/V4/V5 unaccounted for | phase1-03-migration-strategy.md |
-| 9 | **Low** | `GET /api/step-types` has no stated auth requirement, inconsistent with the rest of the JWT/RBAC'd API | phase1-02-task-breakdown.md |
-| 10 | **Low** | `DB_QUERY` executor assumes `JdbcTemplate` is available; `spring-jdbc` wasn't explicitly confirmed on the classpath | phase1-code-review-findings.md, phase1-02-task-breakdown.md |
-| 11 | **Low** | Effort estimate doesn't account for gaps #2 and #4's new tasks | phase1-00-overview.md |
-| 12 | **Low** | Retry timing semantics unclear — does `executionTime` span all retry attempts or just the final one? | phase1-01, phase1-02 (Task 8) |
+| # | Severity | Gap | File(s) Affected | Fix Status |
+|---|----------|-----|-------------------|------------|
+| 1 | **Critical (bug)** | `StepTypeConverter` declared as `AttributeConverter<StepType, String>` but the entity field is declared `String` — type mismatch, won't compile | phase1-03-migration-strategy.md | ✅ Applied — plain String field, no converter |
+| 2 | **High** | No task exists for the `JobStep` entity change — it's designed in doc 03 but never appears in doc 02's task list | phase1-02-task-breakdown.md | ✅ Applied — Task 7 added, implemented in code |
+| 3 | **High** | Self-contradiction: doc 01 says executors receive pre-validated `resolvedParams`, then says config parsing stays inside executors for Phase 1 — two incompatible designs | phase1-01-interfaces-and-data-model.md | ✅ Applied — config parsing in executors, schema is descriptive-only |
+| 4 | **High** | Edge Case #6 requires orchestrator-side schema validation as "Required Handling" — no task implements it | phase1-05-edge-cases-and-failure-modes.md, phase1-02-task-breakdown.md | ✅ Applied — Task 10 added, implemented at `JobExecutionOrchestrator.java:245-274` |
+| 5 | **Medium** | Task 6's "deprecated factory alias, compiles without changes" claim isn't achievable once the interface is replaced rather than extended | phase1-02-task-breakdown.md | ✅ Applied — test rewritten as StepExecutorRegistryTest |
+| 6 | **Medium** | Ambiguous whether `engine.spi.StepExecutor` is a new interface or an in-place edit of `engine.StepExecutor` — doc 02 Task 1 says one thing, doc 01's code says another | phase1-01, phase1-02 | ✅ Applied — documented as new interface in new package |
+| 7 | **Medium** | Task 8 never assigns who builds `CredentialResolver` and `LogSink` — Task 5 depends on both existing | phase1-02-task-breakdown.md | ✅ Applied — orchestrator builds both, verified at line ~212-239 |
+| 8 | **Low** | Flyway `V6` assumed free, but only V1 and V3 were confirmed — V2/V4/V5 unaccounted for | phase1-03-migration-strategy.md | ✅ Applied — V6 file exists, version was correct |
+| 9 | **Low** | `GET /api/step-types` has no stated auth requirement, inconsistent with the rest of the JWT/RBAC'd API | phase1-02-task-breakdown.md | ✅ Applied — `.anyRequest().authenticated()` at SecurityConfig.java:51 protects all unlisted `/api/**` endpoints including `/api/step-types` |
+| 10 | **Low** | `DB_QUERY` executor assumes `JdbcTemplate` is available; `spring-jdbc` wasn't explicitly confirmed on the classpath | phase1-code-review-findings.md, phase1-02-task-breakdown.md | ✅ Applied — JdbcTemplate autowired in DbQueryStepExecutor |
+| 11 | **Low** | Effort estimate doesn't account for gaps #2 and #4's new tasks | phase1-00-overview.md | ✅ Applied — revised estimate incorporated |
+| 12 | **Low** | Retry timing semantics unclear — does `executionTime` span all retry attempts or just the final one? | phase1-01, phase1-02 (Task 8) | ✅ Applied — timing wraps entire retry loop at line ~152,191 |
 
 ---
 
@@ -190,7 +190,7 @@ Task 5 (SFTP migration) assumes `StepContext.getCredentials().resolve(credential
 
 Code review confirmed V1 (`job_definition`) and V3 (`job_credential`) migrations exist but never enumerated the full `db/migration/` directory — V2, V4, and V5 are unaccounted for. Add as an explicit pre-check inside Task 12:
 
-> **Before writing `V6__relax_step_type_constraint.sql`**: list `src/main/resources/db/migration/` and confirm the highest existing version number. Name the new migration `V{N+1}__relax_step_type_constraint.sql` using the actual next number — do not assume V6 is free.
+> **Before writing `V6__relax_step_type_constraint.sql`**: list `../../src/main/resources/db/migration` and confirm the highest existing version number. Name the new migration `V{N+1}__relax_step_type_constraint.sql` using the actual next number — do not assume V6 is free.
 
 ---
 
@@ -206,7 +206,7 @@ Task 7 (`GET /api/step-types`) has no stated access control, while the rest of t
 
 Code review's dependency table confirms Oracle/H2 drivers and Flyway but doesn't explicitly confirm `spring-boot-starter-jdbc` or `spring-boot-starter-data-jpa` (which transitively provides `JdbcTemplate`). Add a pre-check to Task 11:
 
-> **Before implementation**: confirm `JdbcTemplate` is available as an autowireable bean (check `pom.xml` for `spring-boot-starter-data-jpa` or `spring-boot-starter-jdbc`). If only a raw `DataSource` is available, construct `JdbcTemplate` manually in the executor's `@Configuration` rather than assuming it's already a bean.
+> **Before implementation**: confirm `JdbcTemplate` is available as an autowireable bean (check `../../pom.xml` for `spring-boot-starter-data-jpa` or `spring-boot-starter-jdbc`). If only a raw `DataSource` is available, construct `JdbcTemplate` manually in the executor's `@Configuration` rather than assuming it's already a bean.
 
 ---
 
