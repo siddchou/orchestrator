@@ -6,7 +6,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/core/services/auth.service.ts`, `orchestrator-ui/src/app/core/models/api-response.model.ts` |
+| **Files Touched** | `../../orchestrator-ui/src/app/core/services/auth.service.ts`, `../../orchestrator-ui/src/app/core/models/api-response.model.ts` |
 | **Definition of Done** | `AuthUser` interface extended with `teams: TeamSummary[]` and `activeTeamId?: number`. `AuthService` has `getActiveTeamId()`, `setActiveTeamId(id)`, `getTeams()` methods. Values persisted in sessionStorage alongside token. |
 | **Test to Add** | Unit test: `auth.service.spec.ts` — verify team ID persists across `loadFromStorage()` cycle |
 | **Depends On** | Nothing (frontend-only, backend endpoint not called yet) |
@@ -17,7 +17,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/core/models/job.model.ts` (add TeamSummary type), new file `orchestrator-ui/src/app/core/services/team.service.ts` |
+| **Files Touched** | `../../orchestrator-ui/src/app/core/models/job.model.ts` (add TeamSummary type), new file `orchestrator-ui/src/app/core/services/team.service.ts` |
 | **Definition of Done** | `TeamService` has `listMyTeams()`, `setActiveTeam(teamId)`, `getActiveTeam()` methods returning typed Observables. Model includes `TeamSummary { teamId, teamName, role? }`. |
 | **Test to Add** | Unit test: mock HttpClient, verify correct URL/path for each method |
 | **Depends On** | T1 (model types), T7 (backend endpoints — for integration testing, not compilation) |
@@ -28,7 +28,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | New files `orchestrator-ui/src/app/shared/components/team-switcher/team-switcher.{ts,html,scss}`, `orchestrator-ui/src/app/app.ts` (or shell component) |
+| **Files Touched** | New files `orchestrator-ui/src/app/shared/components/team-switcher/team-switcher.{ts,html,scss}`, `../../orchestrator-ui/src/app/app.ts` (or shell component) |
 | **Definition of Done** | Compact dropdown renders team names. Selecting a team calls `TeamService.setActiveTeam()`, updates `AuthService.activeTeamId`, and reloads the page. VIEWER role sees read-only display. Loading state shows spinner, empty state shows "No teams assigned". |
 | **Test to Add** | Unit test: verify dialog renders team list from service, emits correct team ID on selection |
 | **Depends On** | T1, T2 |
@@ -39,7 +39,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/app.ts`, `orchestrator-ui/src/app/app.html` |
+| **Files Touched** | `../../orchestrator-ui/src/app/app.ts`, `../../orchestrator-ui/src/app/app.html` |
 | **Definition of Done** | Team switcher appears in the toolbar/sidenav header. Visible only when user has ≥1 team. Positioned next to user info. |
 | **Test to Add** | Visual verification in dev server (no unit test — integration point) |
 | **Depends On** | T3 |
@@ -50,7 +50,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.ts`, `dynamic-field.html`, `dynamic-field.scss` |
+| **Files Touched** | `../../orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.ts`, `dynamic-field.html`, `dynamic-field.scss` |
 | **Definition of Done** | 1. `@Input() showError` triggers `<mat-error>` display below invalid fields. 2. SECRET_REF renders as `<mat-select>` populated from `@Input() credentials`. Falls back to text input if no credentials provided. 3. Unknown FieldType shows warning banner alongside the fallback text input. 4. Required indicator styled consistently (red asterisk). |
 | **Test to Add** | Unit test: `dynamic-field.spec.ts` — one test per FieldType rendering, plus showError toggles error display, unknown type renders warning |
 | **Depends On** | Nothing (existing component) |
@@ -61,7 +61,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.ts`, `dynamic-step-form.html` |
+| **Files Touched** | `../../orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.ts`, `dynamic-step-form.html` |
 | **Definition of Done** | 1. `ngOnChanges` rebuilds form when `schema` input changes (for step type switching in dialog). 2. `validate()` method marks all controls touched, returns boolean. 3. `toConfig()` returns `{ config, valid }`. 4. Per-field error display wired through `touchedFields` Set. 5. Optional `@Input() credentials` passed to child DynamicFieldComponents. |
 | **Test to Add** | Unit test: `dynamic-step-form.spec.ts` — form rebuilds on schema change, validate() marks controls touched, toConfig() converts LIST_STRING to array |
 | **Depends On** | T5 (child component changes) |
@@ -116,7 +116,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`, `step-palette.html` |
+| **Files Touched** | `../../orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`, `step-palette.html` |
 | **Definition of Done** | Hardcoded `STEP_TYPE_META` removed. Display name comes from API's `schema.displayName`. Icon uses a heuristic function (maps common keywords to Material icons, defaults to `play_arrow`). Field count badge shown per step type. Empty state with retry button when no schemas returned. |
 | **Test to Add** | Unit test: verify icon heuristic returns default for unknown types, empty state renders on empty array |
 | **Depends On** | Nothing (existing component) |
@@ -127,7 +127,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/features/jobs/step-builder/step-form-dialog.ts`, `step-form-dialog.html` |
+| **Files Touched** | `../../orchestrator-ui/src/app/features/jobs/step-builder/step-form-dialog.ts`, `step-form-dialog.html` |
 | **Definition of Done** | 1. On step type change, trigger form rebuild via DynamicStepFormComponent's schema input change (handled by T6's ngOnChanges). 2. Fetch credentials from CredentialService and pass to dynamic form for SECRET_REF fields. 3. Use `validate()` before submit, show snackbar on validation failure. |
 | **Test to Add** | Unit test: verify credentials fetched and passed to child form, validate() gates submission |
 | **Depends On** | T6 |
@@ -138,7 +138,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/styles.scss`, new file `orchestrator-ui/src/app/shared/components/theme-toggle/theme-toggle.{ts,html}`, `orchestrator-ui/src/app/app.ts` |
+| **Files Touched** | `../../orchestrator-ui/src/styles.scss`, new file `orchestrator-ui/src/app/shared/components/theme-toggle/theme-toggle.{ts,html}`, `../../orchestrator-ui/src/app/app.ts` |
 | **Definition of Done** | 1. Dark CSS variable values defined in `[data-theme="dark"]` selector block — overrides all surface colors, text colors, border colors from the existing design tokens. 2. Theme toggle button in toolbar (light_mode / dark_mode icon). 3. Preference persisted in `localStorage('theme')`. 4. Respects `prefers-color-scheme: dark` system preference on first visit (before user has set a preference). 5. Angular Material M3 dark theme applied via `@include mat.theme()` with `color:` map including dark mode tokens. |
 | **Test to Add** | Visual verification in dev server. Unit test: verify localStorage read/write, system preference detection |
 | **Depends On** | Nothing (CSS-only + small component) |
@@ -160,7 +160,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/features/runs/run-detail/run-detail.component.ts`, `run-detail.component.html` |
+| **Files Touched** | `../../orchestrator-ui/src/app/features/runs/run-detail/run-detail.component.ts`, `run-detail.component.html` |
 | **Definition of Done** | Timeline rendered as a section above the step table (or as a tab if tabs are used). Passes `run` data as input. Responsive: collapses gracefully on narrow viewports (reduces height, shows fewer time ticks). |
 | **Test to Add** | Visual verification in dev server with different viewport sizes |
 | **Depends On** | T14 |
@@ -171,7 +171,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Files Touched** | `orchestrator-ui/src/app/app.routes.ts`, new files `orchestrator-ui/src/app/features/jobs/dag-canvas-stub/dag-canvas-stub.{ts,html}` |
+| **Files Touched** | `../../orchestrator-ui/src/app/app.routes.ts`, new files `orchestrator-ui/src/app/features/jobs/dag-canvas-stub/dag-canvas-stub.{ts,html}` |
 | **Definition of Done** | Route `/jobs/:id/canvas` loads DagCanvasStubComponent. Component shows "Coming Soon" message with Phase 3 reference. TODO comment in code pointing to phase3 plan file. |
 | **Test to Add** | Visual verification: navigate to route, confirm placeholder renders |
 | **Depends On** | Nothing |

@@ -1,6 +1,6 @@
 # Orchestrator — Detailed Implementation Plan (planv3)
 
-Companion to `planv3-generic-use-enhancements.md`. That doc gives the phase order and rationale; this one goes down to file paths, schemas, interfaces, and task-level checklists so each phase can be handed to an agent or worked module-by-module, matching the style of `plan/` and `planv2/`.
+Companion to `planv3-generic-use-enhancements.md`. That doc gives the phase order and rationale; this one goes down to file paths, schemas, interfaces, and task-level checklists so each phase can be handed to an agent or worked module-by-module, matching the style of `../../plan` and `../../planv2`.
 
 Package root assumed: `com.novakai.orchestrator` (adjust if it differs from your current source layout).
 
@@ -52,7 +52,7 @@ Each migration PR: extract config parsing into `getConfigSchema()`, keep executi
 
 **`HttpCallStepExecutor`**
 - Config: `url`, `method` (GET/POST/PUT/DELETE/PATCH), `headers` (map), `body` (string, supports templating later), `expectedStatus` (int or range), `timeoutSeconds`.
-- Uses Spring's `RestClient`/`WebClient` (whichever the project already depends on — check `pom.xml`).
+- Uses Spring's `RestClient`/`WebClient` (whichever the project already depends on — check `../../pom.xml`).
 - Output: `{statusCode, responseBody, responseHeaders}` stored in `StepResult.outputs`.
 
 **`ShellExecStepExecutor`**
@@ -74,7 +74,7 @@ Each migration PR: extract config parsing into `getConfigSchema()`, keep executi
   - Data migration script mapping old per-type columns → JSON, keep old columns read-only for one release as a rollback safety net, drop in a later cleanup migration.
 
 ### 1.7 Plugin loading (external jars, v1 — keep simple)
-- Document (`docs/plugin-development.md`): a plugin is a jar with a Spring `@Configuration` class registering one or more `StepExecutor` beans; dropped into `/plugins`, added to classpath via `-cp` or a `spring.factories`-style loader; full dynamic (hot-reload) classloading is explicitly out of scope for v1 — flag as a future phase if needed.
+- Document (`../../docs/plugin-development.md`): a plugin is a jar with a Spring `@Configuration` class registering one or more `StepExecutor` beans; dropped into `/plugins`, added to classpath via `-cp` or a `spring.factories`-style loader; full dynamic (hot-reload) classloading is explicitly out of scope for v1 — flag as a future phase if needed.
 
 ### Task checklist — Phase 1
 - [ ] `StepExecutor`, `StepContext`, `StepResult`, `StepConfigSchema` interfaces
@@ -83,7 +83,7 @@ Each migration PR: extract config parsing into `getConfigSchema()`, keep executi
 - [ ] `HTTP_CALL`, `SHELL_EXEC`, `DB_QUERY` executors + unit tests
 - [ ] `GET /api/step-types` endpoint + integration test
 - [ ] `config_json` migration on `JOB_STEP` (Flyway script) + data backfill
-- [ ] `docs/plugin-development.md`
+- [ ] `../../docs/plugin-development.md`
 - [ ] Regression: full existing job-run test suite passes unchanged
 
 ### Testing strategy
@@ -333,10 +333,10 @@ CREATE TABLE NOTIFICATION_DELIVERY_LOG (
 - Add `springdoc-openapi-starter-webmvc-ui`; annotate controllers with `@Operation`/`@Schema` where not already inferable; verify `/swagger-ui.html` renders all endpoints including the new ones from Phases 1, 4, 5.
 
 ### 7.2 Docs site
-- Consolidate `GUIDE.md`, `SETUP_GUIDE.md`, `USER_GUIDE.md` into a structured MkDocs (simplest, Python-based, low overhead) site under `docs/`:
+- Consolidate `../../GUIDE.md`, `../../SETUP_GUIDE.md`, `../../USER_GUIDE.md` into a structured MkDocs (simplest, Python-based, low overhead) site under `../../docs`:
   - `docs/getting-started.md`
   - `docs/step-types.md` (auto-list from registry + manual descriptions)
-  - `docs/plugin-development.md` (from Phase 1.7)
+  - `../../docs/plugin-development.md` (from Phase 1.7)
   - `docs/workflows.md` (DAG/branching/templating from Phase 3)
   - `docs/import-export.md` (Phase 4)
   - `docs/notifications.md` (Phase 5)
@@ -349,7 +349,7 @@ CREATE TABLE NOTIFICATION_DELIVERY_LOG (
 - Auth via the same JWT the UI uses (prompt for credentials or accept a token via env var `ORCHESTRATOR_TOKEN`).
 
 ### 7.4 Contribution readiness
-- `CONTRIBUTING.md`: build instructions, how to add a step type (points at `docs/plugin-development.md`), test running instructions, PR checklist.
+- `CONTRIBUTING.md`: build instructions, how to add a step type (points at `../../docs/plugin-development.md`), test running instructions, PR checklist.
 - `.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`.
 - `.github/workflows/ci.yml`: on push/PR — `mvn clean verify`, `ng test` for the Angular app, fail fast on either.
 
@@ -368,4 +368,4 @@ CREATE TABLE NOTIFICATION_DELIVERY_LOG (
 
 - **Backward compatibility:** every schema change above should ship with a Flyway migration that backfills existing data into the new model (linear steps → simple dependency chains in Phase 3; old per-type columns → `config_json` in Phase 1) so existing jobs from your current batch-migration use case keep running unmodified throughout.
 - **Testing discipline:** each phase's checklist ends with at least one regression test against the *previous* phase's exit criteria — this prevents the common failure mode of a later phase silently breaking an earlier one's guarantee (e.g., Phase 3's concurrency breaking Phase 1's executor thread-safety assumptions).
-- **Suggested branch strategy:** one long-lived branch per phase (`feature/planv3-phase1-step-spi`, etc.), merged to `master` only when its exit criteria is demonstrably met — mirrors your existing phased approach in `plan/` and `planv2/`.
+- **Suggested branch strategy:** one long-lived branch per phase (`feature/planv3-phase1-step-spi`, etc.), merged to `master` only when its exit criteria is demonstrably met — mirrors your existing phased approach in `../../plan` and `../../planv2`.

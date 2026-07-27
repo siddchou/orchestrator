@@ -31,7 +31,7 @@ Shared components that change:
 
 ## 1. DynamicFieldComponent (hardened)
 
-**File:** `orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.ts`
+**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.ts`
 
 ### Current State
 Already renders all 7 `FieldType` variants with a `*ngSwitch`. Has chip input for LIST_STRING, fallback for unknown types.
@@ -73,7 +73,7 @@ No outputs — state flows through the shared `FormControl`.
 
 ## 2. DynamicStepFormComponent (hardened)
 
-**File:** `orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.ts`
+**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.ts`
 
 ### Current State
 Builds a `FormGroup` from schema, resolves initial values, converts LIST_STRING to array on export. No per-field error display.
@@ -117,7 +117,7 @@ The template (`dynamic-step-form.html`) currently iterates `schema.fields` and r
 
 ## 3. StepPaletteComponent (API-driven)
 
-**File:** `orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`
+**File:** `../../orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`
 
 ### Current State
 Hardcoded `STEP_TYPE_META` map with icon + description per step type. Falls back to generic icon/description for unknown types. Fetches schemas from API but only uses them for the list — metadata is local.

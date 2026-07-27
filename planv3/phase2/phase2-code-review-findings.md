@@ -7,9 +7,9 @@
 | Artifact | Location | Status |
 |----------|----------|--------|
 | `GET /api/step-types` | `src/main/java/com/novakai/orchestrator/api/controller/StepTypeController.java:19` | Implemented. Returns `List<StepConfigSchema>` from registry |
-| `StepConfigSchema` record | `src/main/java/com/novakai/orchestrator/engine/spi/StepConfigSchema.java` | `(stepType, displayName, fields: List<FieldDefinition>)` |
-| `FieldDefinition` record | `src/main/java/com/novakai/orchestrator/engine/spi/FieldDefinition.java` | `(name, label, type, required, defaultValue, enumValues, helpText)` with validation constructor |
-| `FieldType` enum | `src/main/java/com/novakai/orchestrator/engine/spi/FieldType.java` | `STRING, NUMBER, BOOLEAN, ENUM, SECRET_REF, FILE_PATTERN, LIST_STRING` — 7 types |
+| `StepConfigSchema` record | `../../src/main/java/com/novakai/orchestrator/engine/spi/StepConfigSchema.java` | `(stepType, displayName, fields: List<FieldDefinition>)` |
+| `FieldDefinition` record | `../../src/main/java/com/novakai/orchestrator/engine/spi/FieldDefinition.java` | `(name, label, type, required, defaultValue, enumValues, helpText)` with validation constructor |
+| `FieldType` enum | `../../src/main/java/com/novakai/orchestrator/engine/spi/FieldType.java` | `STRING, NUMBER, BOOLEAN, ENUM, SECRET_REF, FILE_PATTERN, LIST_STRING` — 7 types |
 
 **Frontend mirror models** exist at `orchestrator-ui/src/app/core/models/job.model.ts:1-21`:
 - `FieldType` type alias matches backend enum exactly

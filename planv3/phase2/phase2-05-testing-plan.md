@@ -18,7 +18,7 @@
 | Shows warning for unknown FieldType | `field={type: 'UNKNOWN_TYPE'}` | Warning banner text contains field type name |
 | Required indicator shows asterisk | `field.required=true` | Red asterisk or `aria-required="true"` present |
 
-**File:** `orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.spec.ts`
+**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.spec.ts`
 
 ---
 
@@ -35,7 +35,7 @@
 | toConfig() returns valid=false when form invalid | Invalid form state | `{config: {...}, valid: false}` |
 | Passes credentials to child fields | `credentials=[{id:1,name:'x'}]` | Child DynamicFieldComponents receive credentials input |
 
-**File:** `orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.spec.ts`
+**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.spec.ts`
 
 ---
 

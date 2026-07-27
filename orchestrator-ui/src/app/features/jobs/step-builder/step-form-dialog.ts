@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject, OnInit } from '@angular/core';
+import { Component, ViewChild, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,7 +9,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { StepConfigSchema } from '../../../core/models/job.model';
+import { Credential } from '../../../core/models/credential.model';
 import { JobService } from '../../../core/services/job.service';
+import { CredentialService } from '../../../core/services/credential.service';
 import { DynamicStepFormComponent } from '../../../shared/components/dynamic-step-form/dynamic-step-form';
 
 export interface StepFormData {
@@ -33,10 +35,11 @@ export interface StepFormData {
   templateUrl: './step-form-dialog.html',
   styleUrl: './step-form-dialog.scss',
 })
-export class StepFormDialog implements OnInit {
+export class StepFormDialog {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<StepFormDialog>);
   private jobService = inject(JobService);
+  private credentialService = inject(CredentialService);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
 
   @ViewChild(DynamicStepFormComponent) dynamicForm?: DynamicStepFormComponent;
@@ -44,6 +47,7 @@ export class StepFormDialog implements OnInit {
   form: FormGroup;
   availableTypes: StepConfigSchema[] = [];
   loadingTypes = true;
+  credentials: Credential[] = [];
 
   constructor() {
     this.form = this.fb.group({
@@ -66,6 +70,17 @@ export class StepFormDialog implements OnInit {
         this.loadingTypes = false;
       },
     });
+
+    this.credentialService.listCredentials().subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.credentials = res.data;
+        }
+      },
+      error: () => {
+        // Credentials optional — dialog still works without them
+      },
+    });
   }
 
   get selectedSchema(): StepConfigSchema | undefined {
@@ -84,21 +99,27 @@ export class StepFormDialog implements OnInit {
 
   onSubmit() {
     if (this.form.invalid) return;
-    const v = this.form.value;
+
+    // Validate the dynamic form — marks all controls touched, shows errors
+    if (this.dynamicForm) {
+      const isValid = this.dynamicForm.validate();
+      if (!isValid) return;
+    }
 
     let stepConfig = '{}';
     if (this.selectedSchema && this.dynamicForm) {
-      stepConfig = JSON.stringify(this.dynamicForm.toConfig());
+      const result = this.dynamicForm.toConfig();
+      stepConfig = JSON.stringify(result.config);
     }
 
     this.dialogRef.close({
       stepId: this.data.stepId,
-      stepName: v.stepName,
+      stepName: this.form.value.stepName,
       stepOrder: this.data.stepOrder,
-      stepType: v.stepType,
+      stepType: this.form.value.stepType,
       stepConfig,
-      continueOnFailure: v.continueOnFailure,
-      enabled: v.enabled,
+      continueOnFailure: this.form.value.continueOnFailure,
+      enabled: this.form.value.enabled,
     });
   }
 

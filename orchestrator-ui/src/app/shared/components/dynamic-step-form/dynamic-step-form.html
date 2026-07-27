@@ -1,5 +1,11 @@
 <div class="dynamic-step-form">
   @for (field of fields; track field.name) {
-    <app-dynamic-field [fieldDef]="field" [control]="form.get(field.name)" />
+    <app-dynamic-field
+      [fieldDef]="field"
+      [control]="form.get(field.name)"
+      [credentials]="credentials"
+      [showError]="touchedFields.has(field.name)"
+      (blur)="touchedFields.add(field.name)"
+    />
   }
 </div>

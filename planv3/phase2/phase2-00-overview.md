@@ -29,7 +29,7 @@ Make the orchestrator UI **step-type agnostic**: any step type registered via Ph
 ## Assumptions
 
 - **[ASSUMED]** The backend runs Oracle (SQL syntax in migrations uses `VARCHAR2`, `NUMBER GENERATED ALWAYS AS IDENTITY`, `SYSTIMESTAMP`). All new SQL follows this dialect.
-- **[ASSUMED]** The Spring Boot app serves the Angular build from `src/main/resources/static/` (confirmed by angular.json `outputPath`). No separate frontend deployment.
+- **[ASSUMED]** The Spring Boot app serves the Angular build from `../../src/main/resources/static` (confirmed by angular.json `outputPath`). No separate frontend deployment.
 - **[ASSUMED]** The JWT returned by `/api/auth/login` contains only `{accessToken, role}`. Team context will be added as a new claim or derived server-side from session state. **Decision: derive server-side** — the input plan says "prefer server-side to avoid trusting client-supplied tenant IDs."
 - **[ASSUMED]** The active team for a user is stored in HTTP session (or a short-lived token claim refreshed on team switch), not passed as a client-controlled query parameter.
 - **[ASSUMED]** Existing jobs (created before multi-tenancy) are assigned to a "Default" team so they remain accessible during and after migration.
