@@ -15,6 +15,7 @@ import { LogStreamService } from '@app/core/services/log-stream.service';
 import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
 import { DurationPipe } from '@app/shared/pipes/duration.pipe';
 import { LogViewerComponent } from '../log-viewer/log-viewer.component';
+import { RunTimelineComponent } from '@app/shared/components/run-timeline/run-timeline';
 import { JobRunDetail } from '@app/core/models/run.model';
 import { RunStatus } from '@app/core/models/job.model';
 
@@ -23,7 +24,7 @@ import { RunStatus } from '@app/core/models/job.model';
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule,
     MatProgressSpinnerModule, MatSlideToggleModule, MatSnackBarModule, RouterLink,
-    StatusBadge, DurationPipe, LogViewerComponent,
+    StatusBadge, DurationPipe, LogViewerComponent, RunTimelineComponent,
   ],
   templateUrl: './run-detail.component.html',
   styleUrl: './run-detail.component.scss',

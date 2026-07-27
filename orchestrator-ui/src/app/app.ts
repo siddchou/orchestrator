@@ -7,6 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '@app/core/services/auth.service';
+import { ThemeService } from '@app/core/services/theme.service';
+import { TeamSwitcherComponent } from '@app/shared/components/team-switcher/team-switcher';
 import { interval } from 'rxjs';
 
 @Component({
@@ -21,6 +23,7 @@ import { interval } from 'rxjs';
     MatIconModule,
     MatButtonModule,
     CommonModule,
+    TeamSwitcherComponent,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -28,6 +31,7 @@ import { interval } from 'rxjs';
 export class App implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly theme = inject(ThemeService);
 
   userRole = '';
   isLoginPage = false;
@@ -93,6 +97,14 @@ export class App implements OnInit, OnDestroy {
 
   get showConfig(): boolean {
     return this.userRole === 'ADMIN';
+  }
+
+  get currentTheme(): string {
+    return this.theme.theme();
+  }
+
+  toggleTheme(): void {
+    this.theme.toggle();
   }
 
   get navItems() {

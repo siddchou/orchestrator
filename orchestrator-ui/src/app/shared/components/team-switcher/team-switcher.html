@@ -1,0 +1,21 @@
+@if (loading) {
+  <mat-icon class="team-spinner">refresh</mat-icon>
+} @else if (teams.length === 0) {
+  <span class="team-label">No teams</span>
+} @else if (isViewer && teams.length === 1) {
+  <span class="team-label">{{ selectedTeamName }}</span>
+} @else {
+  <mat-select
+    [value]="activeTeamId"
+    (selectionChange)="onTeamChange($event.value)"
+    placeholder="Team"
+    class="team-select"
+    panelClass="team-select-panel"
+  >
+    @for (team of teams; track team.teamId) {
+      <mat-option [value]="team.teamId">
+        {{ team.teamName }}
+      </mat-option>
+    }
+  </mat-select>
+}

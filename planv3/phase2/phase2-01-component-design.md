@@ -69,6 +69,15 @@ No outputs — state flows through the shared `FormControl`.
 | LIST_STRING | Chip container with `<mat-chip>` + hidden input | Warning text if required but empty |
 | **unknown** | Text input + warning banner | Same as STRING |
 
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Validation feedback (`showError` + `mat-error`) | DONE | All field types render `<mat-error>` when `showFieldError` is true |
+| SECRET_REF credential picker | DONE | `hasCredentials` getter drives select/text fallback; `@Input() credentials` wired |
+| Unsupported type warning banner | DONE | `*ngSwitchDefault` renders warning icon + text before fallback input |
+| Required indicator styling | PENDING | Template still uses plain-text `{{ fieldDef.required ? ' *' : '' }}`; needs `<span class="required">*</span>` with red color via CSS variable |
+
 ---
 
 ## 2. DynamicStepFormComponent (hardened)
@@ -113,6 +122,15 @@ The template (`dynamic-step-form.html`) currently iterates `schema.fields` and r
 }
 ```
 
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Per-field error state (`touchedFields`) | DONE | `Set<string>` populated in `validate()` method |
+| Credential data passthrough | DONE | `@Input() credentials: Credential[] = []` passed to child fields |
+| Schema change detection (`ngOnChanges`) | DONE | Rebuilds form on schema structure change; updates values in-place for same schema |
+| Export validation summary | DONE | `toConfig()` returns `{ config, valid }`; converts LIST_STRING to array |
+
 ---
 
 ## 3. StepPaletteComponent (API-driven)
@@ -138,6 +156,16 @@ Hardcoded `STEP_TYPE_META` map with icon + description per step type. Falls back
 ```
 
 The component opens via `MatDialog`, fetches schemas on init, and closes with the selected schema's type + display name.
+
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Remove hardcoded metadata (`STEP_TYPE_META`) | PENDING | `step-palette.ts:13` still contains 8-entry hardcoded map; `metaFor()` fallback used in template filter and rendering |
+| Icon heuristic function | PENDING | Currently uses `STEP_TYPE_META[stepType]?.icon`; needs keyword-based derivation (HTTP→cloud\_upload, DB→database, default→play\_arrow) |
+| Schema field count badge | PENDING | Not rendered; add `{{ schema.fields.length }}` as a small badge in the palette list item |
+| Empty state with retry | PENDING | Current error handler just sets `loading = false`; needs message + retry button |
+| Enriched return value (`displayName`) | PENDING | `select()` currently closes with `{ stepType }` only; should include `displayName: schema.displayName` |
 
 ---
 
@@ -207,6 +235,15 @@ POST /api/teams/active/{teamId} → void                // set active team for t
 GET  /api/teams/active          → TeamSummary         // get current active team
 ```
 
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Component files (`.ts`, `.html`, `.scss`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/shared/components/team-switcher/` |
+| AuthService extension (`activeTeamId`) | NOT STARTED | Depends on T1 from task breakdown |
+| TeamService (`listMyTeams`, `setActiveTeam`) | NOT STARTED | Depends on T2 from task breakdown |
+| Backend endpoints | NOT STARTED | Depends on T7-T9 (migration, entities, controller) |
+
 ---
 
 ## 5. RunTimelineComponent (new)
@@ -245,6 +282,7 @@ interface StepBar {
   stepOrder: number;
   leftPct: number;    // percentage of total timeline width
   widthPct: number;   // percentage of total timeline width
+  topPx: number;      // vertical offset for staggered rows (overlap avoidance)
   color: string;      // status-based color
   durationLabel: string; // formatted duration (uses DurationPipe)
 }
@@ -261,21 +299,32 @@ Pure CSS — no canvas, no SVG library. Each step is a `<div>` positioned absolu
       <span class="tick" [style.left.%]="tick.pct">{{ tick.label }}</span>
     }
   </div>
-  <!-- step bars -->
+  <!-- step bars — stacked vertically with offset to avoid overlap -->
   @for (bar of stepBars; track bar.stepOrder) {
     <div class="step-bar"
          [style.left.%]="bar.leftPct"
          [style.width.%]="bar.widthPct"
+         [style.top.px]="bar.topPx"
          [style.background-color]="bar.color"
-         [title]="'{{bar.stepName}}: {{bar.durationLabel}}'">
+         [title]="bar.stepName + ': ' + bar.durationLabel">
       <span class="step-label">{{ bar.stepName }}</span>
     </div>
   }
 </div>
 ```
 
+**Note:** `bar.topPx` is computed to stagger overlapping steps vertically. Each row is ~28px high; overlapping bars get assigned sequential rows so labels remain readable.
+
 ### Integration
 Added to `RunDetailComponent` as a tab or section above the existing step table. The run detail already has `MatTabsModule` — add a "Timeline" tab alongside "Steps" and "Logs".
+
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Component files (`.ts`, `.html`, `.scss`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/shared/components/run-timeline/` |
+| Step bar computation (`totalDurationMs`, `stepBars`) | NOT STARTED | Needs overlap detection + row assignment logic |
+| Integration into RunDetailComponent | NOT STARTED | Depends on component creation |
 
 ---
 
@@ -310,6 +359,13 @@ Route added to `app.routes.ts`:
 { path: 'jobs/:id/canvas', loadComponent: () => import('@features/jobs/dag-canvas-stub/...') },
 ```
 
+### Implementation Status
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Component file (`.ts`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/features/jobs/dag-canvas-stub/` |
+| Route registration | NOT STARTED | Needs lazy-loaded entry in `app.routes.ts` |
+
 ---
 
 ## State Management Summary
@@ -325,3 +381,23 @@ Route added to `app.routes.ts`:
 | Dark mode preference | `localStorage.getItem('theme')`, CSS class on `<html>` | New `ThemeService` or direct DOM manipulation in a small utility |
 
 **No NgRx, no global store.** The app is small enough that `BehaviorSubject` services + `@Input()`/`@Output()` suffice. Adding a state library would be over-engineering at this scale.
+
+---
+
+## Overall Implementation Status (as of 2026-07-27)
+
+| Component | Design Complete? | Code Complete? | Remaining Work |
+|-----------|------------------|----------------|----------------|
+| DynamicFieldComponent (hardened) | Yes | Partial | Required indicator styling (`<span class="required">`) |
+| DynamicStepFormComponent (hardened) | Yes | **Yes** | None — all 4 changes implemented and tested |
+| StepPaletteComponent (API-driven) | Yes | No | Remove `STEP_TYPE_META`, icon heuristic, field count badge, empty state, enriched return value |
+| TeamSwitcherComponent (new) | Yes | No | All: component files, AuthService extension, TeamService, backend endpoints |
+| RunTimelineComponent (new) | Yes* | No | All: component files, bar computation with overlap detection, integration into RunDetail |
+| DagCanvasStubComponent (new) | Yes | No | All: single-file component + route registration |
+
+*\*RunTimeline design updated: added `topPx` to StepBar interface and overlap-staggering logic for concurrent steps.*
+
+### Design corrections applied
+- **StepPalette:** `select()` should return `{ stepType, displayName }` not just `{ stepType }` — current code at `step-palette.ts:63` returns only stepType.
+- **RunTimeline template:** Original design had `[title]="'{{bar.stepName}}: {{bar.durationLabel}}'"` which is invalid Angular (template interpolation inside property binding). Corrected to `[title]="bar.stepName + ': ' + bar.durationLabel"`.
+- **RunTimeline overlap:** Added `topPx` field to stagger overlapping step bars vertically — the original design placed all bars at the same vertical position, making concurrent steps unreadable.

@@ -11,5 +11,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       setHeaders: { Authorization: `Bearer ${token}` },
     });
   }
+
+  const teamId = auth.getActiveTeamId?.();
+  if (teamId != null && !req.url.includes('/api/teams')) {
+    req = req.clone({
+      setHeaders: { 'X-Team-Id': String(teamId) },
+    });
+  }
+
   return next(req);
 };

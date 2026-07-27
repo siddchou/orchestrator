@@ -17,6 +17,7 @@ export interface FieldDefinition {
 export interface StepConfigSchema {
   stepType: string;
   displayName: string;
+  description?: string;
   fields: FieldDefinition[];
 }
 export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'CANCELLED';

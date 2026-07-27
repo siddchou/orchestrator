@@ -2,12 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, tap } from 'rxjs';
 import { Router } from '@angular/router';
-import { ApiResponse } from '@app/core/models/api-response.model';
+import { ApiResponse, TeamSummary } from '@app/core/models/api-response.model';
 
 export interface AuthUser {
   token: string;
   role: string;
   passwordExpired: boolean;
+  teams?: TeamSummary[];
+  activeTeamId?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -75,6 +77,37 @@ export class AuthService {
 
   isRole(role: string): boolean {
     return this.getUserRole()?.toUpperCase() === role.toUpperCase();
+  }
+
+  getTeams(): TeamSummary[] {
+    return this._currentUser.value?.teams ?? [];
+  }
+
+  getActiveTeamId(): number | null {
+    return this._currentUser.value?.activeTeamId ?? null;
+  }
+
+  setActiveTeamId(teamId: number): void {
+    const user = this._currentUser.value;
+    if (user) {
+      user.activeTeamId = teamId;
+      this._currentUser.next(user);
+      this.saveToStorage(user);
+    }
+  }
+
+  loadTeams(teams: TeamSummary[], activeTeamId?: number): void {
+    const user = this._currentUser.value;
+    if (user) {
+      user.teams = teams;
+      if (activeTeamId) {
+        user.activeTeamId = activeTeamId;
+      } else if (teams.length === 1) {
+        user.activeTeamId = teams[0].teamId;
+      }
+      this._currentUser.next(user);
+      this.saveToStorage(user);
+    }
   }
 
   logout(): void {

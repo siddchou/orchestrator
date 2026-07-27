@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -43,19 +44,35 @@ public class JobDefinitionService {
     private final JobSchedulerService schedulerService;
 
     @Transactional(readOnly = true)
-    public Page<JobDefinitionResponse> listJobs(String search, Pageable pageable) {
+    public Page<JobDefinitionResponse> listJobs(String search, Pageable pageable, Long teamId) {
         Pageable sorted = PageRequest.of(
             pageable.getPageNumber(),
             pageable.getPageSize(),
             Sort.by("jobName").ascending()
         );
         Page<JobDefinition> result;
-        if (search != null && !search.isBlank()) {
-            result = jobRepo.findByJobNameContainingIgnoreCase(search, sorted);
+
+        if (teamId != null) {
+            // Team-scoped query
+            if (StringUtils.hasText(search)) {
+                result = jobRepo.findByJobNameContainingIgnoreCaseAndTeamId(search, teamId, sorted);
+            } else {
+                result = jobRepo.findByTeamId(teamId, sorted);
+            }
         } else {
-            result = jobRepo.findAll(sorted);
+            // No team filter — ADMIN or backward compat mode
+            if (StringUtils.hasText(search)) {
+                result = jobRepo.findByJobNameContainingIgnoreCase(search, sorted);
+            } else {
+                result = jobRepo.findAll(sorted);
+            }
         }
         return result.map(mapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<JobDefinitionResponse> listJobs(String search, Pageable pageable) {
+        return listJobs(search, pageable, null);
     }
 
     @Transactional

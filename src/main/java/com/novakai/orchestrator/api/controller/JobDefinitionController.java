@@ -4,12 +4,15 @@ package com.novakai.orchestrator.api.controller;
 
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.api.service.JobDefinitionService;
+import com.novakai.orchestrator.api.service.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,13 +24,29 @@ import java.util.List;
 public class JobDefinitionController {
 
     private final JobDefinitionService jobService;
+    private final TeamService teamService;
 
     @GetMapping
     public ApiResponse<Page<JobDefinitionResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String search) {
-        return ApiResponse.success(jobService.listJobs(search, PageRequest.of(page, size)));
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-Team-Id", required = false) Long teamId) {
+
+        // Global ADMIN bypasses team filter; otherwise use header or auto-resolve
+        Long effectiveTeamId = null;
+        if (teamId != null && userDetails != null) {
+            effectiveTeamId = teamId;
+        } else if (userDetails != null && !teamService.isGlobalAdmin(userDetails.getUsername())) {
+            // Non-admin without header — auto-resolve from single-team membership
+            var teams = teamService.listUserTeams(userDetails.getUsername());
+            if (teams.size() == 1) {
+                effectiveTeamId = teams.get(0).teamId();
+            }
+        }
+
+        return ApiResponse.success(jobService.listJobs(search, PageRequest.of(page, size), effectiveTeamId));
     }
 
     @PostMapping

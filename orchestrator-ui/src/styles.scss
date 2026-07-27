@@ -554,3 +554,120 @@ mat-tab-group {
 mat-sidenav-container {
   background: transparent;
 }
+
+/* ── Dark Mode Overrides ─────────────────────────────────────── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Neutral palette */
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.14);
+
+  /* Surface colors */
+  --page-bg: var(--color-bg);
+  --card-bg: var(--color-surface);
+  --sidenav-bg: var(--color-surface);
+  --toolbar-bg: var(--color-surface);
+
+  /* Shadows — lighter in dark mode */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+  /* Accent colors — lighter variants for dark bg */
+  --accent-primary: #60a5fa;
+  --accent-success: #4ade80;
+  --accent-warning: #fb923c;
+  --accent-danger: #f87171;
+  --accent-info: #38bdf8;
+
+  /* Status badges */
+  --status-pending-bg: #6b7280;
+  --status-running-bg: var(--accent-warning);
+  --status-success-bg: var(--accent-success);
+  --status-failed-bg: var(--accent-danger);
+  --status-partial-bg: #c084fc;
+  --status-cancelled-bg: #9ca3af;
+
+  /* Gradient accents */
+  --gradient-primary: linear-gradient(135deg, var(--accent-primary) 0%, #3b82f6 100%);
+  --gradient-success: linear-gradient(135deg, var(--accent-success) 0%, #22c55e 100%);
+  --gradient-warning: linear-gradient(135deg, var(--accent-warning) 0%, #f97316 100%);
+  --gradient-danger: linear-gradient(135deg, var(--accent-danger) 0%, #ef4444 100%);
+  --gradient-info: linear-gradient(135deg, var(--accent-info) 0%, #0ea5e9 100%);
+
+  /* Login background */
+  --login-gradient: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+
+  /* Scrollbar — lighter thumb for dark bg */
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+/* Dark mode element overrides */
+[data-theme="dark"] body {
+  background: var(--color-bg);
+}
+
+[data-theme="dark"] .mat-mdc-toolbar {
+  background: var(--toolbar-bg) !important;
+  color: var(--mat-sys-on-surface) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] mat-sidenav {
+  background: var(--sidenav-bg) !important;
+  border-right: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-mdc-table {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .mat-header-cell {
+  color: var(--mat-sys-on-surface-variant) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-cell {
+  border-top-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-row:hover {
+  background: rgba(96, 165, 250, 0.08) !important;
+}
+
+[data-theme="dark"] mat-card {
+  background: var(--card-bg) !important;
+}
+
+[data-theme="dark"] .loading-overlay {
+  background: rgba(15, 17, 23, 0.85);
+}
+
+[data-theme="dark"] .trigger-chip {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .env-key {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .validation-result.ok {
+  background: rgba(74, 222, 128, 0.1);
+  color: #86efac;
+}
+
+[data-theme="dark"] .validation-result.error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+}

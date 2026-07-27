@@ -10,16 +10,23 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { JobService } from '@app/core/services/job.service';
 import { StepConfigSchema } from '@app/core/models/job.model';
 
-const STEP_TYPE_META: Record<string, { icon: string; description: string }> = {
-  ARCHIVE: { icon: 'archive', description: 'Compress files into ZIP or TAR.GZ archives' },
-  DB_QUERY: { icon: 'database', description: 'Run SQL queries against a database' },
-  ENV_SETUP: { icon: 'settings_applications', description: 'Configure JAVA_HOME, classpath, and environment variables' },
-  HTTP_CALL: { icon: 'cloud_upload', description: 'Make HTTP requests to external services' },
-  JAVA_EXEC: { icon: 'language_java', description: 'Execute a Java main class or JAR file' },
-  LOG_CLEANUP: { icon: 'cleanup', description: 'Delete old log files matching patterns' },
-  SFTP: { icon: 'cloud_sync', description: 'Transfer files via SFTP/SCP' },
-  SHELL_EXEC: { icon: 'terminal', description: 'Run shell commands or script files' },
-};
+/** Maps common keywords in step type names to Material icons */
+function iconFor(stepType: string): string {
+  const upper = stepType.toUpperCase();
+  if (upper.includes('ENV') || upper.includes('SETUP')) return 'settings_applications';
+  if (upper.includes('LOG') || upper.includes('CLEAN')) return 'delete_sweep';
+  if (upper.includes('JAVA')) return 'language_java';
+  if (upper.includes('SFTP') || upper.includes('TRANSFER')) return 'cloud_upload';
+  if (upper.includes('ARCHIVE') || upper.includes('ZIP')) return 'folder_zip';
+  if (upper.includes('HTTP') || upper.includes('CALL') || upper.includes('API')) return 'language';
+  if (upper.includes('SHELL') || upper.includes('EXEC') || upper.includes('CMD')) return 'terminal';
+  if (upper.includes('DB') || upper.includes('QUERY') || upper.includes('SQL')) return 'storage';
+  return 'play_arrow';
+}
+
+function descriptionFor(schema: StepConfigSchema): string {
+  return schema.description ?? `${schema.displayName} step`;
+}
 
 @Component({
   selector: 'app-step-palette',
@@ -34,18 +41,27 @@ export class StepPaletteComponent implements OnInit {
 
   schemas: StepConfigSchema[] = [];
   loading = true;
+  error = false;
   filter = '';
 
-  ngOnInit(): void {
+  loadSchemas(): void {
+    this.loading = true;
+    this.error = false;
     this.jobService.listStepTypes().subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.schemas = res.data.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        } else {
+          this.error = true;
         }
         this.loading = false;
       },
-      error: () => { this.loading = false; },
+      error: () => { this.error = true; this.loading = false; },
     });
+  }
+
+  ngOnInit(): void {
+    this.loadSchemas();
   }
 
   get filtered(): StepConfigSchema[] {
@@ -55,7 +71,7 @@ export class StepPaletteComponent implements OnInit {
       (s) =>
         s.displayName.toLowerCase().includes(q) ||
         s.stepType.toLowerCase().includes(q) ||
-        this.metaFor(s.stepType).description.toLowerCase().includes(q),
+        descriptionFor(s).toLowerCase().includes(q),
     );
   }
 
@@ -63,7 +79,6 @@ export class StepPaletteComponent implements OnInit {
     this.dialogRef.close({ stepType: schema.stepType });
   }
 
-  metaFor(stepType: string): { icon: string; description: string } {
-    return STEP_TYPE_META[stepType] ?? { icon: 'play_arrow', description: `Run a ${stepType} step` };
-  }
+  iconFor = iconFor;
+  descriptionFor = descriptionFor;
 }

@@ -124,6 +124,9 @@
 .sidenav-footer {
   border-top: 1px solid var(--color-border);
   padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
 }
 
 .user-card {

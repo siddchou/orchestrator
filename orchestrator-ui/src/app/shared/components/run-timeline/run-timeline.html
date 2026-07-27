@@ -1,0 +1,35 @@
+<div class="timeline-card">
+  <div class="timeline-header">
+    <mat-icon class="timeline-icon">timeline</mat-icon>
+    <span class="timeline-title">Execution Timeline</span>
+    <span class="timeline-step-count">{{ bars.length }} steps</span>
+  </div>
+
+  <div class="timeline-track">
+    <!-- Grid lines -->
+    @for (tick of ticks; track $index) {
+      <div class="grid-line" [style.left.%]="tick.leftPercent"></div>
+    }
+
+    <!-- Step bars -->
+    @for (bar of bars; track bar.step.runStepId; let i = $index) {
+      <div
+        class="step-bar"
+        [style.left.%]="bar.leftPercent"
+        [style.width.%]="bar.widthPercent"
+        [style.background]="bar.colorVar"
+        [style.--row-index]="i"
+        [title]="bar.step.stepName + ' (' + (bar.step.durationSeconds | number:'1.0-0') + 's)'"
+      >
+        <span class="step-bar-label">{{ bar.step.stepName }}</span>
+      </div>
+    }
+  </div>
+
+  <!-- Time axis labels -->
+  <div class="time-axis">
+    @for (tick of ticks; track $index) {
+      <div class="time-tick" [style.left.%]="tick.leftPercent">{{ tick.label }}</div>
+    }
+  </div>
+</div>

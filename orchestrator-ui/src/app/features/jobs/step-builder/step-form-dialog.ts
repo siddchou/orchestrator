@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { StepConfigSchema } from '../../../core/models/job.model';
 import { Credential } from '../../../core/models/credential.model';
 import { JobService } from '../../../core/services/job.service';
@@ -30,7 +31,7 @@ export interface StepFormData {
   imports: [
     CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
-    DynamicStepFormComponent,
+    MatSnackBarModule, DynamicStepFormComponent,
   ],
   templateUrl: './step-form-dialog.html',
   styleUrl: './step-form-dialog.scss',
@@ -40,6 +41,7 @@ export class StepFormDialog {
   private dialogRef = inject(MatDialogRef<StepFormDialog>);
   private jobService = inject(JobService);
   private credentialService = inject(CredentialService);
+  private snackbar = inject(MatSnackBar);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
 
   @ViewChild(DynamicStepFormComponent) dynamicForm?: DynamicStepFormComponent;
@@ -98,12 +100,18 @@ export class StepFormDialog {
   }
 
   onSubmit() {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.snackbar.open('Please fill in all required fields', 'Dismiss', { panelClass: ['error-snackbar'] });
+      return;
+    }
 
     // Validate the dynamic form — marks all controls touched, shows errors
     if (this.dynamicForm) {
       const isValid = this.dynamicForm.validate();
-      if (!isValid) return;
+      if (!isValid) {
+        this.snackbar.open('Please fix the highlighted errors before saving', 'Dismiss', { panelClass: ['error-snackbar'] });
+        return;
+      }
     }
 
     let stepConfig = '{}';

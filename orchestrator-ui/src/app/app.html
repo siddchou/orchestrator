@@ -32,6 +32,7 @@
 
       <!-- Footer -->
       <div class="sidenav-footer">
+        <app-team-switcher></app-team-switcher>
         <div class="user-card">
           <div class="user-avatar">
             {{ userRole?.charAt(0) ?? 'U' }}
@@ -55,6 +56,9 @@
         <span class="toolbar-title">{{ pageTitle }}</span>
         <span class="spacer"></span>
         <div class="toolbar-actions">
+          <button mat-icon-button (click)="toggleTheme()" [title]="currentTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'" class="theme-toggle-btn">
+            <mat-icon>{{ currentTheme === 'dark' ? 'light_mode' : 'dark_mode' }}</mat-icon>
+          </button>
           <span class="toolbar-time">{{ currentTime }}</span>
         </div>
       </mat-toolbar>

@@ -1,0 +1,23 @@
+.team-spinner {
+  animation: pulse 1s infinite;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.team-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--mat-sys-on-surface-variant);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.team-select {
+  font-size: var(--font-size-sm);
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+}
