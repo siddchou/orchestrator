@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,6 +37,7 @@ function descriptionFor(schema: StepConfigSchema): string {
 })
 export class StepPaletteComponent implements OnInit {
   private jobService = inject(JobService);
+  private cd = inject(ChangeDetectorRef);
   dialogRef = inject(MatDialogRef<StepPaletteComponent>);
 
   schemas: StepConfigSchema[] = [];
@@ -55,8 +56,9 @@ export class StepPaletteComponent implements OnInit {
           this.error = true;
         }
         this.loading = false;
+        this.cd.detectChanges();
       },
-      error: () => { this.error = true; this.loading = false; },
+      error: () => { this.error = true; this.loading = false; this.cd.detectChanges(); },
     });
   }
 

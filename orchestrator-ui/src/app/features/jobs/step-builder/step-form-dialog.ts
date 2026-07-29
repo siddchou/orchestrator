@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, ViewChild, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -42,6 +42,7 @@ export class StepFormDialog {
   private jobService = inject(JobService);
   private credentialService = inject(CredentialService);
   private snackbar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
 
   @ViewChild(DynamicStepFormComponent) dynamicForm?: DynamicStepFormComponent;
@@ -67,9 +68,11 @@ export class StepFormDialog {
           this.availableTypes = res.data.sort((a, b) => a.displayName.localeCompare(b.displayName));
         }
         this.loadingTypes = false;
+        this.cd.detectChanges();
       },
       error: () => {
         this.loadingTypes = false;
+        this.cd.detectChanges();
       },
     });
 
@@ -78,9 +81,10 @@ export class StepFormDialog {
         if (res.status === 'SUCCESS') {
           this.credentials = res.data;
         }
+        this.cd.detectChanges();
       },
       error: () => {
-        // Credentials optional — dialog still works without them
+        // Credentials optional - dialog still works without them
       },
     });
   }
