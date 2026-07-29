@@ -14,6 +14,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.novakai.orchestrator.security.JwtAuthFilter;
+import com.novakai.orchestrator.security.JwtService;
 
 @Configuration
 @EnableMethodSecurity
@@ -21,7 +25,13 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public JwtAuthFilter jwtAuthFilter(JwtService jwtService,
+                                        org.springframework.security.core.userdetails.UserDetailsService userDetailsService) {
+        return new JwtAuthFilter(jwtService, userDetailsService);
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -33,6 +43,9 @@ public class SecurityConfig {
                         // Viewer + Operator + Admin can read runs and jobs
                         .requestMatchers(HttpMethod.GET, "/api/runs/**").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/jobs/**").hasAnyRole("VIEWER", "OPERATOR", "ADMIN")
+                        // Admin-only: job CRUD (collection-level POST/PUT)
+                        .requestMatchers(HttpMethod.POST, "/api/jobs").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/jobs").hasRole("ADMIN")
                         // Operator + Admin can trigger and cancel runs
                         .requestMatchers(HttpMethod.POST, "/api/jobs/*/run").hasAnyRole("OPERATOR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/jobs/name/*/run").hasAnyRole("OPERATOR", "ADMIN")
@@ -49,7 +62,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/audit/**").hasRole("ADMIN")
                         // Everything else requires authentication
                         .anyRequest().authenticated()
-                );
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

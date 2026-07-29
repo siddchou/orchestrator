@@ -64,4 +64,22 @@ public class TeamService {
                 .map(AppUser::getUserId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
+
+    /** If the user has no team memberships, auto-enroll them to the Default team as MEMBER */
+    @Transactional
+    public void enrollToDefaultIfNone(String username) {
+        AppUser user = appUserRepo.findByUsername(username).orElse(null);
+        if (user == null) return;
+
+        List<UserTeam> memberships = userTeamRepo.findByUserUserId(user.getUserId());
+        if (!memberships.isEmpty()) return; // already has teams
+
+        teamRepo.findByTeamName("Default").ifPresent(defaultTeam -> {
+            UserTeam membership = new UserTeam();
+            membership.setUser(user);
+            membership.setTeam(defaultTeam);
+            membership.setRole("MEMBER");
+            userTeamRepo.save(membership);
+        });
+    }
 }

@@ -6,6 +6,7 @@ import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.api.dto.AuthResponse;
 import com.novakai.orchestrator.api.dto.ChangePasswordRequest;
 import com.novakai.orchestrator.api.dto.LoginRequest;
+import com.novakai.orchestrator.api.service.TeamService;
 import com.novakai.orchestrator.domain.entity.AppUser;
 import com.novakai.orchestrator.repository.AppUserRepository;
 import com.novakai.orchestrator.security.CustomUserDetailsService;
@@ -32,17 +33,20 @@ public class AuthController {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final CustomUserDetailsService userDetailsService;
+    private final TeamService teamService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           JwtService jwtService,
                           AppUserRepository appUserRepository,
                           PasswordEncoder passwordEncoder,
-                          CustomUserDetailsService userDetailsService) {
+                          CustomUserDetailsService userDetailsService,
+                          TeamService teamService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.userDetailsService = userDetailsService;
+        this.teamService = teamService;
     }
 
     @PostMapping("/login")
@@ -58,6 +62,9 @@ public class AuthController {
         }
 
         UserDetails userDetails = (UserDetails) authenticated.getPrincipal();
+
+        // Auto-enroll user to Default team if they have no team memberships
+        teamService.enrollToDefaultIfNone(request.username());
 
         String token = jwtService.generateToken(userDetails);
         String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
@@ -94,6 +101,9 @@ public class AuthController {
         if (userDetails == null) {
             return ApiResponse.error("Authentication required");
         }
+        // Auto-enroll on API access too (defense in depth)
+        teamService.enrollToDefaultIfNone(userDetails.getUsername());
+
         String username = userDetails.getUsername();
         AppUser user = appUserRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));

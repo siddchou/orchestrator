@@ -9,6 +9,7 @@ interface StepBar {
   leftPercent: number;
   widthPercent: number;
   colorVar: string;
+  hasNullTime?: boolean;
 }
 
 const STATUS_COLOR_VARS: Record<RunStatus, string> = {
@@ -60,6 +61,7 @@ export class RunTimelineComponent implements OnChanges {
     // Compute bar positions
     const minBarWidthPct = 1.5;
     this.bars = steps.map(step => {
+      const hasNullTime = !step.startedAt || !step.endedAt;
       const start = step.startedAt ? new Date(step.startedAt).getTime() : minTime;
       const end = step.endedAt ? new Date(step.endedAt).getTime() : maxTime;
       const leftPct = ((start - minTime) / this.totalDurationMs) * 100;
@@ -70,6 +72,7 @@ export class RunTimelineComponent implements OnChanges {
         leftPercent: leftPct,
         widthPercent: Math.min(widthPct, 100 - leftPct),
         colorVar: STATUS_COLOR_VARS[step.status] ?? '#757575',
+        hasNullTime,
       };
     });
 

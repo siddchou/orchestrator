@@ -69,6 +69,13 @@
   opacity: 0.85;
 }
 
+/* E11: Steps with null timestamps — dashed outline, warning icon */
+.step-bar-unknown {
+  border: 2px dashed var(--color-warn, #ff9800);
+  background-color: color-mix(in srgb, var(--color-surface, #fff) 60%, var(--color-text-secondary, #999)) !important;
+  opacity: 0.7;
+}
+
 .step-bar-label {
   font-size: 10px;
   color: #fff;

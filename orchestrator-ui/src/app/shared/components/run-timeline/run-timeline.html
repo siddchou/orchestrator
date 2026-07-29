@@ -15,13 +15,19 @@
     @for (bar of bars; track bar.step.runStepId; let i = $index) {
       <div
         class="step-bar"
+        [class.step-bar-unknown]="bar.hasNullTime"
         [style.left.%]="bar.leftPercent"
         [style.width.%]="bar.widthPercent"
         [style.background]="bar.colorVar"
         [style.--row-index]="i"
-        [title]="bar.step.stepName + ' (' + (bar.step.durationSeconds | number:'1.0-0') + 's)'"
+        [title]="bar.step.stepName + (bar.hasNullTime ? ' (timestamp unknown)' : '')"
       >
-        <span class="step-bar-label">{{ bar.step.stepName }}</span>
+        <span class="step-bar-label">
+          @if (bar.hasNullTime) {
+            <mat-icon>warning</mat-icon>
+          }
+          {{ bar.step.stepName }}
+        </span>
       </div>
     }
   </div>

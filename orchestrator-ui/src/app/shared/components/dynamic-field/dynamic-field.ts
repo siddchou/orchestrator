@@ -60,6 +60,11 @@ export class DynamicFieldComponent {
     if (this.control.errors?.['required']) {
       return `${this.fieldDef.label} is required`;
     }
+    // E6: credential referenced by SECRET_REF no longer exists
+    if (this.control.errors?.['missingCredential']) {
+      const val = this.control.value;
+      return `Referenced credential '${val}' no longer exists — select a valid credential.`;
+    }
     return `${this.fieldDef.label} is invalid`;
   }
 

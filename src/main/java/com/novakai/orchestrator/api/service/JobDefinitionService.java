@@ -8,12 +8,14 @@ import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobEnvVar;
 import com.novakai.orchestrator.domain.entity.JobSchedule;
 import com.novakai.orchestrator.domain.entity.JobStep;
+import com.novakai.orchestrator.domain.entity.Team;
 import com.novakai.orchestrator.engine.JobSchedulerService;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobScheduleRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
+import com.novakai.orchestrator.repository.TeamRepository;
 import com.novakai.orchestrator.security.Auditable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,7 @@ public class JobDefinitionService {
     private final JobStepRepository stepRepo;
     private final JobEnvVarRepository envVarRepo;
     private final JobScheduleRepository scheduleRepo;
+    private final TeamRepository teamRepo;
     private final JobDefinitionMapper mapper;
     private final JobSchedulerService schedulerService;
 
@@ -77,15 +80,19 @@ public class JobDefinitionService {
 
     @Transactional
     @Auditable(action = "CREATE_JOB", entityType = "JOB")
-    public JobDefinitionResponse createJob(JobDefinitionRequest request) {
+    public JobDefinitionResponse createJob(JobDefinitionRequest request, String username, Long teamId) {
         if (jobRepo.findByJobName(request.jobName()).isPresent()) {
             throw new IllegalArgumentException("Job name already exists: " + request.jobName());
         }
+        Team team = teamRepo.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found: " + teamId));
+
         JobDefinition job = new JobDefinition();
         mapper.toEntity(request, job);
         job.setEnabled("Y");
+        job.setTeam(team);
         job = jobRepo.save(job);
-        log.info("Created job '{}' (id={})", job.getJobName(), job.getJobId());
+        log.info("Created job '{}' (id={}) for user {} in team {}", job.getJobName(), job.getJobId(), username, teamId);
         return mapper.toResponse(job);
     }
 

@@ -61,7 +61,15 @@ export class DynamicStepFormComponent implements OnInit, OnChanges {
       }
     }
 
-    // Credentials change doesn't affect form structure — child components pick it up via binding
+    // E6: credentials loaded async — re-validate SECRET_REF fields so the missing-credential error clears
+    if (changes['credentials']) {
+      for (const field of this.schema.fields) {
+        if (field.type === 'SECRET_REF') {
+          const ctrl = this.form.get(field.name);
+          ctrl?.updateValueAndValidity();
+        }
+      }
+    }
   }
 
   private buildForm(): FormGroup {
@@ -101,6 +109,14 @@ export class DynamicStepFormComponent implements OnInit, OnChanges {
   private fieldValidators(field: FieldDefinition): any[] {
     const v: any[] = [];
     if (field.required) v.push(Validators.required);
+    // E6: SECRET_REF — validate the referenced credential still exists
+    if (field.type === 'SECRET_REF') {
+      v.push((ctrl) => {
+        if (!ctrl.value || !this.credentials.length) return null;
+        const exists = this.credentials.some(c => c.ref === ctrl.value);
+        return exists ? null : { missingCredential: true };
+      });
+    }
     return v;
   }
 

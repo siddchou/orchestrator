@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "orchestrator-backend",
+      "runtimeExecutable": "mvn",
+      "runtimeArgs": ["spring-boot:run", "-Dspring-boot.run.profiles=test"],
+      "autoPort": true,
+      "cwd": "C:/Users/siddh/IdeaProjects/orchestrator"
+    },
+    {
       "name": "orchestrator-ui dev server",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["ng", "serve", "--configuration", "development"],

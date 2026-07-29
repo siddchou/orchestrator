@@ -4,9 +4,11 @@ import com.novakai.orchestrator.api.dto.JobDefinitionRequest;
 import com.novakai.orchestrator.api.dto.JobDefinitionResponse;
 import com.novakai.orchestrator.api.dto.JobStepRequest;
 import com.novakai.orchestrator.domain.entity.JobDefinition;
+import com.novakai.orchestrator.domain.entity.Team;
 import com.novakai.orchestrator.domain.enums.StepType;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
+import com.novakai.orchestrator.repository.TeamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,16 +32,24 @@ class JobDefinitionServiceTest {
     @Autowired
     private JobDefinitionRepository jobRepo;
 
+    @Autowired
+    private TeamRepository teamRepo;
+
     private Long savedJobId;
+    private Long testTeamId;
 
     @BeforeEach
     void setUp() {
         jobRepo.deleteAll();
+        Team team = teamRepo.save(Team.builder().teamName("test-team").build());
+        testTeamId = team.getTeamId();
+
         JobDefinition job = JobDefinition.builder()
                 .jobName("existing-job")
                 .description("A job")
                 .workingDir("/tmp/test")
                 .enabled("Y")
+                .team(team)
                 .steps(new ArrayList<>())
                 .envVars(new ArrayList<>())
                 .build();
@@ -64,7 +74,7 @@ class JobDefinitionServiceTest {
     void createJob_success() {
         JobDefinitionRequest request = new JobDefinitionRequest(
                 "new-job", "desc", "/tmp/new", null, null);
-        JobDefinitionResponse response = service.createJob(request);
+        JobDefinitionResponse response = service.createJob(request, "admin", testTeamId);
         assertNotNull(response.jobId());
         assertEquals("new-job", response.jobName());
     }
@@ -73,7 +83,7 @@ class JobDefinitionServiceTest {
     void createJob_duplicate_name_throws() {
         JobDefinitionRequest request = new JobDefinitionRequest(
                 "existing-job", "desc", "/tmp", null, null);
-        assertThrows(IllegalArgumentException.class, () -> service.createJob(request));
+        assertThrows(IllegalArgumentException.class, () -> service.createJob(request, "admin", testTeamId));
     }
 
     @Test
@@ -101,6 +111,7 @@ class JobDefinitionServiceTest {
                 .jobName("other-job")
                 .workingDir("/tmp/other")
                 .enabled("Y")
+                .team(teamRepo.findById(testTeamId).orElseThrow())
                 .steps(new ArrayList<>())
                 .envVars(new ArrayList<>())
                 .build();

@@ -1,5 +1,10 @@
 @if (loading) {
   <mat-icon class="team-spinner">refresh</mat-icon>
+} @else if (loadError) {
+  <!-- E12: Retry button when API fails -->
+  <button mat-icon-button (click)="retryLoad()" title="Failed to load teams — click to retry" aria-label="Retry loading teams">
+    <mat-icon class="team-error-icon">warning</mat-icon>
+  </button>
 } @else if (teams.length === 0) {
   <span class="team-label">No teams</span>
 } @else if (isViewer && teams.length === 1) {

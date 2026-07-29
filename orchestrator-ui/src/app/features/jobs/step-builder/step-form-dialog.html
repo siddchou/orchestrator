@@ -34,11 +34,20 @@
 
     @if (form.get('stepType')?.value) {
       <div class="section-divider"></div>
-      <app-dynamic-step-form
-        #dynamicForm
-        [schema]="selectedSchema!"
-        [existingConfig]="existingConfig"
-        [credentials]="credentials" />
+
+      <!-- E5: Step type removed from backend — show disabled warning -->
+      @if (isStepTypeRemoved) {
+        <div class="removed-step-warning">
+          <mat-icon>warning</mat-icon>
+          <span>Step type <strong>{{ form.get('stepType')?.value }}</strong> is no longer available. This step cannot be edited and will fail if run.</span>
+        </div>
+      } @else {
+        <app-dynamic-step-form
+          #dynamicForm
+          [schema]="selectedSchema!"
+          [existingConfig]="existingConfig"
+          [credentials]="credentials" />
+      }
     }
   </mat-dialog-content>
 

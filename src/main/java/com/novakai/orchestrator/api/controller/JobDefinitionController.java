@@ -52,8 +52,41 @@ public class JobDefinitionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobDefinitionResponse> create(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-Team-Id", required = false) Long teamId,
             @Valid @RequestBody JobDefinitionRequest request) {
-        return ApiResponse.success(jobService.createJob(request));
+
+        log.info("POST /api/jobs: userDetails={}, teamId={}",
+                userDetails != null ? userDetails.getUsername() : "NULL", teamId);
+        String username = userDetails != null ? userDetails.getUsername() : null;
+        if (username == null) {
+            log.warn("POST /api/jobs: no authenticated user — SecurityContext may be empty");
+            throw new IllegalArgumentException("Authentication is required to create a job");
+        }
+
+        // Resolve effective team: explicit header > auto-resolve from membership > error
+        // Jobs must belong to a team; even ADMINs need one for creation (ADMIN bypasses filtering, not ownership).
+        Long effectiveTeamId = teamId;
+        if (effectiveTeamId == null) {
+            var teams = teamService.listUserTeams(username);
+            if (teams.size() == 1) {
+                effectiveTeamId = teams.get(0).teamId();
+            } else if (!teams.isEmpty()) {
+                // Multi-team user with no active team set — pick first as fallback
+                effectiveTeamId = teams.get(0).teamId();
+                log.warn("POST /api/jobs: no active team, auto-selected {} for {}", effectiveTeamId, username);
+            }
+        }
+        if (effectiveTeamId == null) {
+            throw new IllegalArgumentException("No team available — user must belong to at least one team to create a job");
+        }
+
+        // Validate membership when an explicit header was provided
+        if (teamId != null) {
+            teamService.validateMembership(username, teamId);
+        }
+
+        return ApiResponse.success(jobService.createJob(request, username, effectiveTeamId));
     }
 
     @GetMapping("/{id}")

@@ -137,6 +137,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -174,6 +179,7 @@
                     <workingDirectory>orchestrator-ui</workingDirectory>
                     <nodeVersion>v22.22.3</nodeVersion>
                     <npmVersion>10.2.4</npmVersion>
+                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>

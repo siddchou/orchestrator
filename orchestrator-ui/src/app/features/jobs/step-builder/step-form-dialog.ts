@@ -90,6 +90,15 @@ export class StepFormDialog {
     return this.availableTypes.find(s => s.stepType === type);
   }
 
+  /** E5: True when editing an existing step whose type was removed from backend */
+  get isStepTypeRemoved(): boolean {
+    if (!this.data.stepId || this.loadingTypes) return false;
+    const currentType = this.form.get('stepType')?.value;
+    // If user changed to a valid type, not removed
+    if (currentType && this.availableTypes.some(s => s.stepType === currentType)) return false;
+    return true;
+  }
+
   get existingConfig(): Record<string, unknown> | null {
     if (!this.data.stepConfig) return null;
     try {

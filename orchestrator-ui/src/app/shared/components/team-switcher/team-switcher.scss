@@ -3,6 +3,11 @@
   color: var(--mat-sys-on-surface-variant);
 }
 
+/* E12: Error state — red warning icon */
+.team-error-icon {
+  color: var(--status-failed-bg, #f44336);
+}
+
 .team-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
