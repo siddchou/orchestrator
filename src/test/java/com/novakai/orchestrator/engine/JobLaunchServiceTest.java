@@ -9,6 +9,7 @@ import com.novakai.orchestrator.engine.exception.JobAlreadyRunningException;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,11 +39,15 @@ class JobLaunchServiceTest {
     @Autowired
     private JobStepRepository stepRepo;
 
+    @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
     private Long savedJobId;
 
     @BeforeEach
     void setUp() {
         runRepo.deleteAll();
+        stepDepRepo.deleteAll();
         stepRepo.deleteAll();
         jobRepo.deleteAll();
 

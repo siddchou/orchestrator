@@ -242,7 +242,7 @@ public class DagExecutionEngine {
             Thread.currentThread().interrupt();
         }
 
-        finalizeRun(ctx, run, stepResults, runSteps, startTimes, remaining);
+        finalizeRun(ctx, run, stepResults, runSteps, startTimes, remaining, graph.roots);
     }
 
     private void submitStep(ExecutionContext ctx, JobDefinition job, JobRun run,
@@ -462,7 +462,8 @@ public class DagExecutionEngine {
                              Map<Long, StepResult> stepResults,
                              Map<Long, JobRunStep> runSteps,
                              Map<Long, LocalDateTime> startTimes,
-                             Map<Long, Integer> remaining) {
+                             Map<Long, Integer> remaining,
+                             Set<Long> rootIds) {
         boolean cancelled = ctx.isCancelRequested() || Thread.currentThread().isInterrupted();
 
         if (!runSteps.isEmpty()) {
@@ -474,8 +475,19 @@ public class DagExecutionEngine {
         if (cancelled) {
             run.setStatus(RunStatus.CANCELLED);
         } else if (stepResults.values().stream().anyMatch(r -> !r.isSuccess())) {
-            boolean allFailed = stepResults.values().stream().noneMatch(StepResult::isSuccess);
-            run.setStatus(allFailed ? RunStatus.FAILED : RunStatus.PARTIAL);
+            boolean anySuccess = stepResults.values().stream().anyMatch(StepResult::isSuccess);
+            boolean rootFailed = stepResults.entrySet().stream()
+                    .filter(e -> !e.getValue().isSuccess())
+                    .anyMatch(e -> rootIds.contains(e.getKey()));
+            // If a root failed but no downstream step succeeded (all skipped/blocked) → FAILED.
+            // If cleanup/recovery steps ran successfully via ON_FAILURE/ALWAYS → PARTIAL.
+            if (!anySuccess && rootFailed) {
+                run.setStatus(RunStatus.FAILED);
+            } else if (!anySuccess) {
+                run.setStatus(RunStatus.FAILED);
+            } else {
+                run.setStatus(RunStatus.PARTIAL);
+            }
         } else {
             run.setStatus(RunStatus.SUCCESS);
         }

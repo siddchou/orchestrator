@@ -5,6 +5,8 @@ import com.novakai.orchestrator.api.dto.JobScheduleRequest;
 import com.novakai.orchestrator.api.dto.JobStepRequest;
 import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import com.novakai.orchestrator.security.JwtService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +35,12 @@ class JobDefinitionControllerTest {
     private JobDefinitionRepository jobRepo;
 
     @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
+    @Autowired
+    private JobStepRepository stepRepo;
+
+    @Autowired
     private JwtService jwtService;
 
     @Autowired
@@ -49,6 +57,8 @@ class JobDefinitionControllerTest {
         UserDetails adminUser = userDetailsService.loadUserByUsername("admin");
         adminToken = jwtService.generateToken(adminUser);
 
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
         JobDefinition job = JobDefinition.builder()
                 .jobName("test-job")

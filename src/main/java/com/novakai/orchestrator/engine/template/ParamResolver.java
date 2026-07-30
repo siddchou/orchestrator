@@ -139,6 +139,39 @@ public class ParamResolver {
         return null;
     }
 
+    /**
+     * Resolve simple ${key} templates against an arbitrary variable map.
+     * Supports default values: ${key?defaultVal}.
+     * No namespace prefix — keys are looked up directly in the provided map.
+     */
+    public static String resolveSimple(String template, Map<String, Object> vars) {
+        if (template == null || !template.contains("${")) {
+            return template;
+        }
+
+        Matcher matcher = TEMPLATE_PATTERN.matcher(template);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String ref = matcher.group(1);
+            String[] parts = ref.split("\\?", 2);
+            String key = parts[0];
+            String defaultValue = parts.length > 1 ? parts[1] : null;
+
+            Object value = vars.get(key);
+            if (value == null && defaultValue != null) {
+                value = defaultValue;
+            }
+            if (value == null) {
+                value = matcher.group(0); // leave unresolved
+            }
+
+            matcher.appendReplacement(result, escapeReplacement(value.toString()));
+        }
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
     /** Escape $ and \ for Matcher.appendReplacement — required by Java regex. */
     private static String escapeReplacement(String value) {
         if (value == null) return "";

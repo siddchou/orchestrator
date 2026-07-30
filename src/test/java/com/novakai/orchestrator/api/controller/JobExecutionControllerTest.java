@@ -6,6 +6,8 @@ import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,6 +37,12 @@ class JobExecutionControllerTest {
     @Autowired
     private JobRunRepository runRepo;
 
+    @Autowired
+    private JobStepRepository stepRepo;
+
+    @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
     private Long savedJobId;
 
     String base() { return "http://localhost:" + port; }
@@ -45,6 +53,8 @@ class JobExecutionControllerTest {
         restTemplate.setErrorHandler(new NoOpResponseErrorHandler());
             
         runRepo.deleteAll();
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
         JobDefinition job = JobDefinition.builder()
                 .jobName("test-job")

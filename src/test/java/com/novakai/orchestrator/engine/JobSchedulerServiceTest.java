@@ -5,6 +5,8 @@ import com.novakai.orchestrator.domain.entity.JobSchedule;
 import com.novakai.orchestrator.engine.exception.InvalidCronExpressionException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobScheduleRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,11 +32,19 @@ class JobSchedulerServiceTest {
     @Autowired
     private JobDefinitionRepository jobRepo;
 
+    @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
+    @Autowired
+    private JobStepRepository stepRepo;
+
     private Long savedJobId;
 
     @BeforeEach
     void setUp() {
         scheduleRepo.deleteAll();
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
 
         JobDefinition job = JobDefinition.builder()

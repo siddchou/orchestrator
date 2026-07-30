@@ -143,6 +143,24 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.reorderSteps(id, request.stepIds()));
     }
 
+    // --- Dependencies ---
+
+    @GetMapping("/{id}/steps/{stepId}/dependencies")
+    public ApiResponse<List<StepDependencyResponse>> getDependencies(
+            @PathVariable Long id,
+            @PathVariable Long stepId) {
+        return ApiResponse.success(jobService.getDependencies(id, stepId));
+    }
+
+    @PutMapping("/{id}/steps/{stepId}/dependencies")
+    public ApiResponse<Void> setDependencies(
+            @PathVariable Long id,
+            @PathVariable Long stepId,
+            @RequestBody List<StepDependencyRequest> requests) {
+        jobService.setDependencies(id, stepId, requests);
+        return ApiResponse.success();
+    }
+
     // --- Env Vars ---
 
     @GetMapping("/{id}/env-vars")

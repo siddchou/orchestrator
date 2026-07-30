@@ -6,6 +6,8 @@ import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +33,17 @@ class StartupMaintenanceServiceTest {
     @Autowired
     private JobDefinitionRepository jobRepo;
 
+    @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
+    @Autowired
+    private JobStepRepository stepRepo;
+
     @BeforeEach
     void setUp() {
         runRepo.deleteAll();
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
 
         JobDefinition job = JobDefinition.builder()

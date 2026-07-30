@@ -8,6 +8,8 @@ import com.novakai.orchestrator.domain.entity.Team;
 import com.novakai.orchestrator.domain.enums.StepType;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
 import com.novakai.orchestrator.repository.TeamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,12 @@ class JobDefinitionServiceTest {
     private JobDefinitionRepository jobRepo;
 
     @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
+    @Autowired
+    private JobStepRepository stepRepo;
+
+    @Autowired
     private TeamRepository teamRepo;
 
     private Long savedJobId;
@@ -40,6 +48,8 @@ class JobDefinitionServiceTest {
 
     @BeforeEach
     void setUp() {
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
         Team team = teamRepo.save(Team.builder().teamName("test-team").build());
         testTeamId = team.getTeamId();

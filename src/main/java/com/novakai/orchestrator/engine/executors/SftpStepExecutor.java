@@ -2,6 +2,7 @@ package com.novakai.orchestrator.engine.executors;
 
 import com.novakai.orchestrator.domain.config.SftpConfig;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.template.ParamResolver;
 import com.novakai.orchestrator.engine.spi.FieldDefinition;
 import com.novakai.orchestrator.engine.spi.FieldType;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
@@ -30,6 +31,7 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -302,9 +304,12 @@ public class SftpStepExecutor implements StepExecutor {
                 ? originalName.substring(originalName.lastIndexOf('.'))
                 : "";
 
-        return template.replace("${fileName}", nameWithoutExt)
-                       .replace("${fileExtension}", extension)
-                       .replace("${timestamp}", String.valueOf(System.currentTimeMillis()));
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("fileName", nameWithoutExt);
+        vars.put("fileExtension", extension);
+        vars.put("timestamp", System.currentTimeMillis());
+
+        return ParamResolver.resolveSimple(template, vars);
     }
 
     private void configureHostKeyVerifier(SshClient client) {

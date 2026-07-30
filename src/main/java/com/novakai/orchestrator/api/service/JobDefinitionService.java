@@ -8,12 +8,15 @@ import com.novakai.orchestrator.domain.entity.JobDefinition;
 import com.novakai.orchestrator.domain.entity.JobEnvVar;
 import com.novakai.orchestrator.domain.entity.JobSchedule;
 import com.novakai.orchestrator.domain.entity.JobStep;
+import com.novakai.orchestrator.domain.entity.JobStepDependency;
 import com.novakai.orchestrator.domain.entity.Team;
 import com.novakai.orchestrator.engine.JobSchedulerService;
+import com.novakai.orchestrator.engine.exception.CircularDependencyException;
 import com.novakai.orchestrator.engine.exception.JobNotFoundException;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobEnvVarRepository;
 import com.novakai.orchestrator.repository.JobScheduleRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import com.novakai.orchestrator.repository.TeamRepository;
 import com.novakai.orchestrator.security.Auditable;
@@ -27,6 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +48,7 @@ public class JobDefinitionService {
     private final JobStepRepository stepRepo;
     private final JobEnvVarRepository envVarRepo;
     private final JobScheduleRepository scheduleRepo;
+    private final JobStepDependencyRepository stepDepRepo;
     private final TeamRepository teamRepo;
     private final JobDefinitionMapper mapper;
     private final JobSchedulerService schedulerService;
@@ -296,6 +303,143 @@ public class JobDefinitionService {
             schedulerService.cancel(schedule.getScheduleId());
         }
         return mapper.toScheduleResponse(schedule);
+    }
+
+    // --- Dependency CRUD ---
+
+@Transactional(readOnly = true)
+    public List<StepDependencyResponse> getDependencies(Long jobId, Long stepId) {
+        JobDefinition job = jobRepo.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+        JobStep step = stepRepo.findStepWithJobDefinition(stepId)
+                .orElseThrow(() -> new JobNotFoundException("Step " + stepId));
+        if (!step.getJobDefinition().getJobId().equals(jobId)) {
+            throw new JobNotFoundException("Step " + stepId + " does not belong to job " + jobId);
+        }
+
+        return stepDepRepo.findByStep_StepId(stepId).stream()
+                .map(dep -> new StepDependencyResponse(
+                        dep.getDependencyId(),
+                        dep.getDependsOnStep().getStepId(),
+                        dep.getDependsOnStep().getStepName(),
+                        dep.getEdgeCondition().name()
+                ))
+                .toList();
+    }
+
+    @Transactional
+    @Auditable(action = "UPDATE_DEPENDENCIES", entityType = "JOB_STEP")
+    public void setDependencies(Long jobId, Long stepId, List<StepDependencyRequest> requests) {
+        JobDefinition job = jobRepo.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId));
+        JobStep step = stepRepo.findStepWithJobDefinition(stepId)
+                .orElseThrow(() -> new JobNotFoundException("Step " + stepId));
+        if (!step.getJobDefinition().getJobId().equals(jobId)) {
+            throw new JobNotFoundException("Step " + stepId + " does not belong to job " + jobId);
+        }
+
+        // Validate referenced steps exist and belong to same job
+        Set<Long> jobStepIds = job.getSteps().stream()
+                .map(JobStep::getStepId)
+                .collect(Collectors.toSet());
+
+        for (StepDependencyRequest req : requests) {
+            if (req.dependsOnStepId().equals(stepId)) {
+                throw new IllegalArgumentException("Step cannot depend on itself");
+            }
+            if (!jobStepIds.contains(req.dependsOnStepId())) {
+                throw new JobNotFoundException("Step " + req.dependsOnStepId() + " not found in job " + jobId);
+            }
+        }
+
+        // Cycle detection — build graph with proposed edges and run Kahn's algorithm
+        validateNoCycle(job, stepId, requests);
+
+        // Replace dependencies: delete old, insert new
+        List<JobStepDependency> existingDeps = stepDepRepo.findByStep_StepId(stepId);
+        stepDepRepo.deleteAll(existingDeps);
+
+        List<JobStepDependency> newDeps = new ArrayList<>();
+        for (StepDependencyRequest req : requests) {
+            JobStep parent = stepRepo.findById(req.dependsOnStepId())
+                    .orElseThrow(() -> new JobNotFoundException("Step " + req.dependsOnStepId()));
+            JobStepDependency.EdgeCondition condition;
+            try {
+                condition = JobStepDependency.EdgeCondition.valueOf(req.edgeCondition());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid edge condition: " + req.edgeCondition()
+                        + ". Must be one of: ON_SUCCESS, ON_FAILURE, ALWAYS");
+            }
+            newDeps.add(JobStepDependency.builder()
+                    .step(step)
+                    .dependsOnStep(parent)
+                    .edgeCondition(condition)
+                    .build());
+        }
+        stepDepRepo.saveAll(newDeps);
+    }
+
+    /** Kahn's algorithm cycle detection on job definition graph with proposed edges. */
+    private void validateNoCycle(JobDefinition job, Long targetStepId, List<StepDependencyRequest> newRequests) {
+        List<JobStep> steps = job.getSteps();
+        Map<Long, JobStep> stepMap = new HashMap<>();
+        for (JobStep s : steps) {
+            stepMap.put(s.getStepId(), s);
+        }
+
+        // Build adjacency: existing deps for all steps EXCEPT target step's old deps
+        Map<Long, List<Long>> downstreams = new HashMap<>();
+        for (JobStep s : steps) {
+            downstreams.put(s.getStepId(), new ArrayList<>());
+        }
+
+        // Add all existing dependencies except those belonging to target step
+        for (JobStep s : steps) {
+            List<JobStepDependency> deps = stepDepRepo.findByStep_StepId(s.getStepId());
+            if (s.getStepId().equals(targetStepId)) continue; // skip — will be replaced
+            for (JobStepDependency dep : deps) {
+                Long parentId = dep.getDependsOnStep().getStepId();
+                downstreams.computeIfAbsent(parentId, k -> new ArrayList<>()).add(s.getStepId());
+            }
+        }
+
+        // Add proposed dependencies
+        for (StepDependencyRequest req : newRequests) {
+            downstreams.computeIfAbsent(req.dependsOnStepId(), k -> new ArrayList<>()).add(targetStepId);
+        }
+
+        // Kahn's algorithm
+        Map<Long, Integer> inDegree = new HashMap<>();
+        for (JobStep s : steps) {
+            inDegree.put(s.getStepId(), 0);
+        }
+        for (List<Long> targets : downstreams.values()) {
+            for (Long t : targets) {
+                inDegree.merge(t, 1, Integer::sum);
+            }
+        }
+
+        List<Long> queue = new ArrayList<>();
+        for (Map.Entry<Long, Integer> e : inDegree.entrySet()) {
+            if (e.getValue() == 0) queue.add(e.getKey());
+        }
+
+        int visited = 0;
+        while (!queue.isEmpty()) {
+            Long node = queue.removeLast();
+            visited++;
+            for (Long target : downstreams.getOrDefault(node, List.of())) {
+                int newDeg = inDegree.get(target) - 1;
+                inDegree.put(target, newDeg);
+                if (newDeg == 0) queue.add(target);
+            }
+        }
+
+        if (visited < steps.size()) {
+            throw new CircularDependencyException(
+                    "Cycle detected: adding these dependencies would create a circular dependency involving "
+                            + (steps.size() - visited) + " step(s)");
+        }
     }
 
     // --- Internal helpers ---
