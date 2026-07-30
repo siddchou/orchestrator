@@ -4,6 +4,8 @@ package com.novakai.orchestrator.api.controller;
 
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.api.service.JobDefinitionService;
+import com.novakai.orchestrator.api.service.JobExportImportService;
+import com.novakai.orchestrator.api.service.JobVersionService;
 import com.novakai.orchestrator.api.service.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,8 @@ import java.util.List;
 public class JobDefinitionController {
 
     private final JobDefinitionService jobService;
+    private final JobExportImportService exportImportService;
+    private final JobVersionService versionService;
     private final TeamService teamService;
 
     @GetMapping
@@ -110,6 +114,55 @@ public class JobDefinitionController {
     @PostMapping("/{id}/enable")
     public ApiResponse<JobDefinitionResponse> toggleEnabled(@PathVariable Long id) {
         return ApiResponse.success(jobService.toggleEnabled(id));
+    }
+
+    // --- Export / Import ---
+
+    @GetMapping("/{id}/export")
+    public ApiResponse<String> exportJson(@PathVariable Long id,
+                                          @RequestParam(defaultValue = "json") String format) {
+        String exported;
+        if ("yaml".equalsIgnoreCase(format)) {
+            exported = exportImportService.exportToYaml(id);
+        } else {
+            exported = exportImportService.exportToJson(id);
+        }
+        return ApiResponse.success(exported);
+    }
+
+    @PostMapping("/import")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<JobDefinitionResponse> importJob(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader(value = "X-Team-Id", required = false) Long teamId,
+            @RequestBody JobImportRequest request) {
+
+        String username = userDetails != null ? userDetails.getUsername() : null;
+
+        // Resolve team (same logic as create)
+        Long effectiveTeamId = teamId;
+        if (effectiveTeamId == null && username != null) {
+            var teams = teamService.listUserTeams(username);
+            if (!teams.isEmpty()) {
+                effectiveTeamId = teams.get(0).teamId();
+            }
+        }
+
+        // Validate before executing
+        boolean exists = jobService.jobExistsByName(request.jobName());
+        List<String> errors = exportImportService.validateImport(request, exists);
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException("Import validation failed: " + String.join("; ", errors));
+        }
+
+        // Save version snapshot before UPDATE import
+        if (exists && request.modeEnum() == JobImportRequest.Mode.UPDATE) {
+            var existingJob = jobService.findJobByName(request.jobName());
+            versionService.saveVersion(existingJob.get().getJobId(), username + " (import pre-update)");
+        }
+
+        var job = exportImportService.importJob(request, effectiveTeamId);
+        return ApiResponse.success(jobService.getJob(job.getJobId()));
     }
 
     // --- Steps ---
@@ -218,5 +271,35 @@ public class JobDefinitionController {
     @PostMapping("/{id}/schedule/disable")
     public ApiResponse<JobScheduleResponse> disableSchedule(@PathVariable Long id) {
         return ApiResponse.success(jobService.toggleSchedule(id, false));
+    }
+
+    // --- Versions ---
+
+    @GetMapping("/{id}/versions")
+    public ApiResponse<List<JobVersionSummary>> listVersions(@PathVariable Long id) {
+        var versions = versionService.listVersions(id);
+        return ApiResponse.success(versions.stream().map(v -> new JobVersionSummary(
+                v.getVersionNumber(),
+                v.getVersionLabel(),
+                v.getCreatedAt(),
+                v.getCreatedBy()
+        )).toList());
+    }
+
+    @GetMapping("/{id}/versions/{versionNumber}")
+    public ApiResponse<String> getVersion(@PathVariable Long id, @PathVariable Integer versionNumber) {
+        return ApiResponse.success(versionService.exportVersion(id, versionNumber));
+    }
+
+    @PostMapping("/{id}/versions/{versionNumber}/rollback")
+    public ApiResponse<JobDefinitionResponse> rollbackToVersion(
+            @PathVariable Long id,
+            @PathVariable Integer versionNumber,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String username = userDetails != null ? userDetails.getUsername() : "system";
+        versionService.rollbackToVersion(id, versionNumber,
+                jobService.getTeamId(id), username);
+        return ApiResponse.success(jobService.getJob(id));
     }
 }

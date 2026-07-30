@@ -52,6 +52,7 @@ public class JobDefinitionService {
     private final TeamRepository teamRepo;
     private final JobDefinitionMapper mapper;
     private final JobSchedulerService schedulerService;
+    private final JobVersionService versionService;
 
     @Transactional(readOnly = true)
     public Page<JobDefinitionResponse> listJobs(String search, Pageable pageable, Long teamId) {
@@ -100,6 +101,7 @@ public class JobDefinitionService {
         job.setTeam(team);
         job = jobRepo.save(job);
         log.info("Created job '{}' (id={}) for user {} in team {}", job.getJobName(), job.getJobId(), username, teamId);
+        versionService.saveVersion(job.getJobId(), username);
         return mapper.toResponse(job);
     }
 
@@ -118,6 +120,7 @@ public class JobDefinitionService {
         mapper.toEntity(request, job);
         job.setUpdatedAt(LocalDateTime.now());
         job = jobRepo.save(job);
+        versionService.saveVersion(jobId, "system");
         return mapper.toResponse(job);
     }
 
@@ -134,6 +137,10 @@ public class JobDefinitionService {
         if (!jobRepo.existsById(jobId)) {
             throw new JobNotFoundException(jobId);
         }
+        // Delete step dependencies first — they reference steps which have cascade delete
+        stepDepRepo.deleteByStep_JobDefinition_JobId(jobId);
+        stepDepRepo.deleteByDependsOnStep_JobDefinition_JobId(jobId);
+        versionService.deleteVersionsForJob(jobId);
         jobRepo.deleteById(jobId);
         log.info("Deleted job id={}", jobId);
     }
@@ -159,6 +166,7 @@ public class JobDefinitionService {
 
         JobStep step = mapper.toStepEntity(request, job);
         step = stepRepo.save(step);
+        versionService.saveVersion(jobId, "system");
         return mapper.toStepResponse(step);
     }
 
@@ -176,7 +184,9 @@ public class JobDefinitionService {
         step.setStepConfig(request.stepConfig());
         step.setContinueOnFailure(request.continueOnFailure() ? "Y" : "N");
         step.setEnabled(request.enabled() ? "Y" : "N");
-        return mapper.toStepResponse(stepRepo.save(step));
+        stepRepo.save(step);
+        versionService.saveVersion(jobId, "system");
+        return mapper.toStepResponse(step);
     }
 
     @Transactional
@@ -186,6 +196,7 @@ public class JobDefinitionService {
                 .orElseThrow(() -> new JobNotFoundException(stepId));
         stepRepo.delete(step);
         renumberSteps(jobId);
+        versionService.saveVersion(jobId, "system");
     }
 
     @Transactional
@@ -206,7 +217,9 @@ public class JobDefinitionService {
         for (int i = 0; i < stepIds.size(); i++) {
             stepMap.get(stepIds.get(i)).setStepOrder(i + 1);
         }
-        return stepRepo.saveAll(steps).stream().map(mapper::toStepResponse).toList();
+        stepRepo.saveAll(steps);
+        versionService.saveVersion(jobId, "system");
+        return steps.stream().map(mapper::toStepResponse).toList();
     }
 
     // --- Env Vars ---
@@ -229,6 +242,7 @@ public class JobDefinitionService {
                 .isGlobal("N")
                 .build();
         envVar = envVarRepo.save(envVar);
+        versionService.saveVersion(jobId, "system");
         return mapper.toEnvVarResponse(envVar);
     }
 
@@ -240,6 +254,7 @@ public class JobDefinitionService {
                 envVarRepo::delete,
                 () -> { throw new JobNotFoundException(envId); }
             );
+        versionService.saveVersion(jobId, "system");
     }
 
     // --- Schedule ---
@@ -268,6 +283,7 @@ public class JobDefinitionService {
                 .build();
         schedule = scheduleRepo.save(schedule);
         schedulerService.register(schedule);
+        versionService.saveVersion(jobId, "system");
         return mapper.toScheduleResponse(schedule);
     }
 
@@ -279,6 +295,7 @@ public class JobDefinitionService {
         schedule.setUpdatedAt(LocalDateTime.now());
         schedule = scheduleRepo.save(schedule);
         schedulerService.updateSchedule(schedule);
+        versionService.saveVersion(jobId, "system");
         return mapper.toScheduleResponse(schedule);
     }
 
@@ -288,6 +305,7 @@ public class JobDefinitionService {
             .orElseThrow(() -> new IllegalStateException("No schedule for job " + jobId));
         schedulerService.cancel(schedule.getScheduleId());
         scheduleRepo.delete(schedule);
+        versionService.saveVersion(jobId, "system");
     }
 
     @Transactional
@@ -302,12 +320,13 @@ public class JobDefinitionService {
         } else {
             schedulerService.cancel(schedule.getScheduleId());
         }
+        versionService.saveVersion(jobId, "system");
         return mapper.toScheduleResponse(schedule);
     }
 
     // --- Dependency CRUD ---
 
-@Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<StepDependencyResponse> getDependencies(Long jobId, Long stepId) {
         JobDefinition job = jobRepo.findById(jobId)
                 .orElseThrow(() -> new JobNotFoundException(jobId));
@@ -377,6 +396,7 @@ public class JobDefinitionService {
                     .build());
         }
         stepDepRepo.saveAll(newDeps);
+        versionService.saveVersion(jobId, "system");
     }
 
     /** Kahn's algorithm cycle detection on job definition graph with proposed edges. */
@@ -440,6 +460,27 @@ public class JobDefinitionService {
                     "Cycle detected: adding these dependencies would create a circular dependency involving "
                             + (steps.size() - visited) + " step(s)");
         }
+    }
+
+    /** Check if a job with the given name exists (used by import conflict resolution) */
+    @Transactional(readOnly = true)
+    public boolean jobExistsByName(String jobName) {
+        return jobRepo.findByJobName(jobName).isPresent();
+    }
+
+    /** Find a job by name (used by import UPDATE pre-versioning) */
+    @Transactional(readOnly = true)
+    public java.util.Optional<JobDefinition> findJobByName(String jobName) {
+        return jobRepo.findByJobName(jobName);
+    }
+
+    /** Get the team ID for a job (used by rollback to ensure same-team restore) */
+    @Transactional(readOnly = true)
+    public Long getTeamId(Long jobId) {
+        return jobRepo.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException(jobId))
+                .getTeam()
+                .getTeamId();
     }
 
     // --- Internal helpers ---

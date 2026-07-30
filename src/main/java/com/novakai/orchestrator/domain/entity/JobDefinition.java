@@ -48,11 +48,13 @@ public class JobDefinition {
     @Column(name = "UPDATED_AT")
     private LocalDateTime updatedAt;
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("stepOrder ASC")
     private List<JobStep> steps = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)
     private List<JobEnvVar> envVars = new ArrayList<>();
