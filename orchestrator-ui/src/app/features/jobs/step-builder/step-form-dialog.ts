@@ -103,13 +103,21 @@ export class StepFormDialog {
     return true;
   }
 
+  private cachedExistingConfig: Record<string, unknown> | null | undefined;
+  private cachedStepConfig: string | undefined;
+
   get existingConfig(): Record<string, unknown> | null {
     if (!this.data.stepConfig) return null;
-    try {
-      return JSON.parse(this.data.stepConfig);
-    } catch {
-      return {};
+    if (this.cachedStepConfig === this.data.stepConfig && this.cachedExistingConfig !== undefined) {
+      return this.cachedExistingConfig;
     }
+    this.cachedStepConfig = this.data.stepConfig;
+    try {
+      this.cachedExistingConfig = JSON.parse(this.data.stepConfig);
+    } catch {
+      this.cachedExistingConfig = {};
+    }
+    return this.cachedExistingConfig;
   }
 
   onSubmit() {
