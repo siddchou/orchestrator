@@ -5,7 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatChipsModule } from '@angular/material/chips';
+import { MatChipsModule, MatChipGrid } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { FieldDefinition, FieldType } from '@app/core/models/job.model';
 import { Credential } from '@app/core/models/credential.model';
