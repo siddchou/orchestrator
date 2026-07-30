@@ -23,10 +23,14 @@ export class DynamicStepFormComponent implements OnInit, OnChanges {
   touchedFields = new Set<string>();
 
   ngOnInit(): void {
-    this.form = this.buildForm();
+    if (this.schema) {
+      this.form = this.buildForm();
+    }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (!this.schema) return; // dialog closing clears inputs
+
     const schemaChanged = changes['schema'];
     const configChanged = changes['existingConfig'];
 
@@ -142,6 +146,6 @@ export class DynamicStepFormComponent implements OnInit, OnChanges {
   }
 
   get fields(): FieldDefinition[] {
-    return this.schema.fields;
+    return this.schema?.fields ?? [];
   }
 }
