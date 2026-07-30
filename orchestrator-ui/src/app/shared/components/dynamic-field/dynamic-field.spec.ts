@@ -80,10 +80,12 @@ describe('DynamicFieldComponent', () => {
     expect(select).toBeTruthy();
   });
 
-  it('renders chip grid for LIST_STRING', () => {
+  it('renders chip container for LIST_STRING', () => {
     setup(LIST_FIELD);
-    const grid = fixture.nativeElement.querySelector('mat-chip-grid');
-    expect(grid).toBeTruthy();
+    const container = fixture.nativeElement.querySelector('.chip-container');
+    expect(container).toBeTruthy();
+    const input = container.querySelector('input');
+    expect(input).toBeTruthy();
   });
 
   it('renders text input for FILE_PATTERN', () => {

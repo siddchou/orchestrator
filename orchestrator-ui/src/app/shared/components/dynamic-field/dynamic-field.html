@@ -21,30 +21,27 @@
   <!-- LIST_STRING - chip/tag input -->
   <div *ngSwitchCase="'LIST_STRING'" class="list-string-field">
     <div class="list-label">{{ fieldDef.label }}<span class="required" *ngIf="fieldDef.required"> *</span></div>
-    <mat-form-field appearance="outline" subscriptSizing="dynamic" [class.has-error]="showFieldError">
-      <mat-chip-grid #chipGrid class="chip-grid">
-        @for (chip of chips; track chip; let i = $index) {
-          <mat-chip-row removable (removed)="removeChip(i)">
-            {{ chip }}
-            <button matChipRemove aria-label="remove {{ chip }}">
-              <mat-icon>close</mat-icon>
-            </button>
-          </mat-chip-row>
-        }
-        <input
-          [matChipGridFor]="chipGrid"
-          [placeholder]="fieldDef.helpText || 'Type and press Enter'"
-          (keydown.enter)="onAddChip($event)"
-          (blur)="onChipInputBlur(chipInput)"
-          #chipInput
-        />
-      </mat-chip-grid>
-      @if (showFieldError) {
-        <mat-error>{{ errorMessage }}</mat-error>
-      } @else if (fieldDef.helpText) {
-        <mat-hint>{{ fieldDef.helpText }}</mat-hint>
+    <div class="chip-container" [class.has-error]="showFieldError" (click)="chipInput?.focus()">
+      @for (chip of chips; track chip; let i = $index) {
+        <span class="chip-badge">
+          {{ chip }}
+          <button type="button" class="chip-remove" (click)="removeChip(i)" aria-label="remove {{ chip }}">
+            <mat-icon>close</mat-icon>
+          </button>
+        </span>
       }
-    </mat-form-field>
+      <input
+        [placeholder]="fieldDef.helpText || 'Type and press Enter'"
+        (keydown.enter)="onAddChip($event)"
+        (blur)="onChipInputBlur(chipInput)"
+        #chipInput
+      />
+    </div>
+    @if (showFieldError) {
+      <div class="field-error">{{ errorMessage }}</div>
+    } @else if (fieldDef.helpText) {
+      <div class="help-text">{{ fieldDef.helpText }}</div>
+    }
   </div>
 
   <!-- NUMBER -->
