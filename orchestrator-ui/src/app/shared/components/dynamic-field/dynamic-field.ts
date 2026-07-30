@@ -80,12 +80,26 @@ export class DynamicFieldComponent {
     const input = event.target as HTMLInputElement;
     const val = input.value.trim();
     if (val) {
-      const current = this.getChipsFromValue();
-      if (!current.includes(val)) {
-        current.push(val);
-        this.control.setValue(current.join(', '));
-      }
+      this.commitChipValue(val);
       input.value = '';
+    }
+  }
+
+  /** Commit pending text in the chip input when focus leaves */
+  onChipInputBlur(inputEl: HTMLInputElement): void {
+    const val = inputEl.value.trim();
+    if (val) {
+      this.commitChipValue(val);
+    }
+    inputEl.value = '';
+    this.blur.emit();
+  }
+
+  private commitChipValue(val: string): void {
+    const current = this.getChipsFromValue();
+    if (!current.includes(val)) {
+      current.push(val);
+      this.control.setValue(current.join(', '), { emitEvent: false });
     }
   }
 
@@ -93,7 +107,7 @@ export class DynamicFieldComponent {
   removeChip(index: number): void {
     const current = this.getChipsFromValue();
     current.splice(index, 1);
-    this.control.setValue(current.join(', '));
+    this.control.setValue(current.join(', '), { emitEvent: false });
   }
 
   /** Get chip values from the comma-separated control value */

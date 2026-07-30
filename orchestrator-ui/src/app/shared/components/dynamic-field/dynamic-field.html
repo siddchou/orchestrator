@@ -32,7 +32,7 @@
         [placeholder]="fieldDef.helpText || 'Type and press Enter'"
         (keydown.enter)="onAddChip($event)"
         (keydown.backspace)="chips.length > 0 && removeChip(chips.length - 1)"
-        (blur)="blur.emit()"
+        (blur)="onChipInputBlur(chipInput)"
         #chipInput
       />
     </div>
