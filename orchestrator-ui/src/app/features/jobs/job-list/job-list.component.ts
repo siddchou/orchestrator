@@ -20,6 +20,7 @@ import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { RunJobDialog } from '@app/shared/components/run-job-dialog/run-job-dialog';
 import { JobDefinition } from '@app/core/models/job.model';
+import { downloadFile } from '@app/core/utils/file-utils';
 
 @Component({
   selector: 'app-job-list',
@@ -136,6 +137,23 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.jobService.triggerRun(job.jobId).subscribe();
+    });
+  }
+
+  exportJob(job: JobDefinition): void {
+    const ext = 'json';
+    this.isLoading = true;
+    this.cd.markForCheck();
+    this.jobService.exportJob(job.jobId, ext).subscribe({
+      next: (blob) => {
+        downloadFile(blob, `${job.jobName}.${ext}`);
+        this.isLoading = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.cd.detectChanges();
+      },
     });
   }
 
