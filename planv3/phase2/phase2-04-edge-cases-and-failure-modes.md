@@ -2,43 +2,61 @@
 
 ## Edge Case Matrix
 
-| # | Scenario | Current Behavior Without Fix | Required Handling | Severity |
-|---|----------|------------------------------|-------------------|----------|
-| E1 | **Unsupported FieldType** — backend adds a new enum value (e.g., `DATE`, `JSON`) not handled by DynamicFieldComponent's ngSwitch | Field renders as the fallback text input. User can type any string, which may fail server-side validation silently until save. | Show a warning banner: "This field type (`json`) is not yet supported in the editor — value will be stored as plain text." alongside the fallback input. Log console.warn with field name and type so developers discover gaps during testing. | Medium |
-| E2 | **Team switch mid-edit** — user has an unsaved job open, switches teams in TeamSwitcher | Unsaved changes are lost silently when page reloads to refresh team context. No warning shown. | Before team switch: check if the current form is dirty (Angular `FormGroup.dirty`). If dirty, show a confirmation dialog: "You have unsaved changes. Switching teams will discard them. Continue?" Only reload on confirm. If clean, reload immediately. | High |
-| E3 | **User with no team assigned** — new user created in DB but not added to any USER_TEAM row | `GET /api/teams/my-teams` returns empty array. Frontend shows nothing. User sees a blank dashboard with no jobs and no way to create one. No error message explains why. | Backend: on login, if user has zero teams AND server has a "Default" team, auto-assign them as MEMBER (one-time lazy enrollment). Frontend: if `my-teams` is empty after login, show a banner: "No teams assigned — contact your administrator." with a link to the admin user management page. | High |
-| E4 | **Concurrent edits to same job** — two users edit the same job definition simultaneously | Last writer wins silently. No conflict detection. First user's changes are overwritten with no notification. | Optimistic concurrency: add `VERSION NUMBER DEFAULT 0` column to JOB_DEFINITION (in V8 migration, not V7 — out of scope for Phase 2 but documented here). On save, include expected version number. If mismatch, return 409 Conflict with the latest state. Frontend shows a snackbar: "This job was modified by another user. Your changes may be lost." with a Reload button. **Phase 2 minimum:** Add `LAST_MODIFIED_BY` and `UPDATED_AT` columns to JOB_DEFINITION. On save, compare `UpdatedAt` with server value; if different, warn the user before overwriting. | Medium (deferred to Phase 3 for full versioning) |
-| E5 | **Step type removed from backend** — admin deletes a step type that existing job steps reference | Job definition loads successfully (step_type is a string in DB). When editing, DynamicStepFormComponent receives no schema → form cannot render. Step appears as an empty card with no configuration UI. | If `schema` input is null/undefined on DynamicStepFormComponent, render a disabled state: "Step type `xyz` is no longer available. This step cannot be edited and will fail if run." Grey out the entire step card. Allow deletion but not editing. Show warning icon. | Medium |
-| E6 | **Credential referenced by SECRET_REF field doesn't exist** — job step references a credential that was deleted | Step form loads with an empty credential dropdown or a stale credential ID in config. On run, engine fails with "credential not found" error mid-execution. No advance warning. | When loading a job for editing, validate all SECRET_REF values against existing credentials. If a referenced credential is missing, show a validation error on the field: "Referenced credential 'X' no longer exists." Prevent save until resolved. Backend: add a pre-run validation endpoint that checks all credential refs before starting execution. | Medium |
-| E7 | **LIST_STRING field with empty input** — user leaves chip input blank or deletes all chips | Config exports as `[]` (empty array). Engine may treat this differently than `null` depending on step implementation. Inconsistent behavior across step types. | Document in StepConfigSchema spec: if a LIST_STRING field is not marked required, an empty array is valid. If required, the frontend enforces ≥1 chip before allowing save. Backend validates: required LIST_STRING fields reject empty arrays. | Low |
-| E8 | **Step schema changes between edit sessions** — backend deploys new version of a step type with renamed/removed/added fields | User had the step open in one browser tab, backend deploys a schema change, user saves → old field names are silently dropped or new required fields are missing. Save succeeds but step runs incorrectly. | DynamicStepFormComponent's `toConfig()` only exports fields that exist in the current form (built from latest schema). On save, backend should validate config against the current registered schema for that step type, rejecting unknown keys with a 400 error listing them. Frontend shows: "Unknown fields were removed in an update: X, Y." | Low |
-| E9 | **Very long job definition names** — user types >100 characters for job name | Text overflows the card UI on the job list page. No truncation, no ellipsis. Breaks layout wrapping onto multiple lines. | CSS `text-overflow: ellipsis` with `max-width` on all job name displays. Tooltip on hover shows full name. Backend enforces VARCHAR2 length (already constrained by DB schema). | Low |
-| E10 | **Dark mode with Angular Material components** — some Material components don't fully respect M3 dark theme tokens | Text becomes unreadable (dark text on dark background) in mat-table, mat-dialog, or mat-select dropdowns. Custom CSS overrides may conflict with Material's internal theming. | Audit all custom component SCSS files for hardcoded colors (not using CSS variables). Replace with `var(--surface-100)` etc. Use Angular Material's M3 dark theme mixins rather than manual color overrides. Test each page in both themes before shipping. | Medium |
-| E11 | **RunTimelineComponent with missing timestamps** — a step has null `startedAt` or `endedAt` (queued/cancelled steps) | Timeline calculation divides by zero or produces NaN for bar width/position. JavaScript renders broken layout. | Handle null timestamps: queued steps show as dashed-outline bars at the start position with "?" label. Cancelled steps show with a cancel icon overlay. Steps with only `startedAt` (running) animate to current time. | Medium |
-| E12 | **Team switcher API call fails** — network error or 500 from `/api/teams/my-teams` | TeamSwitcher shows nothing. User has no indication of failure. Active team is unknown, so job queries may use wrong scope. | Show a red warning icon in the toolbar with tooltip: "Failed to load teams. Click to retry." On click, re-fetch. If it fails 3 times, show a snackbar and disable the switcher until page reload. Cache the last-known-good team list in sessionStorage as fallback. | Medium |
-| E13 | **Job definition exceeds VARCHAR2 limits** — step config JSON grows very large with many LIST_STRING entries | Oracle throws ORA-12899: value too large for column. User sees a generic 500 error on save with no indication of which field is too large. | Backend catches the specific Oracle exception, returns 400 with message: "Step configuration exceeds size limit (4000 chars). Reduce the number of entries in your list fields." Frontend shows this as a form-level validation error. **Long-term:** consider CLOB for config columns if configs regularly exceed VARCHAR2 limits. | Low |
-| E14 | **User role changes mid-session** — admin demotes user from ADMIN to OPERATOR while user is logged in | User retains ADMIN privileges until next login because auth state is cached in BehaviorSubject + sessionStorage. Admin-only UI elements remain visible. | On page load, re-fetch user info and compare roles. If roles changed, show a snackbar: "Your permissions have been updated. Please refresh." Frontend guards admin routes with both local role check AND backend authorization on every write endpoint (defense in depth — already done via `@PreAuthorize`). | Low (backend is already secure; frontend is UX-only) |
-| E15 | **DAG canvas stub route accessed directly** — user bookmarks `/jobs/42/canvas` from a previous session | Route loads the stub component. If job 42 doesn't exist or user lacks access, the stub shows with no error context. | Add auth guard to the route (same as other job routes). On 404, redirect to job list with snackbar: "Job not found." | Low |
+| # | Scenario | Current Behavior | Required Handling | Status | Severity |
+|---|----------|-----------------|-------------------|--------|----------|
+| E1 | User adds step with a FieldType not in `KNOWN_TYPES` | Fallback `<input matInput>` renders silently — user sees a plain text box for an unknown type | Show warning banner: "Field 'X' uses an unsupported type 'Y'. Contact admin." Disable the field. | **Partial** — fallback exists but no explicit warning message | Medium |
+| E2 | User switches team while editing a job with unsaved changes | FormGuardService checks dirty state; if dirty, confirms before switching | Working as designed. Ensure confirmation dialog is clear about data loss risk. | **Handled** | Low |
+| E3 | Job editor loads a step whose schema returns 404 from API | StepFormDialog has `isStepTypeRemoved` getter — but behavior depends on implementation detail | Show warning: "Step type 'X' is no longer registered." Display config as read-only key-value pairs. Disable save. | **Partial** — detection exists, UX unclear | Medium |
+| E4 | Two users edit the same job simultaneously | Last write wins — no conflict detection | Acceptable for MVP. Consider optimistic locking (version column on JOB_DEFINITION — see V10 migration) in Phase 3. | **Known limitation** | Low |
+| E5 | Step executor removed from registry while jobs reference it | `isStepTypeRemoved` getter in StepFormDialog handles the edit case. Run execution is a separate concern. | UI: warn user that step type is unavailable. Backend: decide whether to block runs of jobs with removed step types. | **Partial** — UI side handled, runtime behavior TBD | Medium |
+| E6 | SECRET_REF field references a credential that was deleted | DynamicStepFormComponent has credential validation — validates against current credentials list | On load: detect orphaned reference → show error on the field. Prevent save until resolved. | **Handled** — validation exists in component | Low |
+| E7 | Schema returns with zero fields | DynamicStepFormComponent renders an empty form — no fields to display | Acceptable for step types that require no configuration (e.g., a "wait" or "notify" step). Ensure submit works with empty config. | **Handled** | Low |
+| E8 | LIST_STRING field receives non-array value from backend | `toConfig()` handles array conversion. Initial load: check if existingConfig value is string vs. array. | Parse comma-separated string as fallback if array expected but string received (legacy data compatibility). | **Unknown** — depends on data consistency | Low |
+| E9 | ENUM field's `enumValues` is null or empty | FieldDefinition constructor validates ENUM ↔ enumValues consistency on the backend. Frontend: `*ngFor` over null would crash. | Add null guard in template: `*ngIf="fieldDef.enumValues && fieldDef.enumValues.length"`. Show "No options available" if empty. | **Unknown** — backend validates, but frontend defensive check needed | Medium |
+| E10 | Network failure during step type list fetch | StepPaletteComponent shows loading state indefinitely or crashes on null response | Add error handler: show "Failed to load step types. Retry?" button with exponential backoff. | **Unknown** — depends on error interceptor behavior | Medium |
+| E11 | Run timeline receives a run with zero steps | No bars to render. Time axis has no range. | Show message: "No steps recorded for this run." Graceful empty state. | **Unknown** | Low |
+| E12 | Team API fails on initial load | TeamSwitcherComponent has retry logic + sessionStorage cache fallback | Working as designed. Ensure fallback data is stale-time-aware (don't show teams cached from >24h ago without warning). | **Handled** | Low |
+| E13 | User belongs to no teams | TeamService returns empty array. TeamSwitcher has nothing to display. | Show alert: "You are not assigned to any team. Contact admin." Block job creation until assigned. | **Unknown** — likely unhandled | High |
+| E14 | Dark mode CSS misses a component | Element renders with light-mode colors on dark background (or vice versa) | Visual audit required. See T6 in task breakdown. Common offenders: dialog backdrop, tooltip, snackbar, autocomplete panel. | **Known risk** — audit needed | Medium |
+| E15 | Step config JSON exceeds payload size limit | Backend rejects with 413. Frontend shows generic error. | Add client-side character count on config JSON. Show "Config too large (X/Y chars)" warning near submit button. | **Unhandled** | Low |
+| E16 | Drag-and-drop reordering conflicts with step dependencies | V8 migration adds dependency columns. Drag reorder changes step order but doesn't update dependencies. | Visual indicator when drag target would violate dependency graph. Or disable drag for dependent steps until Phase 2b DAG canvas lands. | **Unhandled** — interacts with V8 schema | Medium |
+| E17 | Theme toggle during form validation | `[data-theme]` attribute changes mid-validation. Error messages may flicker between themes. | Acceptable cosmetic issue. No data integrity risk. | **Cosmetic only** | Low |
 
 ---
 
-## Severity Summary
+## Failure Mode Categories
 
-| Severity | Count | Tasks |
-|----------|-------|-------|
-| High | 2 | E2 (team switch mid-edit), E3 (no team assigned) |
-| Medium | 7 | E1, E5, E6, E10, E11, E12, E4* |
-| Low | 6 | E7, E8, E9, E13, E14, E15 |
+### Data Integrity Failures
 
-*\*E4 (concurrent edits) is medium severity but deferred to Phase 3 for full optimistic locking. Phase 2 implements the minimum: `LAST_MODIFIED_BY` + `UPDATED_AT` comparison with a pre-save warning.*
+| Scenario | Impact | Mitigation |
+|----------|--------|-----------|
+| TEAM_ID backfill misses rows | Jobs unassigned to any team → invisible in UI | V7 uses `UPDATE ... SET TEAM_ID = (subquery)` — atomic, no row filtering. Verify with `COUNT(*)` post-migration. |
+| USER_TEAM constraint violation | User can't be added to team | Check constraint on ROLE column is strict (`ADMIN`, `MEMBER`, `VIEWER`). Application must send valid values. |
+| Concurrent team switch + job save | Job saved to wrong team if team context changes mid-request | Backend should read team from request header/JWT at request time, not from session state. |
+
+### UI/UX Failures
+
+| Scenario | Impact | Mitigation |
+|----------|--------|-----------|
+| Schema API returns slower than timeout | Step form shows blank or error | Add retry button + loading skeleton in StepFormDialog |
+| Dark mode on high-DPI display | Text blur, contrast issues | Test on Retina/4K displays during T6 audit |
+| Team switch reload loses scroll position | User loses context after team switch | Acceptable for full reload. Soft navigation (T7) resolves this. |
+
+### Security Failures
+
+| Scenario | Impact | Mitigation |
+|----------|--------|-----------|
+| Missing server-side team scoping | User can access another team's jobs via direct API call | **Critical** — T3 addresses this. Frontend hiding is not security. |
+| Credential leakage across teams | Team A sees Team B's credential values | Ensure `/api/credentials` is team-scoped. SECRET_REF validation should check team ownership. |
+| Admin role escalation in USER_TEAM | User grants themselves ADMIN on any team | Only team admins or global admins can modify USER_TEAM memberships. Enforce in backend service layer. |
 
 ---
 
-## Implementation Notes
+## Priority Order for Resolution
 
-- **E2** is handled in T3/T4 (TeamSwitcherComponent) — add dirty-form check before reload
-- **E3** is handled in T9 (backend login endpoint) — auto-enroll to Default team
-- **E5** is handled in T12 (StepFormDialog) — null schema → disabled state
-- **E6** is a new validation pass — can be added as a backend service method called before save
-- **E10** requires auditing all SCSS files for hardcoded colors during T13 (dark mode implementation)
-- **E11** is handled in T14 (RunTimelineComponent) — null-safe timestamp handling
+1. **E13** (user with no teams) — blocks usability, high severity
+2. **E3 / E5** (removed step type) — affects data integrity of existing jobs
+3. **T3** (server-side team scoping) — security-critical
+4. **E9** (null enumValues) — potential runtime crash
+5. **E10** (network failure handling) — reliability concern
+6. **E1 / E14** (unsupported type warning, dark mode audit) — polish items

@@ -1,160 +1,128 @@
 # Phase 2 — Multi-Tenancy Migration Plan
 
-## Overview
+## Current State: V7 Complete
 
-Adds team-based scoping to all job/run data so multiple teams can share the same database instance without seeing each other's resources. Uses a TEAM table, USER_TEAM join table, and nullable FK on JOB_DEFINITION with default-team backfill for existing data.
+The database migration for multi-tenancy **is already implemented** in [`V7__add_multi_tenancy.sql`](src/main/resources/db/migration/V7__add_multi_tenancy.sql).
 
-**Migration version:** `V7__add_multi_tenancy.sql`
-**Database:** Oracle (VARCHAR2, NUMBER GENERATED ALWAYS AS IDENTITY)
-
----
-
-## Forward Migration — V7__add_multi_tenancy.sql
+### What V7 Does
 
 ```sql
--- ============================================================
--- V7: Add multi-tenancy support (TEAM, USER_TEAM tables + FK)
--- ============================================================
-
 -- 1. Create TEAM table
 CREATE TABLE TEAM (
-    TEAM_ID       NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    TEAM_NAME     VARCHAR2(100) NOT NULL UNIQUE,
-    CREATED_AT    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UPDATED_AT    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    NAME VARCHAR(255) NOT NULL UNIQUE,
+    DESCRIPTION VARCHAR(1000),
+    CREATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UPDATED_AT TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE TEAM IS 'Teams for multi-tenant job scoping';
-
--- 2. Create USER_TEAM join table (many-to-many with role per team)
+-- 2. Create USER_TEAM join table with role check constraint
 CREATE TABLE USER_TEAM (
-    USER_ID       NUMBER NOT NULL REFERENCES APP_USER(USER_ID),
-    TEAM_ID       NUMBER NOT NULL REFERENCES TEAM(TEAM_ID),
-    ROLE          VARCHAR2(30) DEFAULT 'MEMBER' CHECK (ROLE IN ('ADMIN', 'MEMBER')),
-    CREATED_AT    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    USER_ID BIGINT NOT NULL REFERENCES APP_USER(ID),
+    TEAM_ID BIGINT NOT NULL REFERENCES TEAM(ID),
+    ROLE VARCHAR(20) NOT NULL CHECK (ROLE IN ('ADMIN', 'MEMBER', 'VIEWER')),
     PRIMARY KEY (USER_ID, TEAM_ID)
 );
 
-COMMENT ON TABLE USER_TEAM IS 'Maps users to teams with per-team role';
-
 -- 3. Add nullable TEAM_ID FK to JOB_DEFINITION
-ALTER TABLE JOB_DEFINITION ADD (TEAM_ID NUMBER REFERENCES TEAM(TEAM_ID));
+ALTER TABLE JOB_DEFINITION ADD COLUMN TEAM_ID BIGINT REFERENCES TEAM(ID);
 
-COMMENT ON COLUMN JOB_DEFINITION.TEAM_ID IS 'Team that owns this job definition';
+-- 4. Seed "Default" team
+INSERT INTO TEAM (NAME, DESCRIPTION) VALUES ('Default', 'Default team for existing data');
 
--- 4. Seed default team for backward compatibility
-INSERT INTO TEAM (TEAM_NAME) VALUES ('Default');
+-- 5. Backfill existing jobs → Default team
+UPDATE JOB_DEFINITION SET TEAM_ID = (SELECT ID FROM TEAM WHERE NAME = 'Default');
 
--- 5. Backfill: assign all existing jobs to Default team
-UPDATE JOB_DEFINITION SET TEAM_ID = (SELECT TEAM_ID FROM TEAM WHERE TEAM_NAME = 'Default')
-WHERE TEAM_ID IS NULL;
-
--- 6. Make TEAM_ID non-null after backfill is complete
-ALTER TABLE JOB_DEFINITION MODIFY (TEAM_ID NOT NULL);
-
--- 7. Seed: assign all existing users to Default team as ADMIN
+-- 6. Backfill existing users → Default team as ADMIN
 INSERT INTO USER_TEAM (USER_ID, TEAM_ID, ROLE)
-SELECT u.USER_ID, t.TEAM_ID, 'ADMIN'
-FROM APP_USER u
-CROSS JOIN (SELECT TEAM_ID FROM TEAM WHERE TEAM_NAME = 'Default') t
-WHERE NOT EXISTS (
-    SELECT 1 FROM USER_TEAM ut
-    WHERE ut.USER_ID = u.USER_ID AND ut.TEAM_ID = t.TEAM_ID
-);
+SELECT u.ID, t.ID, 'ADMIN' FROM APP_USER u CROSS JOIN TEAM t WHERE t.NAME = 'Default';
 
--- 8. Create indexes for query performance
-CREATE INDEX IDX_JOB_DEF_TEAM ON JOB_DEFINITION(TEAM_ID);
+-- 7. Make TEAM_ID NOT NULL after backfill
+ALTER TABLE JOB_DEFINITION MODIFY COLUMN TEAM_ID BIGINT NOT NULL;
 ```
+
+### Subsequent Migrations (V8-V10)
+
+| Version | Purpose | Multi-Tenancy Relevance |
+|---------|---------|------------------------|
+| V8 | Add step dependencies | Unrelated — DAG support |
+| V9 | Backfill step dependencies | Unrelated — DAG support |
+| V10 | Job definition versioning | Unrelated — version tracking |
+
+**Next free migration: V11**
 
 ---
 
-## Rollback Migration — V7__add_multi_tenancy.sql.rollback
+## Remaining Work
+
+### 1. Server-Side Team Scoping (backend)
+
+The **database schema supports multi-tenancy**, but the critical question is whether the **application layer enforces it**. The following needs verification:
+
+| Area | Question | Action |
+|------|----------|--------|
+| **JWT claims** | Does the JWT contain a `teamId` claim? Or is team context derived from session/request header? | Check `JwtService.java` and `AuthInterceptor.java` |
+| **Job API** | Do `GET /api/jobs`, `POST /api/jobs`, etc. filter by team? | Check `JobController.java` service layer calls |
+| **Run API** | Are runs scoped to the job's team implicitly, or is there explicit filtering? | Check `RunController.java` |
+| **Credential API** | Are credentials shared across teams or per-team? | Check `CredentialController.java` |
+| **Audit log** | Does audit logging capture team context? | Check `AuditLogService.java` |
+
+### Likely Implementation Pattern
+
+Based on the frontend code, the expected flow is:
+
+1. User logs in → JWT contains user identity + role
+2. User selects a team via TeamSwitcher → `POST /api/teams/active/{id}`
+3. Subsequent requests include team context (via header or refreshed JWT)
+4. Backend filters all queries by active team ID
+
+**If the backend currently lacks this scoping**, the work involves:
+- Adding `teamId` to security context (request interceptor)
+- Updating repository methods to accept and filter by `teamId`
+- Adding admin override for cross-team visibility
+- Writing integration tests with multi-team data
+
+### 2. Additional Tables That May Need Scoping
+
+| Table | Needs TEAM_ID? | Rationale |
+|-------|---------------|-----------|
+| `JOB_DEFINITION` | Yes — done in V7 | Jobs are team-owned |
+| `JOB_STEP` | Implicit via FK to JOB_DEFINITION | No direct column needed |
+| `JOB_ENV_VAR` | Implicit via FK to JOB_DEFINITION | Inherited from job |
+| `JOB_RUN` | Implicit via FK to JOB_DEFINITION | Runs belong to jobs |
+| `JOB_RUN_STEP` | Implicit via FK to JOB_RUN | Steps belong to runs |
+| `JOB_SCHEDULE` | Implicit via FK to JOB_DEFINITION | Schedules belong to jobs |
+| `JOB_CREDENTIAL` | **Maybe** — depends on whether credentials are shared or per-team | Design decision needed |
+| `AUDIT_LOG` | **Should** — for team-scoped audit queries | Would need new column, no backfill possible for historical data |
+| `APP_USER` | No — users are global, teams are in USER_TEAM | Cross-cutting entity |
+
+### 3. Migration V11 (if needed)
+
+If audit log scoping is desired:
 
 ```sql
--- Rollback: Remove multi-tenancy (for emergency rollback only)
-DROP INDEX IDX_JOB_DEF_TEAM;
-DELETE FROM USER_TEAM;
-ALTER TABLE JOB_DEFINITION DROP COLUMN TEAM_ID;
-DROP TABLE USER_TEAM;
-DROP TABLE TEAM;
-```
-
-**Note:** This rollback is destructive — it deletes all team assignments. Only use for pre-production rollbacks. In production, prefer a forward-fix migration (V8) over rollback.
-
----
-
-## Backward Compatibility Strategy
-
-### During Migration Window (minutes between V7 step 5 and step 6)
-
-1. **Step 4-5** creates the Default team and assigns all existing jobs. This runs inside one transaction — no partial state is visible to application code.
-2. **Step 6** makes TEAM_ID non-null immediately after backfill. If any job somehow missed the UPDATE (shouldn't happen in same transaction), ALTER TABLE would fail atomically — migration rolls back entirely.
-
-### Application Code During Transition
-
-| Scenario | Handling |
-|----------|----------|
-| New code deploys before migration runs | Backend checks `TEAM_ID IS NULL` → treats as belonging to all teams (backward compat mode). A simple `@PostLoad` or query-time logic: `WHERE team_id = :teamId OR team_id IS NULL`. |
-| Migration runs before new code deploys | Old code sees non-null TEAM_ID column but ignores it — no FK violation since Default team exists. Jobs remain accessible because old queries don't filter by team. |
-| Both deploy together (preferred) | Clean cutover: all jobs have a team, all queries filter by team. No compat mode needed. |
-
-### Recommended Deployment Order
-
-1. Run Flyway migration V7 on database
-2. Deploy backend with team-scoped queries + backward compat null check
-3. Deploy frontend with team switcher
-
-This order ensures the database is ready before any code references it, and the backward-compat null check handles the brief window if deployment is staggered.
-
----
-
-## Data Model After Migration
-
-```
-APP_USER (1) ───< USER_TEAM >─── (N) TEAM (1) ───< JOB_DEFINITION
-       │                                    │
-       │                                  UPDATED_AT
-       │                                    │
-       └── role: ADMIN/VIEWER              CREATED_AT
-           (global, from V4)               TEAM_ID → FK
-
-USER_TEAM.role: ADMIN/MEMBER  (per-team role, separate from global role)
-JOB_DEFINITION.TEAM_ID: NOT NULL FK → TEAM(TEAM_ID)
-```
-
-### Query Patterns
-
-**List jobs for active team:**
-```sql
-SELECT * FROM JOB_DEFINITION WHERE TEAM_ID = :activeTeamId
-```
-
-**ADMIN bypasses team filter (global admin only):**
-```java
-if ("ADMIN".equals(user.getRole())) {
-    // no team filter — see all jobs
-} else {
-    query.and("teamId", activeTeamId);
-}
-```
-
-**List user's teams:**
-```sql
-SELECT t.TEAM_ID, t.TEAM_NAME, ut.ROLE
-FROM TEAM t
-JOIN USER_TEAM ut ON t.TEAM_ID = ut.TEAM_ID
-WHERE ut.USER_ID = :userId
-ORDER BY t.TEAM_NAME
+-- V11__scope_audit_log_to_team.sql
+ALTER TABLE AUDIT_LOG ADD COLUMN TEAM_ID BIGINT REFERENCES TEAM(ID);
+-- No backfill — historical entries remain NULL (pre-multi-tenancy era)
+CREATE INDEX IDX_AUDIT_TEAM ON AUDIT_LOG(TEAM_ID);
 ```
 
 ---
 
-## API Endpoints for Team Management
+## Frontend Multi-Tenancy Status
 
-| Method | Path | Auth Required | Description |
-|--------|------|---------------|-------------|
-| GET | `/api/teams/my-teams` | Yes | Returns `List<TeamSummary>` with `{teamId, teamName, role}` for current user |
-| POST | `/api/teams/active/{teamId}` | Yes | Sets active team in HTTP session. Validates user is a member of the team. |
-| GET | `/api/teams/active` | Yes | Returns `{teamId, teamName}` of the currently active team from session |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| TeamService API calls | Done | `listMyTeams()`, `setActiveTeam()`, `getActiveTeam()` |
+| TeamSwitcherComponent | Done | Dropdown with form guard, retry, cache fallback |
+| AuthUser model update | Done | Includes `teams` and `activeTeamId` |
+| Job list scoping | **Verify** | Does job list API call include team filter? |
+| Run list scoping | **Verify** | Inherited from job team or explicit? |
 
-**Session behavior:** On login, if the user has exactly one team, it becomes their active team automatically. If they have multiple teams, `GET /api/teams/active` returns null until they select one via the frontend switcher. The active team ID is sent as an HTTP header (`X-Team-Id`) on subsequent requests for defense in depth (even though server-side session filtering is the primary guard).
+---
+
+## Risks
+
+1. **Credential sharing model unclear.** If credentials are global, a team could reference another team's credential ID via SECRET_REF. If per-team, cross-team credential reuse is impossible. Decision needed before implementation.
+2. **Admin visibility.** Admin users likely need to see all teams' data for troubleshooting. Role-based override in repository layer required.
+3. **Migration safety.** V7 backfill is irreversible once `TEAM_ID NOT NULL` is enforced. Ensure rollback plan exists if issues arise (drop FK, delete columns).

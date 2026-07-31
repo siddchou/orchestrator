@@ -1,403 +1,263 @@
-# Phase 2 — Component Design
+# Phase 2 — Component Design (As-Built)
 
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  App Shell (app.ts)                                      │
-│  ┌──────────────┬──────────────────────────────────────┐ │
-│  │ TeamSwitcher  │  Router Outlet                       │ │
-│  │ Component    │  (jobs, runs, dashboard, config…)     │ │
-│  └──────────────┴──────────────────────────────────────┘ │
-│                     ▲                                    │
-│                     │ uses                               │
-│  ┌──────────────────┴──────────────────────────────────┐ │
-│  │  AuthService (BehaviorSubject<AuthUser>)             │ │
-│  │  → extended with teams: Team[], activeTeamId: number │ │
-│  └─────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────┘
-
-Feature components that change:
-  JobDetailComponent    → uses DynamicStepFormComponent (already does)
-  StepPaletteComponent  → made API-driven, removes hardcoded metadata
-  RunDetailComponent    → adds RunTimelineComponent alongside step table
-
-Shared components that change:
-  DynamicFieldComponent     → hardening: validation feedback, credential picker
-  DynamicStepFormComponent  → hardening: per-field error display, type safety
-```
+All components described below **exist in the codebase**. This document captures their design for reference, not as a specification for new work.
 
 ---
 
-## 1. DynamicFieldComponent (hardened)
+## 1. DynamicFieldComponent
 
-**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-field/dynamic-field.ts`
-
-### Current State
-Already renders all 7 `FieldType` variants with a `*ngSwitch`. Has chip input for LIST_STRING, fallback for unknown types.
-
-### Changes
-
-| Change | Detail |
-|--------|--------|
-| **Validation feedback** | Add `@Input() showError: boolean = false` — when true and control has errors, render `<mat-error>` below the field with the first error message. This lets parent components trigger validation display on submit/blur. |
-| **SECRET_REF → credential picker** | Replace free-text input with a `<mat-select>` populated from an injected `CredentialService.listCredentials()`. Shows only non-SSH_KEY credentials by default, or all if schema helpText contains "ssh". Falls back to text input if API call fails (graceful degradation). |
-| **Unsupported type fallback** | The existing `*ngSwitchDefault` renders a text input. Change this to render the text input **plus** a warning banner: `"⚠ Field type '{type}' is not supported by this UI — value will be stored as text."` This surfaces the problem to users instead of silently accepting wrong data. |
-| **Required indicator styling** | Move `*` from label text to a CSS pseudo-element or `<span class="required">` for consistent color (accent-danger red). Currently it's plain text appended to the label. |
-
-### Inputs / Outputs
-
-```typescript
-@Input() fieldDef!: FieldDefinition;       // schema field definition
-@Input() control!: FormControl;            // reactive form control
-@Input() showError: boolean = false;       // trigger validation display
-@Input() credentials?: Credential[];       // for SECRET_REF type (optional, lazy-loaded)
-```
-
-No outputs — state flows through the shared `FormControl`.
-
-### FieldType → Material Control Mapping
-
-| FieldType | Material Component | Validation Display |
-|-----------|-------------------|-------------------|
-| STRING | `<input matInput>` in `<mat-form-field>` | `<mat-error>` for required |
-| NUMBER | `<input matInput type="number">` | `<mat-error>` for required |
-| BOOLEAN | `<mat-checkbox>` | Visual: checkbox with red label if required+untouched on submit |
-| ENUM | `<mat-select>` with `<mat-option>` per enumValues | `<mat-error>` for required |
-| SECRET_REF | `<mat-select>` populated from `CredentialService` (fallback: text input) | `<mat-error>` for required |
-| FILE_PATTERN | `<input matInput>` + `<mat-hint>` with glob syntax | `<mat-error>` for required |
-| LIST_STRING | Chip container with `<mat-chip>` + hidden input | Warning text if required but empty |
-| **unknown** | Text input + warning banner | Same as STRING |
-
-### Implementation Status
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Validation feedback (`showError` + `mat-error`) | DONE | All field types render `<mat-error>` when `showFieldError` is true |
-| SECRET_REF credential picker | DONE | `hasCredentials` getter drives select/text fallback; `@Input() credentials` wired |
-| Unsupported type warning banner | DONE | `*ngSwitchDefault` renders warning icon + text before fallback input |
-| Required indicator styling | PENDING | Template still uses plain-text `{{ fieldDef.required ? ' *' : '' }}`; needs `<span class="required">*</span>` with red color via CSS variable |
-
----
-
-## 2. DynamicStepFormComponent (hardened)
-
-**File:** `../../orchestrator-ui/src/app/shared/components/dynamic-step-form/dynamic-step-form.ts`
-
-### Current State
-Builds a `FormGroup` from schema, resolves initial values, converts LIST_STRING to array on export. No per-field error display.
-
-### Changes
-
-| Change | Detail |
-|--------|--------|
-| **Per-field error state** | Add `touchedFields: Set<string>` — when `validate()` is called, mark all controls as touched and add their names to the set. Each `app-dynamic-field` gets `[showError]="touchedFields.has(field.name) && control.invalid"`. |
-| **Credential data passthrough** | Accept optional `@Input() credentials: Credential[]` and pass it down to each `DynamicFieldComponent`. This avoids every field component making its own API call. |
-| **Schema change detection** | If `schema` input reference changes (e.g., user switches step type in the parent dialog), rebuild the form. Currently `ngOnInit` builds once; add `ngOnChanges` to handle schema swaps. |
-| **Export validation summary** | `toConfig()` should return `{ config: Record<string, unknown>, valid: boolean }` tuple so callers can gate submission on validity. |
-
-### Inputs / Outputs
-
-```typescript
-@Input() schema!: StepConfigSchema;
-@Input() existingConfig: Record<string, unknown> | null = null;
-@Input() credentials?: Credential[];        // new: for SECRET_REF fields
-
-validate(): boolean;                        // marks all touched, returns true if valid
-toConfig(): { config: Record<string, unknown>; valid: boolean };  // hardened return type
-```
-
-### Template Change
-
-The template (`dynamic-step-form.html`) currently iterates `schema.fields` and renders `<app-dynamic-field>` per field. Add error display wiring:
-
-```html
-@for (field of fields; track field.name) {
-  <app-dynamic-field
-    [fieldDef]="field"
-    [control]="form.get(field.name)"
-    [showError]="touchedFields.has(field.name) && form.get(field.name)?.invalid"
-    [credentials]="credentials">
-  </app-dynamic-field>
-}
-```
-
-### Implementation Status
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Per-field error state (`touchedFields`) | DONE | `Set<string>` populated in `validate()` method |
-| Credential data passthrough | DONE | `@Input() credentials: Credential[] = []` passed to child fields |
-| Schema change detection (`ngOnChanges`) | DONE | Rebuilds form on schema structure change; updates values in-place for same schema |
-| Export validation summary | DONE | `toConfig()` returns `{ config, valid }`; converts LIST_STRING to array |
-
----
-
-## 3. StepPaletteComponent (API-driven)
-
-**File:** `../../orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`
-
-### Current State
-Hardcoded `STEP_TYPE_META` map with icon + description per step type. Falls back to generic icon/description for unknown types. Fetches schemas from API but only uses them for the list — metadata is local.
-
-### Changes
-
-| Change | Detail |
-|--------|--------|
-| **Remove hardcoded metadata** | Delete `STEP_TYPE_META`. Use `schema.displayName` directly from the API response. For icons, use a default Material icon (`play_arrow`) or derive from step type name conventions (e.g., if stepType contains "HTTP" → `cloud_upload`, "DB" → `database`). This is a best-effort heuristic, not a requirement. |
-| **Add schema field count** | Show the number of config fields per step type (`schema.fields.length`) as a badge — helps users gauge complexity at a glance. |
-| **Empty state** | If API returns an empty array or fails, show a message: "No step types available. Check that Phase 1 executors are registered." with a retry button. |
-
-### Inputs / Outputs
-
-```typescript
-// Dialog-ref based — no @Inputs
-// dialogRef.close({ stepType: string, displayName: string })  // enriched return value
-```
-
-The component opens via `MatDialog`, fetches schemas on init, and closes with the selected schema's type + display name.
-
-### Implementation Status
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Remove hardcoded metadata (`STEP_TYPE_META`) | PENDING | `step-palette.ts:13` still contains 8-entry hardcoded map; `metaFor()` fallback used in template filter and rendering |
-| Icon heuristic function | PENDING | Currently uses `STEP_TYPE_META[stepType]?.icon`; needs keyword-based derivation (HTTP→cloud\_upload, DB→database, default→play\_arrow) |
-| Schema field count badge | PENDING | Not rendered; add `{{ schema.fields.length }}` as a small badge in the palette list item |
-| Empty state with retry | PENDING | Current error handler just sets `loading = false`; needs message + retry button |
-| Enriched return value (`displayName`) | PENDING | `select()` currently closes with `{ stepType }` only; should include `displayName: schema.displayName` |
-
----
-
-## 4. TeamSwitcherComponent (new)
-
-**File:** `orchestrator-ui/src/app/shared/components/team-switcher/team-switcher.ts`
+**File:** `orchestrator-ui/src/app/shared/components/dynamic-field/`
 
 ### Purpose
-Dropdown in the app shell toolbar that lets users switch their active team. Only ADMIN and OPERATOR roles can switch; VIEWER sees their assigned team read-only.
+Renders a single form field based on a `FieldDefinition` schema entry. Switches on `FieldType` to produce the appropriate Material control.
 
-### Design
+### Inputs / Outputs
 
-```typescript
-@Component({
-  selector: 'app-team-switcher',
-  standalone: true,
-  imports: [CommonModule, MatSelectModule, MatFormFieldModule, MatIconModule],
-})
-export class TeamSwitcherComponent implements OnInit {
-  teams: Team[] = [];           // teams this user belongs to
-  activeTeamId: number | null;  // currently selected team
-  loading = true;
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| `fieldDef` | `FieldDefinition` | Input | Schema definition (name, label, type, required, defaultValue, enumValues, helpText) |
+| `control` | `FormControl` | Input | Reactive form control to bind to |
 
-  constructor(
-    private teamService: TeamService,   // new service
-    private authService: AuthService     // extended with team context
-  ) {}
+### Rendered Variants
 
-  ngOnInit(): void {
-    this.teamService.listMyTeams().subscribe({
-      next: (res) => {
-        if (res.status === 'SUCCESS') {
-          this.teams = res.data;
-          this.activeTeamId = this.authService.getActiveTeamId();
-        }
-        this.loading = false;
-      },
-    });
-  }
-
-  switchTo(teamId: number): void {
-    this.teamService.setActiveTeam(teamId).subscribe({
-      next: () => {
-        this.activeTeamId = teamId;
-        this.authService.setActiveTeamId(teamId);
-        // Reload current page to reflect new team scope
-        window.location.reload(); // simple approach; could be router.navigate instead
-      },
-    });
-  }
-}
-```
-
-### Placement
-Inserted into the app shell toolbar, next to the user avatar/username. Uses a compact `<mat-select>` with no form-field wrapper (just icon + select).
+| FieldType | Material Control | Details |
+|-----------|-----------------|---------|
+| `STRING` | `<input matInput>` | Text input with label and hint |
+| `FILE_PATTERN` | `<input matInput>` | Text input with pattern hint text |
+| `LIST_STRING` | Chip list + input | Enter-to-add, Backspace-to-remove last chip |
+| `NUMBER` | `<input matInput type="number">` | Numeric input with min/max from schema |
+| `BOOLEAN` | `<mat-checkbox>` | Checkbox toggle |
+| `ENUM` | `<mat-select>` | Dropdown populated from `fieldDef.enumValues` |
+| `SECRET_REF` | `<mat-select>` | Credential dropdown populated from credentials list |
+| *(unknown)* | `<input matInput>` with warning | Fallback with error message about unsupported type |
 
 ### State Management
-- `AuthService` extended with `activeTeamId: number | null`, persisted in sessionStorage alongside auth token
-- Backend stores active team in HTTP session (Spring `HttpSession.setAttribute('teamId', ...)`) or as a JWT claim refreshed on `/api/teams/active` POST
-- All job/run API calls are scoped server-side using this session value — **no client-supplied team ID in request params**
+None — purely presentational. All state flows through the `FormControl`.
 
-### New Backend Endpoint
-
-```
-GET  /api/teams/my-teams        → List<TeamSummary>   // teams current user belongs to
-POST /api/teams/active/{teamId} → void                // set active team for this session
-GET  /api/teams/active          → TeamSummary         // get current active team
-```
-
-### Implementation Status
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Component files (`.ts`, `.html`, `.scss`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/shared/components/team-switcher/` |
-| AuthService extension (`activeTeamId`) | NOT STARTED | Depends on T1 from task breakdown |
-| TeamService (`listMyTeams`, `setActiveTeam`) | NOT STARTED | Depends on T2 from task breakdown |
-| Backend endpoints | NOT STARTED | Depends on T7-T9 (migration, entities, controller) |
+### Key Implementation Details
+- Uses `*ngSwitch` on `fieldDef.type` for variant rendering
+- `KNOWN_TYPES` set validates that the field type is recognized
+- Chip input helpers: `addChip(event)`, `removeChip(index)`
+- Error messaging via `control.errors` display
 
 ---
 
-## 5. RunTimelineComponent (new)
+## 2. DynamicStepFormComponent
 
-**File:** `orchestrator-ui/src/app/shared/components/run-timeline/run-timeline.ts`
+**File:** `orchestrator-ui/src/app/shared/components/dynamic-step-form/`
 
 ### Purpose
-Horizontal Gantt-like visualization of a job run's steps, showing start/end times and duration as colored bars. Complements the existing step table in `RunDetailComponent`.
+Builds a complete reactive form from a `StepConfigSchema`. Orchestrates multiple `DynamicFieldComponent` instances, one per field in the schema.
 
-### Design
+### Inputs / Outputs
 
-```typescript
-@Component({
-  selector: 'app-run-timeline',
-  standalone: true,
-  imports: [CommonModule],
-})
-export class RunTimelineComponent {
-  @Input() run!: JobRunDetail;   // the full run with steps[]
-  @Input() height: number = 200; // px height of the timeline area
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| `schema` | `StepConfigSchema` | Input | Schema with stepType, displayName, fields list |
+| `existingConfig` | `Record<string, unknown> \| null` | Input | Existing config values to pre-populate |
+| `credentials` | `Credential[]` | Input | Available credentials for SECRET_REF fields |
 
-  // Computed: total duration in ms from first step start to last step end
-  get totalDurationMs(): number { ... }
+### Public Methods
 
-  // Computed: map each step to position/width percentages
-  get stepBars(): StepBar[] { ... }
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `validate()` | `void` | Marks all controls as dirty/touched to trigger validation display |
+| `toConfig()` | `Record<string, unknown>` | Converts form values back to config JSON (handles LIST_STRING → array) |
 
-  statusColor(status: RunStatus): string {
-    return { SUCCESS: '#16a34a', FAILED: '#dc2626', RUNNING: '#ea580c',
-             PENDING: '#9ca3af', PARTIAL: '#a855f7', CANCELLED: '#6b7280' }[status] ?? '#9ca3af';
-  }
-}
+### State Management
+- Maintains an internal `FormGroup` built from schema fields
+- `ngOnChanges` rebuilds the FormGroup when `schema`, `existingConfig`, or `credentials` change
+- Resolves initial field values: `existingConfig[field.name] ?? fieldDef.defaultValue`
 
-interface StepBar {
-  stepName: string;
-  stepOrder: number;
-  leftPct: number;    // percentage of total timeline width
-  widthPct: number;   // percentage of total timeline width
-  topPx: number;      // vertical offset for staggered rows (overlap avoidance)
-  color: string;      // status-based color
-  durationLabel: string; // formatted duration (uses DurationPipe)
-}
-```
-
-### Template Approach
-Pure CSS — no canvas, no SVG library. Each step is a `<div>` positioned absolutely within a relative container:
-
-```html
-<div class="timeline-container" [style.height.px]="height">
-  <!-- time axis -->
-  <div class="timeline-axis">
-    @for (tick of timeTicks; track tick.value) {
-      <span class="tick" [style.left.%]="tick.pct">{{ tick.label }}</span>
-    }
-  </div>
-  <!-- step bars — stacked vertically with offset to avoid overlap -->
-  @for (bar of stepBars; track bar.stepOrder) {
-    <div class="step-bar"
-         [style.left.%]="bar.leftPct"
-         [style.width.%]="bar.widthPct"
-         [style.top.px]="bar.topPx"
-         [style.background-color]="bar.color"
-         [title]="bar.stepName + ': ' + bar.durationLabel">
-      <span class="step-label">{{ bar.stepName }}</span>
-    </div>
-  }
-</div>
-```
-
-**Note:** `bar.topPx` is computed to stagger overlapping steps vertically. Each row is ~28px high; overlapping bars get assigned sequential rows so labels remain readable.
-
-### Integration
-Added to `RunDetailComponent` as a tab or section above the existing step table. The run detail already has `MatTabsModule` — add a "Timeline" tab alongside "Steps" and "Logs".
-
-### Implementation Status
-
-| Item | Status | Notes |
-|------|--------|-------|
-| Component files (`.ts`, `.html`, `.scss`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/shared/components/run-timeline/` |
-| Step bar computation (`totalDurationMs`, `stepBars`) | NOT STARTED | Needs overlap detection + row assignment logic |
-| Integration into RunDetailComponent | NOT STARTED | Depends on component creation |
+### Key Implementation Details
+- Iterates over `schema.fields` to create validators (`required` → `Validators.required`)
+- Uses `<ng-container *ngFor>` with `DynamicFieldComponent` for each field
+- LIST_STRING conversion: form stores as string array, `toConfig()` preserves array format
+- Credential validation (E6): validates that SECRET_REF values reference existing credential IDs
 
 ---
 
-## 6. DagCanvasStubComponent (new)
+## 3. StepPaletteComponent
 
-**File:** `orchestrator-ui/src/app/features/jobs/dag-canvas-stub/dag-canvas-stub.ts`
+**File:** `orchestrator-ui/src/app/features/jobs/step-builder/step-palette.ts`
 
 ### Purpose
-Placeholder component at `/jobs/:id/canvas` that signals the DAG view is coming in Phase 3.
+Dialog that lists available step types for selection. Called when adding a new step to a job.
 
-```typescript
-@Component({
-  selector: 'app-dag-canvas-stub',
-  standalone: true,
-  imports: [CommonModule, MatIconModule],
-  template: `
-    <div class="empty-state">
-      <mat-icon style="font-size:64px;width:64px;height:64px;">graphical</mat-icon>
-      <h3>DAG Canvas — Coming Soon</h3>
-      <p>This view will show your job steps as a visual dependency graph.</p>
-      <p>Scheduled for Phase 3, after the dependency model is implemented.</p>
-      <!-- TODO(phase3): Replace this stub with the DAG canvas component. -->
-      <!-- See planv3/phase3-01-dependency-model.md for the dependsOn schema and edge-condition model. -->
-    </div>
-  `
-})
-export class DagCanvasStubComponent {}
-```
+### Inputs / Outputs
 
-Route added to `app.routes.ts`:
-```typescript
-{ path: 'jobs/:id/canvas', loadComponent: () => import('@features/jobs/dag-canvas-stub/...') },
-```
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| *(dialog data)* | `MatDialogData<unknown>` | Input | No specific data needed — fetches from API |
 
-### Implementation Status
+### Data Flow
+1. Component loads step types via `JobService.listStepTypes()` → `GET /api/step-types`
+2. Displays each step type with icon (from hardcoded map), displayName, and description
+3. Text filter input narrows list client-side
+4. User clicks a step type → dialog closes with `stepType` string
 
-| Item | Status | Notes |
-|------|--------|-------|
-| Component file (`.ts`) | NOT STARTED | No files exist at `orchestrator-ui/src/app/features/jobs/dag-canvas-stub/` |
-| Route registration | NOT STARTED | Needs lazy-loaded entry in `app.routes.ts` |
+### State Management
+- Local state for filtered step type list
+- Hardcoded metadata map: `{ stepType: { icon: '...', description: '...' } }`
+
+### Gap Identified
+Hardcoded metadata means **new step types appear without an icon or description**. Should fall back to `displayName` from schema and a default icon (e.g., `settings`).
 
 ---
 
-## State Management Summary
+## 4. StepFormDialog
 
-| Concern | Mechanism | Where |
-|---------|-----------|-------|
-| Auth token + role | `BehaviorSubject<AuthUser>` in sessionStorage | `AuthService` (existing) |
-| Active team ID | Extended `AuthService` with `activeTeamId`, sessionStorage | `AuthService` (extended) |
-| Team list for user | Fresh API call on team switcher init | `TeamService.listMyTeams()` |
-| Step type schemas | Cached in component, fetched from `/api/step-types` | `StepPaletteComponent`, `StepFormDialog` |
-| Credentials for SECRET_REF | Fetched by parent (`StepFormDialog`) and passed down as `@Input()` | `CredentialService` (existing) |
-| Form state per step dialog | Reactive `FormGroup` scoped to dialog instance | `DynamicStepFormComponent` |
-| Dark mode preference | `localStorage.getItem('theme')`, CSS class on `<html>` | New `ThemeService` or direct DOM manipulation in a small utility |
+**File:** `orchestrator-ui/src/app/features/jobs/step-builder/step-form-dialog.ts`
 
-**No NgRx, no global store.** The app is small enough that `BehaviorSubject` services + `@Input()`/`@Output()` suffice. Adding a state library would be over-engineering at this scale.
+### Purpose
+Wraps `DynamicStepFormComponent` in a dialog with step metadata fields (name, type selector, continueOnFailure, enabled).
+
+### Inputs / Outputs
+
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| `dialogData` | `{ stepType: string, edit?: boolean, existingConfig?: Record<string, unknown> }` | Input | Step type to configure, optional existing config for edits |
+
+### Data Flow
+1. Receives `stepType` from palette selection (or existing step on edit)
+2. Fetches schema for that step type via API
+3. Loads credentials for SECRET_REF fields
+4. Renders `DynamicStepFormComponent` with schema + existingConfig
+5. On submit: extracts config via `@ViewChild(DynamicStepFormComponent).toConfig()`
+
+### State Management
+- Local form for step name, continueOnFailure, enabled
+- Schema and credentials loaded from API on init
+- `isStepTypeRemoved` getter checks if selected step type still exists in registry (E5 edge case)
 
 ---
 
-## Overall Implementation Status (as of 2026-07-27)
+## 5. TeamSwitcherComponent
 
-| Component | Design Complete? | Code Complete? | Remaining Work |
-|-----------|------------------|----------------|----------------|
-| DynamicFieldComponent (hardened) | Yes | Partial | Required indicator styling (`<span class="required">`) |
-| DynamicStepFormComponent (hardened) | Yes | **Yes** | None — all 4 changes implemented and tested |
-| StepPaletteComponent (API-driven) | Yes | No | Remove `STEP_TYPE_META`, icon heuristic, field count badge, empty state, enriched return value |
-| TeamSwitcherComponent (new) | Yes | No | All: component files, AuthService extension, TeamService, backend endpoints |
-| RunTimelineComponent (new) | Yes* | No | All: component files, bar computation with overlap detection, integration into RunDetail |
-| DagCanvasStubComponent (new) | Yes | No | All: single-file component + route registration |
+**File:** `orchestrator-ui/src/app/shared/components/team-switcher/`
 
-*\*RunTimeline design updated: added `topPx` to StepBar interface and overlap-staggering logic for concurrent steps.*
+### Purpose
+Dropdown for switching active team. Integrated in the app shell toolbar.
 
-### Design corrections applied
-- **StepPalette:** `select()` should return `{ stepType, displayName }` not just `{ stepType }` — current code at `step-palette.ts:63` returns only stepType.
-- **RunTimeline template:** Original design had `[title]="'{{bar.stepName}}: {{bar.durationLabel}}'"` which is invalid Angular (template interpolation inside property binding). Corrected to `[title]="bar.stepName + ': ' + bar.durationLabel"`.
-- **RunTimeline overlap:** Added `topPx` field to stagger overlapping step bars vertically — the original design placed all bars at the same vertical position, making concurrent steps unreadable.
+### Inputs / Outputs
+
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| *(none)* | — | — | Loads teams from API on init |
+
+### Data Flow
+1. On init: calls `TeamService.listMyTeams()` → `GET /api/teams/my-teams`
+2. Displays dropdown with team names and current active team highlighted
+3. On selection: checks FormGuard for unsaved changes (E2)
+4. Calls `TeamService.setActiveTeam(teamId)` → `POST /api/teams/active/{id}`
+5. Triggers page reload to refresh all data with new team context
+
+### State Management
+- Local state for team list and active team ID
+- **Retry logic** (E12): retries API call on failure before showing error
+- **sessionStorage cache fallback**: if API fails, uses cached teams from sessionStorage
+
+---
+
+## 6. RunTimelineComponent
+
+**File:** `orchestrator-ui/src/app/shared/components/run-timeline/`
+
+### Purpose
+Horizontal bar chart visualization of job run step timing. Shows start/end times and status colors for each step in a run.
+
+### Inputs / Outputs
+
+| Binding | Type | Direction | Description |
+|---------|------|-----------|-------------|
+| `run` | `JobRun` | Input | Run object with steps array (each having startTime, endTime, status) |
+
+### Computed State
+- **Bar positions:** computed from step `startTime` and `endTime` relative to run start time
+- **Time axis ticks:** generated at regular intervals across the run duration
+- **Status colors:** mapped from step status (`SUCCESS` → green, `FAILED` → red, etc.)
+
+### Key Implementation Details
+- Uses SVG or div-based rendering for bars (check template)
+- Handles edge cases: steps with no end time (running), zero-duration steps
+- Generates readable time labels for axis ticks
+
+---
+
+## 7. ThemeService
+
+**File:** `orchestrator-ui/src/app/core/services/theme.service.ts`
+
+### Purpose
+Manages light/dark theme state using Angular signals. Provides toggle functionality and persists preference.
+
+### API
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `theme()` | `Signal<'light' \| 'dark'>` | Computed signal for current theme |
+| `toggle()` | `void` | Switches between light and dark |
+
+### State Management
+- **Signal-based** state (not BehaviorSubject) — leverages Angular's reactivity system
+- **`effect()`** side effect: syncs `data-theme` attribute on `<html>` element and localStorage
+- **Init logic:** checks localStorage first, then `prefers-color-scheme` media query, defaults to `'light'`
+
+---
+
+## 8. FormGuardService
+
+**File:** `orchestrator-ui/src/app/core/services/form-guard.service.ts`
+
+### Purpose
+Detects unsaved changes across components. Prevents navigation away from dirty forms without confirmation.
+
+### API
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `markDirty()` | `void` | Marks current form as having unsaved changes |
+| `markClean()` | `void` | Marks current form as saved |
+| `check()` | `boolean \| string` | Returns false if clean, or confirmation message if dirty (for Angular guards) |
+
+### Integration Points
+- **TeamSwitcherComponent:** calls `check()` before switching teams
+- **Route guard:** can be used as a route guard in `app.routes.ts`
+
+---
+
+## Component Interaction Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  App Shell (app.ts)                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │ ThemeService  │  │TeamSwitcher  │  │    RouterOutlet  │   │
+│  │ (signal-based)│  │(form guard)  │  │                  │   │
+│  └──────┬───────┘  └──────┬───────┘  │                  │   │
+│         │                 │          ├─ JobDetail        │   │
+│         │                 │          │   ┌────────────┐  │   │
+│         │                 │          │   │StepPalette │  │   │
+│         │                 │          │   └──────┬─────┘  │   │
+│         │                 │          │          │        │   │
+│         │                 │          │   ┌──────▼─────┐  │   │
+│         │                 │          │   │StepFormDlg │  │   │
+│         │                 │          │   │ ┌────────┐ │  │   │
+│         │                 │          │   │ │DynStep │ │  │   │
+│         │                 │          │   │ │Form    │ │  │   │
+│         │                 │          │   │ │ ┌────┐ │ │  │   │
+│         │                 │          │   │ │ │DynF │ │ │  │   │
+│         │                 │          │   │ │ └────┘ │ │  │   │
+│         │                 │          │   │ └────────┘ │  │   │
+│         │                 │          │   └────────────┘  │   │
+│         │                 │          ├─ RunDetail        │   │
+│         │                 │          │   ┌────────────┐  │   │
+│         │                 │          │   │RunTimeline │  │   │
+│         │                 │          │   └────────────┘  │   │
+│         │                 │          └──────────────────┘   │
+│         │                 │                                 │
+└─────────┼─────────────────┼─────────────────────────────────┘
+          │                 │
+    [data-theme]      Team API (JWT-scoped)
+    localStorage
+```
