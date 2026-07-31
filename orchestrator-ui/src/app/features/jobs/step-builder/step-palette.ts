@@ -11,7 +11,7 @@ import { JobService } from '@app/core/services/job.service';
 import { StepConfigSchema } from '@app/core/models/job.model';
 
 /** Maps common keywords in step type names to Material icons */
-function iconFor(stepType: string): string {
+export function iconFor(stepType: string): string {
   const upper = stepType.toUpperCase();
   if (upper.includes('ENV') || upper.includes('SETUP')) return 'settings_applications';
   if (upper.includes('LOG') || upper.includes('CLEAN')) return 'delete_sweep';

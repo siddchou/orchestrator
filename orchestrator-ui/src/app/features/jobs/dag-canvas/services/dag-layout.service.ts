@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { StepDependency } from '@app/core/models/job.model';
+import { RunStatus, StepDependency } from '@app/core/models/job.model';
 
 /** Node position on the canvas */
 export interface Position {
@@ -15,6 +15,7 @@ export interface DagNodeModel {
   position: Position;
   size: { width: number; height: number };
   dependencies?: StepDependency[];
+  status?: RunStatus;           // only in run-view mode
 }
 
 /** Default node dimensions for layout calculation */
