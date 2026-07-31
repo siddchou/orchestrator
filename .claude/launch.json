@@ -11,7 +11,7 @@
     {
       "name": "orchestrator-ui dev server",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["ng", "serve", "--configuration", "development"],
+      "runtimeArgs": ["ng", "serve", "--configuration", "development", "--port", "4201"],
       "autoPort": true,
       "cwd": "C:/Users/siddh/IdeaProjects/orchestrator/orchestrator-ui"
     }

@@ -2,6 +2,8 @@ package com.novakai.orchestrator.api.controller;
 
 // @author Siddhant Choudhary
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.api.service.JobDefinitionService;
 import com.novakai.orchestrator.api.service.JobExportImportService;
@@ -12,12 +14,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/jobs")
@@ -29,6 +35,7 @@ public class JobDefinitionController {
     private final JobExportImportService exportImportService;
     private final JobVersionService versionService;
     private final TeamService teamService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @GetMapping
     public ApiResponse<Page<JobDefinitionResponse>> list(
@@ -119,15 +126,27 @@ public class JobDefinitionController {
     // --- Export / Import ---
 
     @GetMapping("/{id}/export")
-    public ApiResponse<String> exportJson(@PathVariable Long id,
-                                          @RequestParam(defaultValue = "json") String format) {
-        String exported;
+    public ResponseEntity<String> exportJob(@PathVariable Long id,
+                                            @RequestParam(defaultValue = "json") String format) {
+        String content;
+        MediaType mediaType;
+        String extension;
+
         if ("yaml".equalsIgnoreCase(format)) {
-            exported = exportImportService.exportToYaml(id);
+            content = exportImportService.exportToYaml(id);
+            mediaType = MediaType.parseMediaType("text/yaml");
+            extension = "yaml";
         } else {
-            exported = exportImportService.exportToJson(id);
+            content = exportImportService.exportToJson(id);
+            mediaType = MediaType.APPLICATION_JSON;
+            extension = "json";
         }
-        return ApiResponse.success(exported);
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"job-export." + extension + "\"")
+                .body(content);
     }
 
     @PostMapping("/import")
@@ -135,7 +154,26 @@ public class JobDefinitionController {
     public ApiResponse<JobDefinitionResponse> importJob(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestHeader(value = "X-Team-Id", required = false) Long teamId,
-            @RequestBody JobImportRequest request) {
+            @RequestBody String rawBody) {
+
+        // Parse body — handle both formats:
+        // 1. { format: "json", content: "<JSON string>" } (frontend envelope)
+        // 2. { formatVersion, mode, jobName, steps[], ... } (structured API payload)
+        JobImportRequest request;
+        try {
+            Map<String, Object> body = objectMapper.readValue(rawBody, new TypeReference<Map<String, Object>>() {});
+
+            if (body.containsKey("format") && body.containsKey("content") && !body.containsKey("steps")) {
+                // Frontend envelope: unwrap { format, content } → parse content as JobImportRequest
+                String content = (String) body.get("content");
+                request = objectMapper.readValue(content, JobImportRequest.class);
+            } else {
+                // Structured payload: deserialize directly
+                request = objectMapper.readValue(rawBody, JobImportRequest.class);
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid import request body: " + e.getMessage());
+        }
 
         String username = userDetails != null ? userDetails.getUsername() : null;
 
@@ -287,8 +325,10 @@ public class JobDefinitionController {
     }
 
     @GetMapping("/{id}/versions/{versionNumber}")
-    public ApiResponse<String> getVersion(@PathVariable Long id, @PathVariable Integer versionNumber) {
-        return ApiResponse.success(versionService.exportVersion(id, versionNumber));
+    public ResponseEntity<String> getVersion(@PathVariable Long id, @PathVariable Integer versionNumber) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(versionService.exportVersion(id, versionNumber));
     }
 
     @PostMapping("/{id}/versions/{versionNumber}/rollback")

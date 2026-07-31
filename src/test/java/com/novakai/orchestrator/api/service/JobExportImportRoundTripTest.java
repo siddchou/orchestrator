@@ -570,7 +570,12 @@ class JobExportImportRoundTripTest {
         try {
             ObjectMapper om = new ObjectMapper();
             var map = om.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
-            return (String) map.get("data");
+            // Endpoints now return raw JSON directly (no ApiResponse envelope)
+            if (map.containsKey("data") && map.get("data") instanceof String) {
+                return (String) map.get("data");
+            }
+            // Raw JSON — re-serialize to a clean string
+            return om.writeValueAsString(map);
         } catch (Exception e) {
             return responseBody;
         }

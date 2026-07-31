@@ -130,8 +130,8 @@ export class JobService {
     return this.http.get<ApiResponse<JobVersionSummary[]>>(`${this.api}/jobs/${jobId}/versions`);
   }
 
-  getVersionSnapshot(jobId: number, versionId: number): Observable<ApiResponse<any>> {
-    return this.http.get<ApiResponse<any>>(`${this.api}/jobs/${jobId}/versions/${versionId}`);
+  getVersionSnapshot(jobId: number, versionId: number): Observable<object> {
+    return this.http.get<object>(`${this.api}/jobs/${jobId}/versions/${versionId}`);
   }
 
   rollbackToVersion(jobId: number, versionId: number): Observable<ApiResponse<JobDefinition>> {

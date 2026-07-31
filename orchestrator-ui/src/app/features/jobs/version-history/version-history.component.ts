@@ -78,13 +78,7 @@ export class VersionHistoryComponent implements OnInit {
       right: this.jobService.getVersionSnapshot(this.jobId, this.compareB),
     }).subscribe({
       next: ({ left, right }) => {
-        if (left.status !== 'SUCCESS' || right.status !== 'SUCCESS') {
-          this.snackBar.open('Failed to load version snapshots', 'Dismiss', { duration: 3000 });
-          this.isComparing = false;
-          return;
-        }
-
-        const diffResult = this.jsonDiffService.compare(left.data, right.data);
+        const diffResult = this.jsonDiffService.compare(left, right);
         if (diffResult === undefined) {
           this.noDiff = true;
           this.diffHtml = '';
