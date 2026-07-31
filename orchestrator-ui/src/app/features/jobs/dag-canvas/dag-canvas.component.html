@@ -1,6 +1,9 @@
 <div class="dag-canvas-wrapper">
   <div class="canvas-toolbar">
-    <button mat-icon-button (click)="addStepRequested.emit()" aria-label="Add step" title="Add Step">+</button>
+    <button mat-icon-button (click)="addStepRequested.emit()" aria-label="Add step" title="Add Step"><mat-icon>add</mat-icon></button>
+    <span class="toolbar-spacer"></span>
+    <span class="dirty-indicator" *ngIf="isDirty">● unsaved</span>
+    <button mat-flat-button (click)="onSaveClicked()" [disabled]="!isDirty" title="Save Dependencies">Save</button>
   </div>
 
   <div

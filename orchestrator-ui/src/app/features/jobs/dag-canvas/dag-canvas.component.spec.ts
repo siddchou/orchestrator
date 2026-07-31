@@ -213,4 +213,88 @@ describe('DagCanvasComponent', () => {
     // Edge count should remain unchanged (no new edge added)
     expect(component.edges.length).toBe(1);
   });
+
+  it('prevents creating duplicate edge', () => {
+    const stepsWithEdge: JobStepWithDependencies[] = [
+      {
+        stepId: 1, stepName: 'A', stepOrder: 1, stepType: 'SHELL_EXEC',
+        stepConfig: '{}', continueOnFailure: false, enabled: true,
+        dependencies: [],
+      },
+      {
+        stepId: 2, stepName: 'B', stepOrder: 2, stepType: 'SHELL_EXEC',
+        stepConfig: '{}', continueOnFailure: false, enabled: true,
+        dependencies: [{ dependsOnStepId: 1, dependsOnStepName: 'A', edgeCondition: 'ON_SUCCESS' }],
+      },
+    ];
+    setSteps(stepsWithEdge);
+
+    expect(component.edges.length).toBe(1);
+
+    // Try to create the same edge again: step 2 depends on step 1 (already exists)
+    component.rubberBand = { active: true, fromStepId: 1, x: 0, y: 0 };
+    component.pickerTargetStepId = 2;
+
+    component.onPickerSelected('ALWAYS');
+
+    // Edge count should still be 1 — duplicate not added
+    expect(component.edges.length).toBe(1);
+  });
+
+  // --- Dirty tracking (Task 11) ---
+
+  it('is not dirty on initial load', () => {
+    setSteps(makeSteps());
+
+    expect(component.isDirty).toBe(false);
+  });
+
+  it('becomes dirty when an edge is added via picker', () => {
+    const noDeps: JobStepWithDependencies[] = [
+      { stepId: 1, stepName: 'A', stepOrder: 1, stepType: 'SHELL_EXEC', stepConfig: '{}', continueOnFailure: false, enabled: true, dependencies: [] },
+      { stepId: 2, stepName: 'B', stepOrder: 2, stepType: 'SHELL_EXEC', stepConfig: '{}', continueOnFailure: false, enabled: true, dependencies: [] },
+    ];
+    setSteps(noDeps);
+
+    expect(component.isDirty).toBe(false);
+
+    // Add edge: B depends on A
+    component.rubberBand = { active: true, fromStepId: 1, x: 0, y: 0 };
+    component.pickerTargetStepId = 2;
+    component.onPickerSelected('ON_SUCCESS');
+
+    expect(component.isDirty).toBe(true);
+  });
+
+  it('emits saveRequested with all steps on save', () => {
+    setSteps(makeSteps());
+
+    let emitted: any[] | null = null;
+    component.saveRequested.subscribe(steps => { emitted = steps; });
+
+    component.onSaveClicked();
+
+    expect(emitted).not.toBeNull();
+    expect(emitted!.length).toBe(3);
+  });
+
+  it('resets dirty state on saved', () => {
+    const noDeps: JobStepWithDependencies[] = [
+      { stepId: 1, stepName: 'A', stepOrder: 1, stepType: 'SHELL_EXEC', stepConfig: '{}', continueOnFailure: false, enabled: true, dependencies: [] },
+      { stepId: 2, stepName: 'B', stepOrder: 2, stepType: 'SHELL_EXEC', stepConfig: '{}', continueOnFailure: false, enabled: true, dependencies: [] },
+    ];
+    setSteps(noDeps);
+
+    // Make dirty
+    component.rubberBand = { active: true, fromStepId: 1, x: 0, y: 0 };
+    component.pickerTargetStepId = 2;
+    component.onPickerSelected('ON_SUCCESS');
+
+    expect(component.isDirty).toBe(true);
+
+    // Simulate successful save
+    component.onSaved();
+
+    expect(component.isDirty).toBe(false);
+  });
 });

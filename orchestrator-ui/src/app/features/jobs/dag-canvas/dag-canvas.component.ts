@@ -1,12 +1,14 @@
 import { Component, ElementRef, EventEmitter, inject, Input, OnDestroy, OnChanges, SimpleChanges, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { DagNodeComponent } from './dag-node.component';
 import { EdgeConditionPickerComponent } from './edge-condition-picker.component';
 import { DagLayoutService } from './services/dag-layout.service';
 import { CycleDetectorService } from './services/cycle-detector.service';
 import { computeEdgePath, DagNodeBounds, DagEdgePath } from './dag-edge-renderer';
 import { JobStepWithDependencies, StepDependency, EdgeCondition } from '@app/core/models/job.model';
+import { FormGuardService } from '@app/core/services/form-guard.service';
 
 interface PanZoomState {
   offsetX: number;
@@ -17,7 +19,7 @@ interface PanZoomState {
 @Component({
   selector: 'app-dag-canvas',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, DagNodeComponent, EdgeConditionPickerComponent],
+  imports: [CommonModule, MatButtonModule, MatIconModule, DagNodeComponent, EdgeConditionPickerComponent],
   templateUrl: './dag-canvas.component.html',
   styleUrl: './dag-canvas.component.scss',
 })
@@ -28,6 +30,7 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
   @Output() stepSelected = new EventEmitter<number>();
   @Output() stepDeleted = new EventEmitter<number>();
   @Output() addStepRequested = new EventEmitter<void>();
+  @Output() saveRequested = new EventEmitter<JobStepWithDependencies[]>();
 
   @ViewChild('canvasContainer') canvasContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('svgLayer') svgLayer!: ElementRef<SVGSVGElement>;
@@ -53,6 +56,10 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
 
   private layoutService = new DagLayoutService();
   private cycleDetector = new CycleDetectorService();
+  private formGuard = inject(FormGuardService);
+
+  /** Snapshot of dependencies on load — used for dirty detection */
+  private initialDependencies: Map<number, StepDependency[]> = new Map();
 
   readonly MIN_SCALE = 0.3;
   readonly MAX_SCALE = 2;
@@ -70,14 +77,20 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
   }
 
   onStepsChange(newSteps: JobStepWithDependencies[]): void {
-    this.nodes = newSteps.map(s => ({
-      stepId: s.stepId,
-      stepName: s.stepName,
-      stepType: s.stepType,
-      position: { x: 0, y: 0 },
-      size: { width: 160, height: 72 },
-      dependencies: s.dependencies ?? [],
-    }));
+    // Capture initial dependency snapshot for dirty detection
+    this.initialDependencies = new Map();
+    this.nodes = newSteps.map(s => {
+      const deps = s.dependencies ?? [];
+      if (s.stepId) this.initialDependencies.set(s.stepId, [...deps]);
+      return {
+        stepId: s.stepId,
+        stepName: s.stepName,
+        stepType: s.stepType,
+        position: { x: 0, y: 0 },
+        size: { width: 160, height: 72 },
+        dependencies: deps,
+      };
+    });
     this.buildEdgesFromDependencies();
     this.layoutService.layout(this.nodes as any);
   }
@@ -268,6 +281,7 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
               edgeCondition: condition,
             });
             this.buildEdgesFromDependencies();
+            this.markDirty();
           }
         }
       }
@@ -279,5 +293,53 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
   onPickerClosed(): void {
     this.pickerVisible = false;
     this.rubberBand = null;
+  }
+
+  /** Are local dependencies different from the server snapshot? */
+  get isDirty(): boolean {
+    for (const node of this.nodes) {
+      if (!node.stepId) continue;
+      const initial = this.initialDependencies.get(node.stepId);
+      const current = node.dependencies ?? [];
+      if (initial && (initial.length !== current.length)) return true;
+      if (initial) {
+        for (let i = 0; i < initial.length; i++) {
+          if (initial[i].dependsOnStepId !== current[i]?.dependsOnStepId) return true;
+          if (initial[i].edgeCondition !== current[i]?.edgeCondition) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** Collect changed steps and emit save event */
+  onSaveClicked(): void {
+    const changedSteps: JobStepWithDependencies[] = [];
+    for (const node of this.nodes) {
+      if (!node.stepId) continue;
+      const stepData = this.steps.find(s => s.stepId === node.stepId);
+      if (stepData) {
+        changedSteps.push({
+          ...stepData,
+          dependencies: [...(node.dependencies ?? [])],
+        });
+      }
+    }
+    this.saveRequested.emit(changedSteps);
+  }
+
+  /** Call after successful save — resets dirty state */
+  onSaved(): void {
+    for (const node of this.nodes) {
+      if (node.stepId) {
+        this.initialDependencies.set(node.stepId, [...(node.dependencies ?? [])]);
+      }
+    }
+    this.formGuard.markClean();
+  }
+
+  /** Mark form as dirty — called when edges change */
+  private markDirty(): void {
+    this.formGuard.markDirty();
   }
 }
