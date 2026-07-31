@@ -26,6 +26,7 @@ import { JobDefinition, JobStep, JobStepWithDependencies, EnvVar, JobSchedule, S
 import { forkJoin, take } from 'rxjs';
 import { FormGuardService } from '@app/core/services/form-guard.service';
 import { downloadFile } from '@app/core/utils/file-utils';
+import { VersionHistoryComponent } from '../version-history/version-history.component';
 
 @Component({
   selector: 'app-job-detail',
@@ -33,8 +34,8 @@ import { downloadFile } from '@app/core/utils/file-utils';
     CommonModule, ReactiveFormsModule, FormsModule, MatTabsModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
-    CdkDrag, CdkDropList, CdkDragHandle,
-    DagCanvasComponent,
+    CdkDrag, CdkDropList, CdkDragHandle, MatTooltipModule,
+    DagCanvasComponent, VersionHistoryComponent,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
@@ -394,6 +395,10 @@ export class JobDetailComponent implements OnInit, OnDestroy {
         this.exporting = false;
       },
     });
+  }
+
+  onVersionLoaded(): void {
+    this.loadJob();
   }
 
   ngOnDestroy(): void {

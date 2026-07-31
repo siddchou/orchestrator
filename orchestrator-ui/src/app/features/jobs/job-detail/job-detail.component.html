@@ -250,6 +250,13 @@
           </div>
         </div>
       </mat-tab>
+
+      <!-- Tab 5: Version History -->
+      @if (job) {
+        <mat-tab label="Versions">
+          <app-version-history [jobId]="jobId!" (versionLoaded)="onVersionLoaded()"></app-version-history>
+        </mat-tab>
+      }
     }
   </mat-tab-group>
 } @else {
