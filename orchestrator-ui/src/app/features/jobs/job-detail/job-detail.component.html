@@ -11,6 +11,18 @@
         }
       </div>
     </div>
+    @if (job) {
+      <div class="header-right">
+        <button mat-icon-button (click)="exportJob('json')" [disabled]="exporting"
+                matTooltip="Export as JSON" aria-label="Export job as JSON">
+          <mat-icon>download</mat-icon>
+        </button>
+        <button mat-icon-button (click)="exportJob('yaml')" [disabled]="exporting"
+                matTooltip="Export as YAML" aria-label="Export job as YAML">
+          <mat-icon>file_download</mat-icon>
+        </button>
+      </div>
+    }
   </div>
 
   <mat-tab-group>

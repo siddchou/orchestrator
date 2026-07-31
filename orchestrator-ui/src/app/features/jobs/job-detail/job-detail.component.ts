@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkDrag, CdkDropList, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { JobService } from '@app/core/services/job.service';
@@ -24,6 +25,7 @@ import { DagCanvasComponent } from '../dag-canvas/dag-canvas.component';
 import { JobDefinition, JobStep, JobStepWithDependencies, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
 import { forkJoin, take } from 'rxjs';
 import { FormGuardService } from '@app/core/services/form-guard.service';
+import { downloadFile } from '@app/core/utils/file-utils';
 
 @Component({
   selector: 'app-job-detail',
@@ -70,6 +72,7 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   pathValidation: Record<string, string> = {};
   stepsViewMode: 'list' | 'canvas' = 'list';
   stepsWithDeps: JobStepWithDependencies[] = [];
+  exporting = false;
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
@@ -371,6 +374,24 @@ export class JobDetailComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.snackBar.open('Failed to save dependencies', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+      },
+    });
+  }
+
+  exportJob(format: 'json' | 'yaml'): void {
+    if (this.jobId == null || this.exporting) return;
+    const ext = format === 'yaml' ? 'yaml' : 'json';
+    const mimeType = format === 'yaml' ? 'text/yaml' : 'application/json';
+    this.exporting = true;
+    this.jobService.exportJob(this.jobId, format).subscribe({
+      next: (blob) => {
+        downloadFile(blob, `${this.job!.jobName}.${ext}`);
+        this.snackBar.open(`Exported as ${ext.toUpperCase()}`, 'Dismiss', { duration: 3000 });
+        this.exporting = false;
+      },
+      error: () => {
+        this.snackBar.open('Export failed', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+        this.exporting = false;
       },
     });
   }

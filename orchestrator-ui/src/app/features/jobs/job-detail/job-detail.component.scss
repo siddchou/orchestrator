@@ -1,7 +1,20 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
 .header-left {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Form */
