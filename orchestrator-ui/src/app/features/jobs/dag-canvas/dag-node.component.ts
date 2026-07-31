@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,6 +34,10 @@ export class DagNodeComponent {
 
   iconFor = iconFor;
 
+  private isDragging = false;
+  private dragStartMouse = { x: 0, y: 0 };
+  private dragStartPosition = { x: 0, y: 0 };
+
   get statusColor(): string {
     if (!this.node.status) return '';
     return STATUS_COLORS[this.node.status] ?? '';
@@ -42,6 +46,36 @@ export class DagNodeComponent {
   get isRunning(): boolean {
     return this.node.status === 'RUNNING';
   }
+
+  onBodyMouseDown(event: MouseEvent): void {
+    // Left click only, not on ports or buttons
+    if (event.button !== 0) return;
+    this.isDragging = true;
+    this.dragStartMouse = { x: event.clientX, y: event.clientY };
+    this.dragStartPosition = { ...this.node.position };
+    document.addEventListener('mousemove', this.onDocumentMouseMove);
+    document.addEventListener('mouseup', this.onDocumentMouseUp);
+  }
+
+  private onDocumentMouseMove = (event: MouseEvent): void => {
+    if (!this.isDragging) return;
+    const dx = event.clientX - this.dragStartMouse.x;
+    const dy = event.clientY - this.dragStartMouse.y;
+    this.node.position.x = this.dragStartPosition.x + dx;
+    this.node.position.y = this.dragStartPosition.y + dy;
+  };
+
+  private onDocumentMouseUp = (): void => {
+    document.removeEventListener('mousemove', this.onDocumentMouseMove);
+    document.removeEventListener('mouseup', this.onDocumentMouseUp);
+    if (this.isDragging && this.node.stepId != null) {
+      this.nodeDragEnd.emit({
+        stepId: this.node.stepId,
+        position: { ...this.node.position },
+      });
+    }
+    this.isDragging = false;
+  };
 
   onBodyClick(): void {
     if (this.node.stepId != null) {

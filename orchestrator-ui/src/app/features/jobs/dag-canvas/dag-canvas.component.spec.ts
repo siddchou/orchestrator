@@ -297,4 +297,28 @@ describe('DagCanvasComponent', () => {
 
     expect(component.isDirty).toBe(false);
   });
+
+  // --- Node drag-to-reposition (Task 8) ---
+
+  it('updates node position on drag end', () => {
+    setSteps(makeSteps());
+
+    const root = component.nodes.find(n => n.stepId === 1);
+    const originalX = root?.position.x;
+    const originalY = root?.position.y;
+
+    component.onNodeDragEnd({ stepId: 1, position: { x: 999, y: 888 } });
+
+    expect(root?.position.x).toBe(999);
+    expect(root?.position.y).toBe(888);
+  });
+
+  it('ignores drag end for unknown stepId', () => {
+    setSteps(makeSteps());
+
+    const nodeCount = component.nodes.length;
+    component.onNodeDragEnd({ stepId: 999, position: { x: 0, y: 0 } });
+
+    expect(component.nodes.length).toBe(nodeCount);
+  });
 });

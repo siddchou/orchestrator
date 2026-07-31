@@ -178,6 +178,14 @@ export class DagCanvasComponent implements OnChanges, OnDestroy {
     this.stepDeleted.emit(stepId);
   }
 
+  onNodeDragEnd(event: { stepId: number; position: { x: number; y: number } }): void {
+    const node = this.nodes.find(n => n.stepId === event.stepId);
+    if (node) {
+      node.position.x = event.position.x;
+      node.position.y = event.position.y;
+    }
+  }
+
   zoomIn(): void {
     const factor = 1.2;
     const newScale = Math.min(this.MAX_SCALE, this.panZoom.scale * factor);

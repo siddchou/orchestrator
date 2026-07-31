@@ -3,7 +3,7 @@
     <div class="status-ring" [style.border-color]="statusColor"></div>
   }
 
-  <div class="node-body" (click)="onBodyClick()">
+  <div class="node-body" (click)="onBodyClick()" (mousedown)="onBodyMouseDown($event)">
     <mat-icon>{{ iconFor(node.stepType) }}</mat-icon>
     <div class="node-labels">
       <span class="step-name">{{ node.stepName }}</span>
