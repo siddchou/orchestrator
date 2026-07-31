@@ -1,0 +1,76 @@
+<div class="run-dag-wrapper">
+  <div class="canvas-surface" [style.transform]="getTransform()">
+    <!-- Grid background -->
+    <svg class="grid-svg">
+      <defs>
+        <pattern id="runSmallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--dag-canvas-grid-color, #e0e0e0)" stroke-width="0.5" />
+        </pattern>
+        <pattern id="runGrid" width="100" height="100" patternUnits="userSpaceOnUse">
+          <rect width="100" height="100" fill="url(#runSmallGrid)" />
+          <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--dag-canvas-grid-color, #e0e0e0)" stroke-width="1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#runGrid)" />
+    </svg>
+
+    <!-- SVG edges layer -->
+    <svg class="edges-svg">
+      <defs>
+        <marker id="arrow-PENDING" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#9e9e9e" /></marker>
+        <marker id="arrow-RUNNING" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ff9800" /></marker>
+        <marker id="arrow-SUCCESS" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#4caf50" /></marker>
+        <marker id="arrow-FAILED" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#f44336" /></marker>
+        <marker id="arrow-PARTIAL" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ff9800" /></marker>
+        <marker id="arrow-CANCELLED" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#9c27b0" /></marker>
+      </defs>
+
+      @for (edge of edges; track edge.from * 1000 + edge.to) {
+        @let path = getEdgePath(edge);
+        @if (path) {
+          <path
+            [attr.d]="path.d"
+            fill="none"
+            [attr.stroke]="edgeColor(edge.toStatus)"
+            stroke-width="2"
+            [attr.marker-end]="'url(#arrow-' + edge.toStatus + ')'"
+          />
+          <text
+            [attr.x]="path.midX"
+            [attr.y]="path.midY - 5"
+            text-anchor="middle"
+            class="edge-label"
+            [style.fill]="edgeColor(edge.toStatus)"
+          >{{ conditionSymbol(edge.condition) }}</text>
+        }
+      }
+    </svg>
+
+    <!-- Node layer — read-only, with status rings -->
+    @for (node of nodes; track node.stepId ?? $index) {
+      <div
+        class="run-node"
+        [style.position]="'absolute'"
+        [style.left.px]="node.position.x"
+        [style.top.px]="node.position.y"
+        [class.running]="isRunning(node.status)"
+      >
+        <!-- Status ring -->
+        <div class="status-ring" [style.borderColor]="statusColor(node.status)"></div>
+
+        <div class="node-body">
+          <mat-icon>{{ iconFor(node.stepType) }}</mat-icon>
+          <div class="node-labels">
+            <div class="step-name">{{ node.stepName }}</div>
+            <div class="step-type">{{ node.stepType }}</div>
+          </div>
+        </div>
+
+        <!-- Status badge -->
+        <div class="status-badge" [style.color]="statusColor(node.status)">
+          {{ node.status }}
+        </div>
+      </div>
+    }
+  </div>
+</div>

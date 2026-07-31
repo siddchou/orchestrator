@@ -1,0 +1,120 @@
+.run-dag-wrapper {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  min-height: 300px;
+  background: var(--dag-canvas-bg, #fafafa);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.canvas-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.grid-svg {
+  position: absolute;
+  top: -5000px;
+  left: -5000px;
+  width: 10000px;
+  height: 10000px;
+  pointer-events: none;
+}
+
+.edges-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5000px;
+  height: 5000px;
+  pointer-events: none;
+}
+
+.edge-label {
+  font-size: 12px;
+  user-select: none;
+}
+
+.run-node {
+  width: 160px;
+  height: 72px;
+  border-radius: 8px;
+  background: var(--dag-node-bg, #ffffff);
+  border: 1px solid var(--dag-node-border, #bdbdbd);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  user-select: none;
+
+  &.running {
+    .status-ring {
+      animation: status-pulse 1.5s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.node-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  height: 100%;
+  box-sizing: border-box;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--on-surface-variant, #616161);
+  }
+}
+
+.node-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.step-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface, #1c1b1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-type {
+  font-size: 10px;
+  color: var(--on-surface-variant, #616161);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-badge {
+  position: absolute;
+  bottom: -2px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
