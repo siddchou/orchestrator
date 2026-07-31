@@ -557,7 +557,9 @@ mat-sidenav-container {
 
 /* ── Dark Mode Overrides ─────────────────────────────────────── */
 [data-theme="dark"] {
-  color-scheme: dark;
+  /* Keep html at light so Material M3 light-dark() functions resolve to light values
+     that our overrides below can replace. Body gets dark for native form controls. */
+  color-scheme: light;
 
   body {
     color-scheme: dark !important;
@@ -568,14 +570,42 @@ mat-sidenav-container {
   --mat-sys-on-surface-variant: #94a3b8 !important;
   --mat-sys-on-background: #e2e8f0 !important;
   --mat-sys-on-card: #e2e8f0 !important;
-  --mat-sys-on-primary: #ffffff !important;
-  --mat-sys-on-secondary: #ffffff !important;
-  --mat-sys-on-tertiary: #ffffff !important;
-
-  /* Override light-dark() palette colors — buttons use these in dark mode */
+  /* Override light-dark() palette colors — buttons, surfaces, outlines use these */
   --mat-sys-primary: #3b82f6 !important;
+  --mat-sys-on-primary: #ffffff !important;
+  --mat-sys-primary-container: #1e3a5f !important;
+  --mat-sys-on-primary-container: #dbeafe !important;
+  --mat-sys-inverse-primary: #3b82f6 !important;
+
   --mat-sys-secondary: #a78bfa !important;
+  --mat-sys-on-secondary: #ffffff !important;
+  --mat-sys-secondary-container: #3b2d5e !important;
+  --mat-sys-on-secondary-container: #ede9fe !important;
+
   --mat-sys-tertiary: #f472b6 !important;
+  --mat-sys-on-tertiary: #ffffff !important;
+  --mat-sys-tertiary-container: #5c1a3d !important;
+  --mat-sys-on-tertiary-container: #fce7f3 !important;
+
+  --mat-sys-inverse-surface: #e2e8f0 !important;
+  --mat-sys-inverse-on-surface: #1a1d27 !important;
+
+  --mat-sys-outline: #4a5568 !important;
+  --mat-sys-outline-variant: #2d3748 !important;
+
+  --mat-sys-surface-tint: #3b82f6 !important;
+  --mat-sys-surface-bright: #2d3148 !important;
+  --mat-sys-surface-dim: #0f1117 !important;
+  --mat-sys-surface-container-low: #1a1d27 !important;
+  --mat-sys-surface-container-lowest: #0f1117 !important;
+  --mat-sys-surface-container-high: #2d3148 !important;
+  --mat-sys-surface-container-highest: #3d4259 !important;
+  --mat-sys-surface-variant: #4a5568 !important;
+
+  --mat-sys-error: #f87171 !important;
+  --mat-sys-on-error: #000000 !important;
+  --mat-sys-error-container: #7f1d1d !important;
+  --mat-sys-on-error-container: #fecaca !important;
 
   --mat-sys-background: #0f1117 !important;
   --mat-sys-surface: #1a1d27 !important;
