@@ -20,7 +20,9 @@ import { SystemService } from '@app/core/services/system.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { StepFormDialog, StepFormData } from '../step-builder/step-form-dialog';
 import { StepPaletteComponent } from '../step-builder/step-palette';
-import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { DagCanvasComponent } from '../dag-canvas/dag-canvas.component';
+import { JobDefinition, JobStep, JobStepWithDependencies, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { forkJoin, take } from 'rxjs';
 import { FormGuardService } from '@app/core/services/form-guard.service';
 
 @Component({
@@ -30,6 +32,7 @@ import { FormGuardService } from '@app/core/services/form-guard.service';
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
     CdkDrag, CdkDropList, CdkDragHandle,
+    DagCanvasComponent,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
@@ -65,6 +68,8 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   scheduleCron = '';
   scheduleEnabled = false;
   pathValidation: Record<string, string> = {};
+  stepsViewMode: 'list' | 'canvas' = 'list';
+  stepsWithDeps: JobStepWithDependencies[] = [];
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
@@ -308,6 +313,66 @@ export class JobDetailComponent implements OnInit, OnDestroy {
 
   goBack() {
     this.router.navigate(['/jobs']);
+  }
+
+  onSwitchToCanvas(): void {
+    if (this.jobId == null || !this.job) return;
+    const steps = this.job.steps;
+    if (steps.length === 0) {
+      this.stepsWithDeps = [];
+      this.stepsViewMode = 'canvas';
+      return;
+    }
+
+    forkJoin(
+      steps.map(step =>
+        this.jobService.getStepDependencies(this.jobId!, step.stepId).pipe(take(1))
+      )
+    ).subscribe({
+      next: (results) => {
+        this.stepsWithDeps = steps.map((step, i) => ({
+          ...step,
+          dependencies: results[i].status === 'SUCCESS' ? results[i].data : [],
+        }));
+        this.stepsViewMode = 'canvas';
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  onSwitchToList(): void {
+    this.stepsViewMode = 'list';
+  }
+
+  onCanvasStepSelected(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.openStepForm(step);
+    }
+  }
+
+  onCanvasStepDeleted(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.deleteStep(step);
+    }
+  }
+
+  onSaveDependencies(updatedSteps: JobStepWithDependencies[]): void {
+    if (this.jobId == null) return;
+    forkJoin(
+      updatedSteps.map(step =>
+        this.jobService.setStepDependencies(this.jobId!, step.stepId, step.dependencies).pipe(take(1))
+      )
+    ).subscribe({
+      next: () => {
+        this.snackBar.open('Dependencies saved', 'Dismiss', { duration: 3000 });
+        this.loadJob();
+      },
+      error: () => {
+        this.snackBar.open('Failed to save dependencies', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+      },
+    });
   }
 
   ngOnDestroy(): void {
