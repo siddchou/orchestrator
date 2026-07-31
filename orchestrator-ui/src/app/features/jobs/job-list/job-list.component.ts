@@ -19,6 +19,7 @@ import { JobService } from '@app/core/services/job.service';
 import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { RunJobDialog } from '@app/shared/components/run-job-dialog/run-job-dialog';
+import { ImportDialogComponent } from '../job-import/import-dialog.component';
 import { JobDefinition } from '@app/core/models/job.model';
 import { downloadFile } from '@app/core/utils/file-utils';
 
@@ -28,7 +29,7 @@ import { downloadFile } from '@app/core/utils/file-utils';
     CommonModule, MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
     MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule,
     MatChipsModule, MatSnackBarModule, MatDialogModule, MatProgressSpinnerModule,
-    RouterLink,
+    RouterLink, ImportDialogComponent,
   ],
   templateUrl: './job-list.component.html',
   styleUrl: './job-list.component.scss',
@@ -154,6 +155,14 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
         this.isLoading = false;
         this.cd.detectChanges();
       },
+    });
+  }
+
+  openImportDialog(): void {
+    this.dialog.open(ImportDialogComponent).afterClosed().subscribe((result) => {
+      if (result) {
+        this.loadJobs();
+      }
     });
   }
 

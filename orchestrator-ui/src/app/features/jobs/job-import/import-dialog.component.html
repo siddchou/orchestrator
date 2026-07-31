@@ -1,0 +1,47 @@
+<div class="dialog-header">
+  <mat-icon>upload_file</mat-icon>
+  <h2>Import Job</h2>
+</div>
+
+<div class="drop-zone" [class.drag-over]="isDragging"
+     (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+  @if (fileName) {
+    <mat-icon>description</mat-icon>
+    <p>{{ fileName }}</p>
+  } @else {
+    <mat-icon>cloud_upload</mat-icon>
+    <p>Drop a JSON or YAML file here, or</p>
+  }
+  <input type="file" accept=".json,.yaml,.yml" (change)="onFileSelected($event)" class="file-input" />
+  <button mat-stroked-button (click)="document.querySelector('.file-input')?.click()">Browse Files</button>
+</div>
+
+<div class="format-row">
+  <mat-form-field appearance="outline" class="format-select">
+    <mat-label>Format</mat-label>
+    <select matNativeSelect [(ngModel)]="format">
+      <option value="json">JSON</option>
+      <option value="yaml">YAML</option>
+    </select>
+  </mat-form-field>
+</div>
+
+<mat-form-field appearance="outline" class="content-field">
+  <mat-label>Job Definition ({{ format }})</mat-label>
+  <textarea matInput [(ngModel)]="content" rows="8"></textarea>
+</mat-form-field>
+
+@if (error) {
+  <div class="error-message"><mat-icon>error</mat-icon>{{ error }}</div>
+}
+
+<div class="dialog-actions">
+  <button mat-stroked-button (click)="cancel()" [disabled]="isLoading">Cancel</button>
+  <button mat-flat-button color="primary" (click)="import()" [disabled]="!content.trim() || isLoading">
+    @if (isLoading) {
+      <mat-spinner diameter="18"></mat-spinner>
+    } @else {
+      <mat-icon>upload_file</mat-icon> Import
+    }
+  </button>
+</div>
