@@ -119,6 +119,13 @@ public class JobVersionService {
                 importRequest.metadata()
         );
 
+        // Validate structurally (cycles, duplicates, cron) but skip step-type check —
+        // stored versions may reference step types no longer registered.
+        List<String> errors = exportImportService.validateImport(importRequest, /*jobExists=*/true, /*skipStepTypeValidation=*/true);
+        if (!errors.isEmpty()) {
+            throw new RuntimeException("Version " + versionNumber + " failed structural validation: " + String.join("; ", errors));
+        }
+
         exportImportService.importJob(importRequest, teamId);
 
         // Create a new version row to record the rollback

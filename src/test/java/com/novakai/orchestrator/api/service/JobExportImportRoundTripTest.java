@@ -364,6 +364,116 @@ class JobExportImportRoundTripTest {
     }
 
     // =====================================================================
+    //  Test 10b: Import with mode=SKIP does not modify existing job
+    // =====================================================================
+
+    @Test
+    void importSkipMode_doesNotModifyExistingJob() {
+        Long jobId = createJobViaApi("skip-job", "Original desc", "/tmp/orig", null);
+        addStepViaApi(jobId, "original-step", 1, "SHELL_EXEC", "{\"command\":\"echo original\"}");
+
+        // Import with different content but mode=SKIP
+        JobImportRequest req = new JobImportRequest(
+                "1.0", "SKIP", null, "skip-job", "Modified desc", "/tmp/modified",
+                null, null, true, "test-team",
+                List.of(new ImportStepDefinition("new-step", 1, "SHELL_EXEC",
+                        "{\"command\":\"echo modified\"}", false, true)),
+                null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
+        ResponseEntity<String> resp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+        assertTrue(resp.getStatusCode().is2xxSuccessful(), "SKIP should succeed");
+
+        // Verify job was NOT modified
+        JobDefinition job = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Original desc", job.getDescription());
+        assertEquals("/tmp/orig", job.getWorkingDir());
+        assertEquals(1, job.getSteps().size());
+        assertEquals("original-step", job.getSteps().get(0).getStepName());
+    }
+
+    // =====================================================================
+    //  Test 10c: Export non-existent job returns 404
+    // =====================================================================
+
+    @Test
+    void exportNonExistentJob_returns404() {
+        ResponseEntity<String> resp = restTemplate.getForEntity(
+                base() + "/api/jobs/99999/export?format=json", String.class);
+        assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
+    }
+
+    // =====================================================================
+    //  Test 10d: Import rejects future/unrecognized format version
+    // =====================================================================
+
+    @Test
+    void importValidation_rejectsFutureFormatVersion() {
+        JobImportRequest req = new JobImportRequest(
+                "99.0", "ERROR", null, "future-format-job", "desc", "/tmp/test",
+                null, null, true, "test-team",
+                List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
+                null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
+        ResponseEntity<String> resp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+
+        assertNotEquals(HttpStatus.CREATED, resp.getStatusCode());
+    }
+
+    // =====================================================================
+    //  Test 10e: Rollback verifies restored state matches original version
+    // =====================================================================
+
+    @Test
+    void rollbackToVersion_verifiesRestoredState() {
+        Long jobId = createJobViaApi("rollback-state-job", "Original desc", "/tmp/orig", null);
+        addStepViaApi(jobId, "step-a", 1, "SHELL_EXEC", "{\"command\":\"echo a\"}");
+
+        var versionsBefore = versionRepo.findByJobIdOrderByVersionNumberDesc(jobId);
+        int originalVersionNum = versionsBefore.get(0).getVersionNumber();
+
+        // Modify: change description and add a step
+        JobImportRequest updateReq = new JobImportRequest(
+                "1.0", "UPDATE", null, "rollback-state-job", "Modified desc", "/tmp/modified",
+                null, null, true, "test-team",
+                List.of(
+                        new ImportStepDefinition("step-a", 1, "SHELL_EXEC", "{\"command\":\"echo a-modified\"}", false, true),
+                        new ImportStepDefinition("step-b", 2, "SHELL_EXEC", "{\"command\":\"echo b\"}", false, true)
+                ),
+                null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> updateEntity = new HttpEntity<>(updateReq, authHeaders());
+        ResponseEntity<String> updateResp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, updateEntity, String.class);
+        assertEquals(HttpStatus.CREATED, updateResp.getStatusCode());
+
+        // Verify job is modified
+        JobDefinition modified = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Modified desc", modified.getDescription());
+        assertEquals("/tmp/modified", modified.getWorkingDir());
+        assertEquals(2, modified.getSteps().size());
+
+        // Rollback to original version
+        ResponseEntity<String> rollbackResp = restTemplate.postForEntity(
+                base() + "/api/jobs/" + jobId + "/versions/" + originalVersionNum + "/rollback",
+                new HttpEntity<>(authHeaders()), String.class);
+        assertEquals(HttpStatus.OK, rollbackResp.getStatusCode());
+
+        // Verify job state matches the rolled-back version
+        JobDefinition restored = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Original desc", restored.getDescription(), "Description should be restored");
+        assertEquals("/tmp/orig", restored.getWorkingDir(), "Working dir should be restored");
+        assertEquals(1, restored.getSteps().size(), "Should have 1 step after rollback");
+        assertEquals("step-a", restored.getSteps().get(0).getStepName());
+    }
+
+    // =====================================================================
     //  Test 11: Export preserves env vars through round trip
     // =====================================================================
 

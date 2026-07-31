@@ -91,7 +91,7 @@ public class JobExportImportService {
         try {
             Map<String, Object> map = jsonMapper.readValue(exportedJson, Map.class);
             if (formatVersionOverride != null) {
-                map.put("format_version", formatVersionOverride);
+                map.put("formatVersion", formatVersionOverride);
             }
             map.put("re_exported_at", OffsetDateTime.now(ZoneOffset.UTC).toString());
             return jsonMapper.writeValueAsString(map);
@@ -185,6 +185,17 @@ public class JobExportImportService {
 
     /** Validate an import request. Returns list of error messages (empty = valid). */
     public List<String> validateImport(JobImportRequest request, boolean jobExists) {
+        return validateImport(request, jobExists, false);
+    }
+
+    /**
+     * Validate an import request with optional step-type bypass.
+     * @param request the import request to validate
+     * @param jobExists whether a job with the same name already exists
+     * @param skipStepTypeValidation when true, skips validation against registered step types
+     *   (used for rollback — stored versions may reference step types no longer registered)
+     */
+    public List<String> validateImport(JobImportRequest request, boolean jobExists, boolean skipStepTypeValidation) {
         List<String> errors = new ArrayList<>();
 
         if (request.steps() == null || request.steps().isEmpty()) {
@@ -192,7 +203,11 @@ public class JobExportImportService {
             return errors; // can't validate further without steps
         }
 
-        Set<String> registeredTypes = registry.registeredTypes();
+        // Validate format version — reject unknown future versions
+        String fv = request.formatVersion();
+        if (fv == null || !fv.equals(FORMAT_VERSION)) {
+            errors.add("Unsupported format version '" + fv + "'; expected '" + FORMAT_VERSION + "'");
+        }
 
         // Build name set for duplicate and dependency checks
         Set<String> stepNames = new HashSet<>();
@@ -209,14 +224,17 @@ public class JobExportImportService {
                 errors.add(path + ": duplicate step name '" + step.stepName() + "'");
             }
 
-            // Validate step type against registered types
+            // Validate step type against registered types (unless skipped for rollback)
             if (step.stepType() != null && !step.stepType().isBlank()) {
-                if (!registeredTypes.contains(step.stepType())) {
-                    errors.add(path + ": unknown step type '" + step.stepType() +
-                            "'. Available: " + registeredTypes);
-                } else {
-                    // Validate step config fields against schema
-                    validateStepConfigAgainstSchema(step, path, errors);
+                if (!skipStepTypeValidation) {
+                    Set<String> registeredTypes = registry.registeredTypes();
+                    if (!registeredTypes.contains(step.stepType())) {
+                        errors.add(path + ": unknown step type '" + step.stepType() +
+                                "'. Available: " + registeredTypes);
+                    } else {
+                        // Validate step config fields against schema
+                        validateStepConfigAgainstSchema(step, path, errors);
+                    }
                 }
             } else {
                 errors.add(path + ": stepType is required");
@@ -405,8 +423,11 @@ public class JobExportImportService {
                     existing.setClasspath(serializeClasspath(request.classpathEntries()));
                     existing.setEnabled(request.enabled() != null && request.enabled() ? "Y" : "N");
 
-                    // Replace steps (cascade=ALL clears old deps too)
+                    // Replace steps — flush deletions before inserts to avoid unique constraint
+                    // violation with IDENTITY columns (INSERT needs PK first, but old row blocks)
                     existing.getSteps().clear();
+                    jobRepo.saveAndFlush(existing);
+
                     for (ImportStepDefinition stepDef : request.steps()) {
                         JobStep step = new JobStep();
                         step.setStepName(stepDef.stepName());
@@ -419,8 +440,10 @@ public class JobExportImportService {
                         existing.getSteps().add(step);
                     }
 
-                    // Replace env vars
+                    // Replace env vars — same two-phase flush pattern
                     existing.getEnvVars().clear();
+                    jobRepo.saveAndFlush(existing);
+
                     if (request.envVars() != null) {
                         for (ImportEnvVarDefinition evDef : request.envVars()) {
                             JobEnvVar ev = new JobEnvVar();
