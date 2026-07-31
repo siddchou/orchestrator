@@ -559,6 +559,10 @@ mat-sidenav-container {
 [data-theme="dark"] {
   color-scheme: dark;
 
+  body {
+    color-scheme: dark !important;
+  }
+
   /* Override Material M3 system variables — these drive text color across the app */
   --mat-sys-on-surface: #e2e8f0 !important;
   --mat-sys-on-surface-variant: #94a3b8 !important;
@@ -567,6 +571,12 @@ mat-sidenav-container {
   --mat-sys-on-primary: #ffffff !important;
   --mat-sys-on-secondary: #ffffff !important;
   --mat-sys-on-tertiary: #ffffff !important;
+
+  /* Override light-dark() palette colors — buttons use these in dark mode */
+  --mat-sys-primary: #3b82f6 !important;
+  --mat-sys-secondary: #a78bfa !important;
+  --mat-sys-tertiary: #f472b6 !important;
+
   --mat-sys-background: #0f1117 !important;
   --mat-sys-surface: #1a1d27 !important;
   --mat-sys-surface-container: #1a1d27 !important;
@@ -834,14 +844,26 @@ mat-sidenav-container {
   }
 }
 
-// Select panel (dropdown panels used by mat-select)
-[data-theme="dark"] .mat-mdc-select-panel {
+// Select panel (dropdown panels used by mat-select) — renders in CDK overlay outside dialog
+[data-theme="dark"] .mat-mdc-select-panel,
+.mat-mdc-select-panel {
   background: var(--card-bg) !important;
   border: 1px solid var(--color-border) !important;
+}
 
-  .mdc-list-item__primary-text {
-    color: #e2e8f0 !important;
-  }
+[data-theme="dark"] .mat-mdc-select-panel .mdc-list-item__primary-text,
+[data-theme="dark"] .mat-mdc-option .mdc-list-item__primary-text {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .mat-mdc-option,
+.mat-mdc-option {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .mat-mdc-select-panel .mat-pseudo-checkbox,
+[data-theme="dark"] .mat-mdc-option .mat-pseudo-checkbox {
+  color: transparent !important;
 }
 
 // Form field outline inputs — dark mode border and focus ring
@@ -857,6 +879,17 @@ mat-sidenav-container {
       border-color: var(--color-border) !important;
     }
   }
+}
+
+// Floating label text — global dark mode (not just inside dialogs)
+[data-theme="dark"] .mdc-floating-label,
+[data-theme="dark"] .mat-mdc-form-field-label-text {
+  color: #94a3b8 !important;
+}
+
+// Form field input text — global dark mode
+[data-theme="dark"] .mat-mdc-input-element {
+  color: #e2e8f0 !important;
 }
 
 // Input text color in dark mode
