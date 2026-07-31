@@ -1,4 +1,7 @@
 @use '@angular/material' as mat;
+/* jsondiffpatch HTML formatter styles */
+@import 'jsondiffpatch/formatters/styles/html.css';
+@import './assets/styles/jsondiffpatch-overrides.scss';
 
 /* ── Design Tokens ────────────────────────────────────────────── */
 :root {
