@@ -8,7 +8,7 @@ import java.util.Map;
  * StepResult(boolean success, int exitCode, String logOutput).
  */
 public record StepResult(
-    StepStatus status,                    // SUCCESS / FAILED / SKIPPED
+    StepStatus status,                    // SUCCESS / FAILED / SKIPPED / CANCELLED
     Map<String, Object> outputs,          // structured outputs for Phase 3 templating
     String message,                       // human-readable summary (replaces old logOutput for metadata)
     Duration executionTime                // wall-clock time of this execute() call
@@ -19,6 +19,14 @@ public record StepResult(
 
     public static StepResult failure(String message, Duration time) {
         return new StepResult(StepStatus.FAILED, Map.of(), message, time);
+    }
+
+    public static StepResult skipped(String message, Duration time) {
+        return new StepResult(StepStatus.SKIPPED, Map.of(), message, time);
+    }
+
+    public static StepResult cancelled(String message, Duration time) {
+        return new StepResult(StepStatus.CANCELLED, Map.of(), message, time);
     }
 
     /** Backward compat: was the step successful? (maps to old boolean success field) */

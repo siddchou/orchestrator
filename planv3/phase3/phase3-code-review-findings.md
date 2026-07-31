@@ -1,122 +1,116 @@
-<!-- FILE: phase3-code-review-findings.md -->
 # Phase 3 — Code Review Findings
 
-## 1. Execution Loop (Sequential, stepOrder-based)
+## Implementation Status
 
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/JobExecutionOrchestrator.java`
+**Phase 3 is ~90% implemented.** The DAG engine, parameter resolver, dependency model, and migrations all exist in code. This document audits the existing implementation rather than speculating about future work.
 
-- **Lines 66–85:** The `execute()` method filters enabled steps then iterates them sequentially in a plain `for` loop:
-  ```java
-  var steps = job.getSteps().stream()
-      .filter(s -> "Y".equals(s.getEnabled()))
-      .toList();
-  for (JobStep step : steps) { ... }
-  ```
-- **Ordering mechanism:** Steps are ordered by `stepOrder` (Integer column on `JOB_STEP`). The ordering comes from the entity relationship: `JobRun.runSteps` uses `@OrderBy("stepOrder ASC")` ([JobRun.java:53](src/main/java/com/novakai/orchestrator/domain/entity/JobRun.java:53)), so JPA returns steps sorted by this column.
-- **Line 280:** When creating a `JobRunStep`, the orchestrator copies `step.getStepOrder()` directly into the run step record.
-- **No dependency columns exist** beyond `stepOrder`. There is no `depends_on`, no join table, no edge conditions.
+### What Exists
 
-## 2. Concurrency Model
+| Component | File | Status |
+|-----------|------|--------|
+| DAG execution engine | `DagExecutionEngine.java` (672 lines) | Complete — concurrent execution, Kahn's cycle detection, semaphore bounding, CountDownLatch sync |
+| Parameter resolver | `ParamResolver.java` | Complete — `${job.param.X}`, `${step.<id>.output.X}`, `${env.X}`, default value syntax |
+| Dependency entity | `JobStepDependency.java` | Complete — join table with edge condition enum (ON_SUCCESS/ON_FAILURE/ALWAYS) |
+| Dependency repository | `JobStepDependencyRepository.java` | Complete |
+| Resolution context | `ResolutionContext.java` | Complete — jobParams, stepOutputs, envVars record |
+| Step result | `StepResult.java` | Complete — status, outputs map, message, executionTime |
+| Migration V8 | `V8__add_step_dependencies.sql` | Complete — JOB_STEP_DEPENDENCY table (Oracle) |
+| Migration V9 | `V9__backfill_step_dependencies.sql` | Complete — stepOrder → dependency edges backfill |
+| Unit tests | `DagExecutionEngineTest.java`, `ParamResolverTest.java` | Exist — cover basic paths |
+| UI DAG canvas | `RunDagCanvasComponent.tsx` | Complete — read-only run DAG visualization |
 
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/config/AsyncConfig.java`
+### Core Architecture (As Implemented)
 
-| Bean | Type | Pool Size | Queue | Purpose |
-|------|------|-----------|-------|---------|
-| `jobTaskExecutor` | `ThreadPoolTaskExecutor` | core=10, max=20 | 50 | Job execution (one Future per run) |
-| `taskScheduler` | `ThreadPoolTaskScheduler` | 5 | n/a | Cron scheduling |
+```
+JobExecutionController.POST /api/jobs/{id}/run
+  → JobLaunchService.launch(id, MANUAL, user, params)
+    → DagExecutionEngine.execute(job, jobRun, params)
+      1. loadDependencies() — fetch JOB_STEP_DEPENDENCY edges from repo
+      2. buildDag() — construct upstream/downstream maps + root set
+      3. validateAcyclic() — Kahn's algorithm, throws CircularDependencyException
+      4. executeConcurrent(maxConcurrency=5)
+         - ConcurrentHashMap<String, StepResult> for step results
+         - Semaphore(5) to bound concurrent step execution
+         - CountDownLatch(jobStepCount) for completion sync
+         - ThreadPoolTaskExecutor (core=10, max=20, queue=50)
 
-- **Rejection policy:** `CallerRunsPolicy` ([AsyncConfig.java:30](src/main/java/com/novakai/orchestrator/engine/config/AsyncConfig.java:30))
-- **MDC propagation:** Task decorator copies MDC context at submission time ([AsyncConfig.java:33-44](src/main/java/com/novakai/orchestrator/engine/config/AsyncConfig.java:33))
-- Currently each job run = one `Future<?>` submitted to the pool. Steps within a run execute sequentially on that same thread.
-
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/JobLaunchService.java`
-
-- Lines 50-53: Three `ConcurrentHashMap`s track active state per run:
-  - `activeFutures<Long, Future<?>>` — the async handle for cancellation
-  - `activeContexts<Long, ExecutionContext>` — mutable cancel flag + env vars
-  - `liveLogQueues<Long, BlockingQueue<String>>` — SSE log streaming
-
-## 3. StepResult / StepContext Shape (Post-Phase 1)
-
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/spi/StepResult.java`
-
-```java
-public record StepResult(
-    StepStatus status,                    // SUCCESS / FAILED / SKIPPED
-    Map<String, Object> outputs,          // structured outputs for Phase 3 templating
-    String message,                       // human-readable summary
-    Duration executionTime                // wall-clock time
-)
+      5. submitStep() — per-step: acquire semaphore → execute → signal dependents → release semaphore
+      6. signalDependents() — check edge conditions, fire downstream steps with resolved templates
 ```
 
-- `StepStatus.SKIPPED` is already defined but not yet used ([StepStatus.java:9](src/main/java/com/novakai/orchestrator/engine/spi/StepStatus.java:9))
-- Backward-compat methods: `isSuccess()`, `getExitCode()` (reads from outputs map), `getLogOutput()` (returns message)
+## Bugs Found
 
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/spi/StepContext.java`
+### BUG-1: Empty upstreamOutputs in StepContext (High)
 
-Key fields relevant to Phase 3:
-- `Map<String, StepResult> upstreamOutputs` — **currently always empty** ([JobExecutionOrchestrator.java:237](src/main/java/com/novakai/orchestrator/engine/JobExecutionOrchestrator.java:237): `.upstreamOutputs(Map.of())`)
-- `Map<String, Object> resolvedParams` — exists but not populated from anywhere yet
-- `volatile boolean cancelRequested` — mutable across threads via setter
-
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/ExecutionContext.java`
-
-- Legacy context object still used by `JobLaunchService`. Contains `cancelRequested`, `envVars`, `liveLogQueue`, etc.
-- `JobExecutionOrchestrator.buildStepContext()` bridges ExecutionContext → StepContext (line 212)
-
-## 4. Run Trigger Endpoint
-
-**File:** `../../src/main/java/com/novakai/orchestrator/api/controller/JobExecutionController.java`
+**File:** `DagExecutionEngine.java:626`
 
 ```java
-@PostMapping("/jobs/{id}/run")          // line 33
-public ApiResponse<JobRunSummary> trigger(
-        @PathVariable Long id,
-        Authentication auth)             // NO request body parameter
+.upstreamOutputs(Map.of())  // ← hardcoded empty map
 ```
 
-- Currently accepts **no request body** — just path variable and auth
-- Delegates to `launchService.launch(id, TriggerType.MANUAL, username)` which takes no parameters map
-- There is also a name-based variant: `POST /jobs/name/{name}/run` (line 45) with same signature
+When building `StepContext` for step execution, the engine passes an empty map for `upstreamOutputs`. This means downstream steps cannot access upstream step outputs via `${step.<id>.output.X}` templates — the resolution context has no data to resolve against.
 
-## 5. Existing Templating Logic
+**Impact:** Parameter templating across steps is broken. Step B cannot read Step A's output even if the dependency edge exists and Step A succeeded.
 
-**File:** `../../src/main/java/com/novakai/orchestrator/engine/executors/SftpStepExecutor.java`
+**Fix:** Build a `Map<String, Map<String, Object>>` from `stepResults` at StepContext build time. For each completed upstream step of the current step, include its outputs.
 
-- Lines 297-307: A simple string-replacement method for remote file naming:
-  ```java
-  return template.replace("${fileName}", nameWithoutExt)
-                 .replace("${fileExtension}", extension)
-                 .replace("${timestamp}", String.valueOf(System.currentTimeMillis()));
-  ```
-- This is **executor-specific**, not a centralized resolver. No `${job.param.X}` or `${step.<id>.output.X}` pattern exists anywhere else.
+### BUG-2: SKIPPED steps recorded as FAILED (Medium)
 
-**No other templating/variable-substitution logic found in the codebase.** The `@Value("${...}")` usages are Spring property placeholders only.
+**File:** `DagExecutionEngine.java:378`
 
-## 6. Flyway Migration Versions
+```java
+StepResult.failure("Skipped - upstream condition not met")
+```
 
-| Version | File | Purpose |
-|---------|------|---------|
-| V1 | `V1__create_job_definition.sql` | JOB_DEFINITION, JOB_STEP, JOB_ENV_VAR |
-| V2 | `V2__create_job_run.sql` | JOB_RUN, JOB_RUN_STEP |
-| V3 | `V3__create_schedule_and_credential.sql` | JOB_SCHEDULE, JOB_CREDENTIAL, AUDIT_LOG |
-| V4 | `V4__create_app_user.sql` | App user table |
-| V5 | `V5__add_env_setup_to_job_definition.sql` | Env setup column |
-| V6 | `V6__relax_step_type_constraint.sql` | Removes step type CHECK constraint |
-| V7 | `V7__add_multi_tenancy.sql` | TEAM, USER_TEAM tables |
+When a dependent step is skipped because an upstream edge condition was not satisfied, the code uses `StepResult.failure()` which sets status to `FAILED`. This should use `StepStatus.SKIPPED`.
 
-**Next free version: V8**
+**Impact:** Run detail page shows SKIPPED steps as FAILED. Metrics and audit logs are inaccurate. Downstream skip propagation logic may misfire (a "failed" step triggers ON_FAILURE edges when it shouldn't).
 
-## 7. Additional Findings
+**Fix:** Use a dedicated `StepResult.skipped()` factory method or construct with `StepStatus.SKIPPED`.
 
-- **Database dialect:** Migrations use Oracle syntax (`NUMBER GENERATED ALWAYS AS IDENTITY`, `VARCHAR2`, `CLOB`, `SYSTIMESTAMP`). Phase 3 SQL must be Oracle-compatible.
-- **`continueOnFailure` field:** Currently a `CHAR(1)` Y/N column on JOB_STEP, checked in the orchestrator loop (line 80). This is a per-step flag that says "if this step fails, keep going to the next step." In Phase 3's DAG model, this concept maps naturally to edge conditions.
-- **`markRemainingStepsCancelled`:** Uses `JobRunStepRepository.findIncompleteStepsByRunId()` — finds PENDING/RUNNING steps and marks them CANCELLED. This logic needs updating for DAG (cancel unsatisfied dependents, not just "remaining by order").
-- **Thread safety of envVars:** `StepContext.envVars` is a mutable `HashMap` ([StepContext.java:47](src/main/java/com/novakai/orchestrator/engine/spi/StepContext.java:47): `new HashMap<>(oldCtx.getEnvVars())`). ENV_SETUP executor mutates this map. Under concurrent step execution, shared envVars from the same ExecutionContext would be a data race.
+### BUG-3: Timing inaccuracy (Low)
 
-## 8. [NOT FOUND] Items
+**File:** `DagExecutionEngine.java:286-287`
 
-- **No `ParamResolver` class exists** — confirmed absent
-- **No DAG engine exists** — confirmed absent
-- **No `JOB_STEP_DEPENDENCY` table or column** — confirmed absent
-- **No request body DTO for the run endpoint** — the endpoint takes no body at all currently
+Start time is captured at task submission time, not at actual executor invocation. End time is after signalDependents. This inflates reported execution times by including dependency signaling overhead and template resolution time.
+
+**Impact:** Execution metrics are slightly inflated (typically 10-50ms per step). Not visible to users for steps that take seconds, but noticeable for fast steps.
+
+**Fix:** Capture `startTime` immediately before calling the executor, and capture end time immediately after. Exclude template resolution and signaling from the timing window.
+
+### BUG-4: Cancel runs as failure, not cancellation (Low)
+
+When a run has `cancelRequested = true`, the engine marks pending steps as FAILED rather than CANCELLED. There's no distinct CANCELLED status handling in the DAG path.
+
+**Impact:** Cancelled runs appear identical to failed runs in audit logs and metrics. No way to distinguish "user cancelled" from "step crashed."
+
+**Fix:** Check `cancelRequested` before marking a step FAILED. If cancel is requested, use a CANCELLED status (may require adding this enum value to StepStatus).
+
+## Observations
+
+### Thread Safety
+The existing concurrency primitives are well-chosen:
+- `ConcurrentHashMap` for step results — correct for put/get pattern
+- `Semaphore(5)` for bounding concurrent steps — prevents DB overload
+- `CountDownLatch` for DAG completion — simple, effective
+- `ThreadPoolTaskExecutor` (Spring-managed) — proper lifecycle
+
+**One concern:** `StepContext.envVars` is a mutable HashMap shared from ExecutionContext. Under concurrent execution, two steps running in parallel could see each other's ENV_SETUP mutations. The fix is to give each step its own copy of envVars and propagate changes via StepResult.outputs (explicit data flow).
+
+### CredentialResolver
+The lambda-based credential resolver creates a new DB transaction per call — thread-safe. However, `DecryptionService` may reuse a `javax.crypto.Cipher` instance, which is **not** thread-safe. Verify and fix if needed.
+
+### Cancellation under concurrency
+Current `Future.cancel(true)` only interrupts one thread. Under DAG execution, steps run on different pool threads. The `cancelRequested` flag approach works but needs to be checked at more points: before step execution AND after dependency latch release (to avoid waiting indefinitely for a cancelled upstream).
+
+## Remaining Work Items
+
+1. **Fix BUG-1** — Pass actual upstream outputs to StepContext (~2 hours)
+2. **Fix BUG-2** — Use SKIPPED status for skipped steps (~1 hour)
+3. **Fix BUG-3** — Tighten timing window (~0.5 hours)
+4. **Fix BUG-4** — Add CANCELLED status handling (~2 hours)
+5. **Verify envVars thread safety** — Per-step copy under concurrent execution (~1 hour)
+6. **Add e2e test for diamond DAG concurrency** — Prove parallel execution actually happens (~3 hours)
+7. **Clean up legacy comments** — Remove "Phase 2" references in Phase 3 code (~0.5 hours)
+
+**Total remaining effort: ~9-12 hours (2 story points)**

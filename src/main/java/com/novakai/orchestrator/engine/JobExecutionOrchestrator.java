@@ -234,7 +234,7 @@ public class JobExecutionOrchestrator {
             .logSink(logSink)
             .credentials(credentialResolver)
             .workDir(oldCtx.getWorkingDir() != null ? Path.of(oldCtx.getWorkingDir()) : null)
-            .upstreamOutputs(Map.of()) // empty in Phase 1; populated starting Phase 3
+            .upstreamOutputs(Map.of()) // linear execution has no parallel upstreams
             .build();
     }
 
