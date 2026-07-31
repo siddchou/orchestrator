@@ -58,6 +58,11 @@ export class ImportDialogComponent {
     }
   }
 
+  triggerFileInput(): void {
+    const input = document.querySelector('.file-input') as HTMLInputElement | null;
+    input?.click();
+  }
+
   private readFiles(files: FileList): void {
     const file = files[0];
     if (!file) return;
@@ -100,7 +105,7 @@ export class ImportDialogComponent {
         if (res.status === 'SUCCESS') {
           this.dialogRef.close(res.data);
         } else {
-          this.error = res.message || 'Import failed';
+          this.error = res.error || 'Import failed';
           this.isLoading = false;
         }
       },

@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -20,7 +20,7 @@ export interface RollbackDialogData {
 })
 export class RollbackConfirmDialogComponent {
   private dialogRef = inject(MatDialogRef<RollbackConfirmDialogComponent>);
-  data = inject<RollbackDialogData>('MAT_DIALOG_DATA');
+  data = inject<RollbackDialogData>(MAT_DIALOG_DATA);
 
   confirm(): void {
     this.dialogRef.close(true);

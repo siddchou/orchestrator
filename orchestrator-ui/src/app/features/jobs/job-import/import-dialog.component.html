@@ -13,7 +13,7 @@
     <p>Drop a JSON or YAML file here, or</p>
   }
   <input type="file" accept=".json,.yaml,.yml" (change)="onFileSelected($event)" class="file-input" />
-  <button mat-stroked-button (click)="document.querySelector('.file-input')?.click()">Browse Files</button>
+  <button mat-stroked-button (click)="triggerFileInput()">Browse Files</button>
 </div>
 
 <div class="format-row">

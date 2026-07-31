@@ -20,7 +20,6 @@ import { RollbackConfirmDialogComponent, RollbackDialogData } from './rollback-c
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatSelectModule,
     MatFormFieldModule, MatProgressSpinnerModule, MatDialogModule, FormsModule,
-    RollbackConfirmDialogComponent,
   ],
   templateUrl: './version-history.component.html',
   styleUrl: './version-history.component.scss',
