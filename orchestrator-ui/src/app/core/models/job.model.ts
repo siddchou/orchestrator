@@ -48,6 +48,22 @@ export interface JobStep {
   enabled: boolean;
 }
 
+/** Edge condition for DAG step dependencies */
+export type EdgeCondition = 'ON_SUCCESS' | 'ON_FAILURE' | 'ALWAYS';
+
+/** A dependency from one step to another in the DAG */
+export interface StepDependency {
+  stepDependencyId?: number;
+  dependsOnStepId: number;
+  dependsOnStepName: string;
+  edgeCondition: EdgeCondition;
+}
+
+/** JobStep with its outgoing dependencies loaded */
+export interface JobStepWithDependencies extends JobStep {
+  dependencies: StepDependency[];
+}
+
 export interface EnvVar {
   envVarId: number;
   key: string;
