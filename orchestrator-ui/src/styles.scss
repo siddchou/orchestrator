@@ -962,3 +962,66 @@ mat-sidenav-container {
 [data-theme="dark"] mat-divider {
   border-color: var(--color-border) !important;
 }
+
+// DAG Canvas dark mode overrides
+[data-theme="dark"] {
+  --dag-canvas-bg: #1a1d27;
+  --dag-node-bg: #232638;
+  --dag-node-border: rgba(255, 255, 255, 0.1);
+  --dag-edge-color: #94a3b8;
+  --dag-port-color: #818cf8;
+  --on-surface: #e2e8f0;
+  --on-surface-variant: #94a3b8;
+}
+
+[data-theme="dark"] .dag-canvas-wrapper,
+[data-theme="dark"] .run-dag-wrapper {
+  background: var(--dag-canvas-bg) !important;
+}
+
+[data-theme="dark"] .dag-node,
+[data-theme="dark"] .run-node {
+  background: var(--dag-node-bg) !important;
+  border-color: var(--dag-node-border) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+  }
+}
+
+[data-theme="dark"] .edge-condition-picker {
+  background: var(--dag-node-bg) !important;
+  border-color: var(--dag-node-border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme="dark"] .edge-condition-picker .option {
+  color: #e2e8f0 !important;
+
+  &:hover {
+    background: #6366f1 !important;
+    color: #ffffff !important;
+  }
+}
+
+[data-theme="dark"] .port {
+  background: var(--dag-port-color) !important;
+  border-color: var(--dag-node-bg) !important;
+}
+
+[data-theme="dark"] .delete-btn {
+  background: var(--dag-node-bg) !important;
+  border-color: var(--dag-node-border) !important;
+  color: #f87171 !important;
+
+  &:hover {
+    background: #f87171 !important;
+    color: #ffffff !important;
+  }
+}
+
+[data-theme="dark"] .grid-svg path,
+[data-theme="dark"] .grid-svg rect {
+  stroke: rgba(255, 255, 255, 0.06) !important;
+}
