@@ -1,18 +1,14 @@
 package com.novakai.orchestrator.engine.executors;
 
-// @author Siddhant Choudhary
-
 import com.novakai.orchestrator.domain.config.SftpConfig;
-import com.novakai.orchestrator.domain.entity.JobCredential;
-import com.novakai.orchestrator.domain.enums.CredentialType;
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
-import com.novakai.orchestrator.engine.StepExecutor;
-import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
-import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
-import com.novakai.orchestrator.repository.JobCredentialRepository;
+import com.novakai.orchestrator.engine.template.ParamResolver;
+import com.novakai.orchestrator.engine.spi.FieldDefinition;
+import com.novakai.orchestrator.engine.spi.FieldType;
+import com.novakai.orchestrator.engine.spi.StepConfigSchema;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepExecutor;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
@@ -33,8 +29,11 @@ import java.nio.file.Path;
 import java.nio.file.PathMatcher;
 import java.nio.file.Paths;
 import java.security.KeyPair;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -43,8 +42,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class SftpStepExecutor implements StepExecutor {
 
-    private final JobCredentialRepository credentialRepo;
-    private final CredentialDecryptionService decryptionService;
     private final JsonParser jsonParser;
 
     // Track running clients for graceful shutdown
@@ -53,57 +50,67 @@ public class SftpStepExecutor implements StepExecutor {
     @Value("${orchestrator.sftp.known-hosts-file}")
     private String knownHostsFile;
 
-    public SftpStepExecutor(JobCredentialRepository credentialRepo,
-                            CredentialDecryptionService decryptionService,
-                            JsonParser jsonParser) {
-        this.credentialRepo = credentialRepo;
-        this.decryptionService = decryptionService;
+    public SftpStepExecutor(JsonParser jsonParser) {
         this.jsonParser = jsonParser;
     }
 
     @Override
-    public StepType getSupportedType() {
-        return StepType.SFTP;
+    public String getType() {
+        return "SFTP";
     }
 
     @Override
-    public StepResult execute(ExecutionContext ctx, JobStep step) throws Exception {
-        SftpConfig config = jsonParser.parse(step.getStepConfig(), SftpConfig.class);
+    public StepConfigSchema getConfigSchema() {
+        return new StepConfigSchema("SFTP", "SFTP Transfer", List.of(
+            new FieldDefinition("host", "Host", FieldType.STRING, true, null, null, "SSH server hostname or IP"),
+            new FieldDefinition("port", "Port", FieldType.NUMBER, false, 22, null, "SSH port (default: 22)"),
+            new FieldDefinition("username", "Username", FieldType.STRING, true, null, null, "SSH username for authentication"),
+            new FieldDefinition("credentialRef", "Credential Reference", FieldType.SECRET_REF, true, null, null, "Reference to stored SSH key or password credential"),
+            new FieldDefinition("remoteDir", "Remote Directory", FieldType.STRING, true, null, null, "Remote directory path for transfer"),
+            new FieldDefinition("filePattern", "File Pattern", FieldType.FILE_PATTERN, true, null, null, "Glob pattern for files to transfer"),
+            new FieldDefinition("direction", "Direction", FieldType.ENUM, true, null, List.of("UPLOAD", "DOWNLOAD"), "Transfer direction: UPLOAD or DOWNLOAD"),
+            new FieldDefinition("remoteFileName", "Remote File Name Template", FieldType.STRING, false, null, null, "Template for remote file naming (${fileName}, ${fileExtension}, ${timestamp})"),
+            new FieldDefinition("connectionTimeoutSeconds", "Connection Timeout", FieldType.NUMBER, false, 30, null, "SSH connection timeout in seconds"),
+            new FieldDefinition("authTimeoutSeconds", "Auth Timeout", FieldType.NUMBER, false, 30, null, "SSH authentication timeout in seconds")
+        ));
+    }
+
+    @Override
+    public StepResult execute(StepContext ctx) throws Exception {
+        long start = System.nanoTime();
+        SftpConfig config = jsonParser.parse(ctx.getStepConfig(), SftpConfig.class);
 
         if (config == null) {
-            return StepResult.failure("SftpConfig is null or empty");
+            return StepResult.failure("SftpConfig is null or empty", Duration.ofNanos(System.nanoTime() - start));
         }
 
         // Validate direction configuration
         String direction = config.direction();
         if (direction == null || (!"UPLOAD".equalsIgnoreCase(direction) && !"DOWNLOAD".equalsIgnoreCase(direction))) {
-            return StepResult.failure("Invalid or missing direction: must be 'UPLOAD' or 'DOWNLOAD'");
+            return StepResult.failure("Invalid or missing direction: must be 'UPLOAD' or 'DOWNLOAD'",
+                Duration.ofNanos(System.nanoTime() - start));
         }
         boolean isUpload = "UPLOAD".equalsIgnoreCase(direction);
 
         StringBuilder output = new StringBuilder();
 
-        JobCredential cred = credentialRepo.findByCredentialRef(config.credentialRef())
-            .orElseThrow(() -> new RuntimeException("Credential not found: " + config.credentialRef()));
-
-        log.debug("SFTP: credential ref={} type={}", config.credentialRef(), cred.getCredType());
-        String decryptedValue = decryptionService.decrypt(cred.getCredValue());
+        String decryptedValue = ctx.getCredentials().resolve(config.credentialRef());
 
         // Get timeout values with defaults
         int connectionTimeoutSec = config.connectionTimeoutSeconds() != null ? config.connectionTimeoutSeconds() : 30;
         int authTimeoutSec = config.authTimeoutSeconds() != null ? config.authTimeoutSeconds() : 30;
 
         if (isUpload) {
-            output.append(doUpload(ctx, config, cred, decryptedValue, connectionTimeoutSec, authTimeoutSec));
+            output.append(doUpload(ctx, config, decryptedValue, connectionTimeoutSec, authTimeoutSec));
         } else {
-            output.append(doDownload(ctx, config, cred, decryptedValue, connectionTimeoutSec, authTimeoutSec));
+            output.append(doDownload(ctx, config, decryptedValue, connectionTimeoutSec, authTimeoutSec));
         }
 
-        return StepResult.success(output.toString());
+        return StepResult.success(Map.of(), output.toString(), Duration.ofNanos(System.nanoTime() - start));
     }
 
-    private String doUpload(ExecutionContext ctx, SftpConfig config, JobCredential cred,
-                            String decryptedValue, int connectionTimeoutSec, int authTimeoutSec) throws Exception {
+    private String doUpload(StepContext ctx, SftpConfig config, String decryptedValue,
+                            int connectionTimeoutSec, int authTimeoutSec) throws Exception {
         StringBuilder output = new StringBuilder();
 
         PathMatcher matcher = java.nio.file.FileSystems.getDefault()
@@ -121,17 +128,12 @@ public class SftpStepExecutor implements StepExecutor {
         }
 
         SshClient client = SshClient.setUpDefaultClient();
-
         configureHostKeyVerifier(client);
 
-        if (cred.getCredType() == CredentialType.SSH_KEY) {
-            Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
-            client.setKeyIdentityProvider(session -> keyPairs);
-        }
+        Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
+        client.setKeyIdentityProvider(session -> keyPairs);
 
         client.start();
-
-        // Track client for graceful shutdown
         runningClients.add(client);
 
         ClientSession session = null;
@@ -141,11 +143,7 @@ public class SftpStepExecutor implements StepExecutor {
             session = client.connect(config.username(), config.host(), config.port())
                 .verify(connectionTimeoutSec, TimeUnit.SECONDS)
                 .getSession();
-
-            // Add password identity for password-based auth
-            if (cred.getCredType() != CredentialType.SSH_KEY) {
-                session.addPasswordIdentity(decryptedValue);
-            }
+            session.addPasswordIdentity(decryptedValue);
             session.auth().verify(authTimeoutSec, TimeUnit.SECONDS);
 
             sftp = SftpClientFactory.instance().createSftpClient(session);
@@ -193,43 +191,25 @@ public class SftpStepExecutor implements StepExecutor {
             }
 
         } finally {
-            try {
-                if (sftp != null) {
-                    sftp.close();
-                }
-            } catch (IOException e) {
-                log.warn("Error closing SFTP client", e);
-            }
-            if (session != null) {
-                session.close(false);
-            }
-            try {
-                client.stop();
-            } finally {
-                // Remove from tracking after proper shutdown
-                runningClients.remove(client);
-            }
+            try { if (sftp != null) sftp.close(); } catch (IOException e) { log.warn("Error closing SFTP client", e); }
+            if (session != null) session.close(false);
+            try { client.stop(); } finally { runningClients.remove(client); }
         }
 
         return output.toString();
     }
 
-    private String doDownload(ExecutionContext ctx, SftpConfig config, JobCredential cred,
-                              String decryptedValue, int connectionTimeoutSec, int authTimeoutSec) throws Exception {
+    private String doDownload(StepContext ctx, SftpConfig config, String decryptedValue,
+                              int connectionTimeoutSec, int authTimeoutSec) throws Exception {
         StringBuilder output = new StringBuilder();
 
         SshClient client = SshClient.setUpDefaultClient();
-
         configureHostKeyVerifier(client);
 
-        if (cred.getCredType() == CredentialType.SSH_KEY) {
-            Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
-            client.setKeyIdentityProvider(session -> keyPairs);
-        }
+        Iterable<KeyPair> keyPairs = loadKeyIdentities(decryptedValue);
+        client.setKeyIdentityProvider(session -> keyPairs);
 
         client.start();
-
-        // Track client for graceful shutdown
         runningClients.add(client);
 
         ClientSession session = null;
@@ -239,15 +219,11 @@ public class SftpStepExecutor implements StepExecutor {
             session = client.connect(config.username(), config.host(), config.port())
                 .verify(connectionTimeoutSec, TimeUnit.SECONDS)
                 .getSession();
-
-            if (cred.getCredType() != CredentialType.SSH_KEY) {
-                session.addPasswordIdentity(decryptedValue);
-            }
+            session.addPasswordIdentity(decryptedValue);
             session.auth().verify(authTimeoutSec, TimeUnit.SECONDS);
 
             sftp = SftpClientFactory.instance().createSftpClient(session);
 
-            // List files in remote directory matching pattern
             String remoteDir = config.remoteDir();
             if (!remoteDir.endsWith("/")) {
                 remoteDir += "/";
@@ -257,9 +233,7 @@ public class SftpStepExecutor implements StepExecutor {
             var entries = sftp.readDir(remoteDir);
             for (var entry : entries) {
                 String filename = entry.getFilename();
-                if (".".equals(filename) || "..".equals(filename)) {
-                    continue;
-                }
+                if (".".equals(filename) || "..".equals(filename)) continue;
                 PathMatcher matcher = java.nio.file.FileSystems.getDefault()
                     .getPathMatcher("glob:" + config.filePattern());
                 if (matcher.matches(Path.of(filename))) {
@@ -314,31 +288,14 @@ public class SftpStepExecutor implements StepExecutor {
             }
 
         } finally {
-            try {
-                if (sftp != null) {
-                    sftp.close();
-                }
-            } catch (IOException e) {
-                log.warn("Error closing SFTP client", e);
-            }
-            if (session != null) {
-                session.close(false);
-            }
-            try {
-                client.stop();
-            } finally {
-                // Remove from tracking after proper shutdown
-                runningClients.remove(client);
-            }
+            try { if (sftp != null) sftp.close(); } catch (IOException e) { log.warn("Error closing SFTP client", e); }
+            if (session != null) session.close(false);
+            try { client.stop(); } finally { runningClients.remove(client); }
         }
 
         return output.toString();
     }
 
-    /**
-     * Resolve the remote file name using template variables.
-     * Supports: ${fileName} (name without extension), ${fileExtension}, ${timestamp}
-     */
     private String resolveRemoteFileName(String template, String originalName) {
         String nameWithoutExt = originalName.contains(".")
                 ? originalName.substring(0, originalName.lastIndexOf('.'))
@@ -347,16 +304,14 @@ public class SftpStepExecutor implements StepExecutor {
                 ? originalName.substring(originalName.lastIndexOf('.'))
                 : "";
 
-        String result = template.replace("${fileName}", nameWithoutExt)
-                               .replace("${fileExtension}", extension)
-                               .replace("${timestamp}", String.valueOf(System.currentTimeMillis()));
+        Map<String, Object> vars = new HashMap<>();
+        vars.put("fileName", nameWithoutExt);
+        vars.put("fileExtension", extension);
+        vars.put("timestamp", System.currentTimeMillis());
 
-        return result;
+        return ParamResolver.resolveSimple(template, vars);
     }
 
-    /**
-     * Configure host key verification using the known_hosts file.
-     */
     private void configureHostKeyVerifier(SshClient client) {
         if (knownHostsFile == null || knownHostsFile.isBlank()) {
             log.warn("SFTP: no known-hosts-file configured; host key verification disabled");
@@ -370,11 +325,6 @@ public class SftpStepExecutor implements StepExecutor {
         client.setServerKeyVerifier(new DefaultKnownHostsServerKeyVerifier(RejectAllServerKeyVerifier.INSTANCE, true, knownHostsPath));
     }
 
-    /**
-     * Load KeyPair identities from either a file path or direct key content.
-     * If the decryptedValue is an existing file, it loads from that file.
-     * Otherwise, it treats the value as PEM-encoded key content.
-     */
     private Iterable<KeyPair> loadKeyIdentities(String decryptedValue) throws Exception {
         Path potentialPath = Paths.get(decryptedValue);
         if (Files.exists(potentialPath)) {
@@ -388,9 +338,6 @@ public class SftpStepExecutor implements StepExecutor {
             null, null, new java.io.ByteArrayInputStream(decryptedValue.getBytes(java.nio.charset.StandardCharsets.UTF_8)), null);
     }
 
-    /**
-     * Shutdown hook to terminate any running SFTP clients when the application shuts down.
-     */
     @PreDestroy
     public void shutdown() {
         if (!runningClients.isEmpty()) {

@@ -1,24 +1,25 @@
 package com.novakai.orchestrator.engine.executors;
 
-// @author Siddhant Choudhary
-
 import com.novakai.orchestrator.domain.config.LogCleanupConfig;
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
-import com.novakai.orchestrator.engine.StepExecutor;
-import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
+import com.novakai.orchestrator.engine.spi.FieldDefinition;
+import com.novakai.orchestrator.engine.spi.FieldType;
+import com.novakai.orchestrator.engine.spi.StepConfigSchema;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepExecutor;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
-import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@Slf4j
 public class LogCleanupStepExecutor implements StepExecutor {
 
     private final JsonParser jsonParser;
@@ -28,22 +29,32 @@ public class LogCleanupStepExecutor implements StepExecutor {
     }
 
     @Override
-    public StepType getSupportedType() {
-        return StepType.LOG_CLEANUP;
+    public String getType() {
+        return "LOG_CLEANUP";
     }
 
     @Override
-    public StepResult execute(ExecutionContext ctx, JobStep step) throws Exception {
+    public StepConfigSchema getConfigSchema() {
+        return new StepConfigSchema("LOG_CLEANUP", "Log Cleanup", List.of(
+            new FieldDefinition("directory", "Directory to Clean", FieldType.STRING, true, null, null, "Absolute or relative path to the directory"),
+            new FieldDefinition("filePattern", "File Pattern", FieldType.FILE_PATTERN, false, null, null, "Glob pattern for files to delete (e.g., *.log)"),
+            new FieldDefinition("extraPatterns", "Extra Patterns", FieldType.LIST_STRING, false, null, null, "Additional comma-separated glob patterns to delete")
+        ));
+    }
+
+    @Override
+    public StepResult execute(StepContext ctx) throws Exception {
+        long start = System.nanoTime();
         StringBuilder output = new StringBuilder();
-        LogCleanupConfig config = jsonParser.parse(step.getStepConfig(), LogCleanupConfig.class);
+        LogCleanupConfig config = jsonParser.parse(ctx.getStepConfig(), LogCleanupConfig.class);
 
         if (config == null) {
-            return StepResult.failure("LogCleanupConfig is null or empty");
+            return StepResult.failure("LogCleanupConfig is null or empty", Duration.ofNanos(System.nanoTime() - start));
         }
 
         Path dir = resolveDir(ctx.getWorkingDir(), config.directory());
         if (!Files.isDirectory(dir)) {
-            return StepResult.failure("Cleanup directory does not exist: " + dir);
+            return StepResult.failure("Cleanup directory does not exist: " + dir, Duration.ofNanos(System.nanoTime() - start));
         }
 
         List<String> patterns = new ArrayList<>();
@@ -55,10 +66,8 @@ public class LogCleanupStepExecutor implements StepExecutor {
         }
 
         if (patterns.isEmpty()) {
-            return StepResult.failure("No file patterns specified");
+            return StepResult.failure("No file patterns specified", Duration.ofNanos(System.nanoTime() - start));
         }
-
-        log.info("LogCleanup: scanning dir={} patterns={}", dir, patterns);
 
         List<PathMatcher> matchers = patterns.stream()
             .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
@@ -69,7 +78,6 @@ public class LogCleanupStepExecutor implements StepExecutor {
             for (Path file : stream) {
                 String name = file.getFileName().toString();
                 boolean matches = matchers.stream().anyMatch(m -> m.matches(Path.of(name)));
-                log.info("LogCleanup: file={} matches={}", name, matches);
                 if (matches) {
                     Files.delete(file);
                     output.append("Deleted: ").append(file.getFileName()).append("\n");
@@ -79,7 +87,7 @@ public class LogCleanupStepExecutor implements StepExecutor {
         }
 
         output.append("Total files deleted: ").append(deleted).append("\n");
-        return StepResult.success(output.toString());
+        return StepResult.success(java.util.Map.of(), output.toString(), Duration.ofNanos(System.nanoTime() - start));
     }
 
     private Path resolveDir(String workingDir, String dir) {

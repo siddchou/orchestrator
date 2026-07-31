@@ -1,6 +1,5 @@
-import { Component, inject, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, ViewChild, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,13 +8,18 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { StepType, EnvSetupConfig, LogCleanupConfig, JavaExecConfig, SftpConfig, ArchiveConfig } from '../../../core/models/job.model';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { StepConfigSchema } from '../../../core/models/job.model';
+import { Credential } from '../../../core/models/credential.model';
+import { JobService } from '../../../core/services/job.service';
+import { CredentialService } from '../../../core/services/credential.service';
+import { DynamicStepFormComponent } from '../../../shared/components/dynamic-step-form/dynamic-step-form';
 
 export interface StepFormData {
   stepId?: number;
   stepName: string;
   stepOrder: number;
-  stepType: StepType;
+  stepType: string;
   stepConfig: string;
   continueOnFailure: boolean;
   enabled: boolean;
@@ -23,22 +27,30 @@ export interface StepFormData {
 
 @Component({
   selector: 'app-step-form-dialog',
+  standalone: true,
   imports: [
     CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSelectModule, MatSlideToggleModule, MatDialogModule,
+    MatSnackBarModule, DynamicStepFormComponent,
   ],
   templateUrl: './step-form-dialog.html',
   styleUrl: './step-form-dialog.scss',
 })
-export class StepFormDialog implements OnDestroy {
+export class StepFormDialog {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<StepFormDialog>);
+  private jobService = inject(JobService);
+  private credentialService = inject(CredentialService);
+  private snackbar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
   data = inject<StepFormData>(MAT_DIALOG_DATA);
 
-  stepTypes: StepType[] = ['LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE'];
+  @ViewChild(DynamicStepFormComponent) dynamicForm?: DynamicStepFormComponent;
 
   form: FormGroup;
-  private typeChangeSub?: Subscription;
+  availableTypes: StepConfigSchema[] = [];
+  loadingTypes = true;
+  credentials: Credential[] = [];
 
   constructor() {
     this.form = this.fb.group({
@@ -46,168 +58,101 @@ export class StepFormDialog implements OnDestroy {
       stepType: [this.data.stepType, Validators.required],
       continueOnFailure: [this.data.continueOnFailure],
       enabled: [this.data.enabled],
-      // ENV_SETUP
-      javaHome: [''],
-      classpath: [''],
-      // LOG_CLEANUP
-      cleanupDir: [''],
-      filePattern: [''],
-      extraPatterns: [''],
-      // JAVA_EXEC
-      mainClass: [''],
-      jarPath: [''],
-      jvmArgs: [''],
-      args: [''],
-      timeoutMinutes: [null],
-      // SFTP
-      host: [''],
-      port: [22],
-      username: [''],
-      credentialRef: [''],
-      remoteDir: [''],
-      sftp_filePattern: [''],
-      direction: ['UPLOAD'],
-      remoteFileName: [''],
-      // ARCHIVE
-      sourceDir: [''],
-      archiveDir: [''],
-      archivePatterns: [''],
-      archiveFormat: ['ZIP'],
-      deleteOriginal: [false],
+    });
+  }
+
+  ngOnInit(): void {
+    this.jobService.listStepTypes().subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.availableTypes = res.data.sort((a, b) => a.displayName.localeCompare(b.displayName));
+        }
+        this.loadingTypes = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.loadingTypes = false;
+        this.cd.detectChanges();
+      },
     });
 
-    // Pre-fill from stepConfig JSON if editing
-    if (this.data.stepConfig) {
-      const configValues = this.configToFormValues(this.data.stepType, this.data.stepConfig);
-      this.form.patchValue(configValues);
+    this.credentialService.listCredentials().subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.credentials = res.data;
+        }
+        this.cd.detectChanges();
+      },
+      error: () => {
+        // Credentials optional - dialog still works without them
+      },
+    });
+  }
+
+  get selectedSchema(): StepConfigSchema | undefined {
+    const type = this.form.get('stepType')?.value;
+    return this.availableTypes.find(s => s.stepType === type);
+  }
+
+  /** E5: True when editing an existing step whose type was removed from backend */
+  get isStepTypeRemoved(): boolean {
+    if (!this.data.stepId || this.loadingTypes) return false;
+    const currentType = this.form.get('stepType')?.value;
+    // If user changed to a valid type, not removed
+    if (currentType && this.availableTypes.some(s => s.stepType === currentType)) return false;
+    return true;
+  }
+
+  private cachedExistingConfig: Record<string, unknown> | null | undefined;
+  private cachedStepConfig: string | undefined;
+
+  get existingConfig(): Record<string, unknown> | null {
+    if (!this.data.stepConfig) return null;
+    if (this.cachedStepConfig === this.data.stepConfig && this.cachedExistingConfig !== undefined) {
+      return this.cachedExistingConfig;
     }
-
-    // Clear old-type fields when step type changes
-    this.typeChangeSub = this.form.get('stepType')?.valueChanges.subscribe(type => {
-      this.form.patchValue({
-        javaHome: '', classpath: '',
-        cleanupDir: '', filePattern: '', extraPatterns: '',
-        mainClass: '', jarPath: '', jvmArgs: '', args: '', timeoutMinutes: null,
-        host: '', port: 22, username: '', credentialRef: '', remoteDir: '', sftp_filePattern: '', direction: 'UPLOAD', remoteFileName: '',
-        sourceDir: '', archiveDir: '', archivePatterns: '', archiveFormat: 'ZIP', deleteOriginal: false,
-      });
-    });
-  }
-
-  ngOnDestroy(): void {
-    this.typeChangeSub?.unsubscribe();
-  }
-
-  get selectedType(): StepType {
-    return this.form.value.stepType as StepType;
+    this.cachedStepConfig = this.data.stepConfig;
+    try {
+      this.cachedExistingConfig = JSON.parse(this.data.stepConfig);
+    } catch {
+      this.cachedExistingConfig = {};
+    }
+    return this.cachedExistingConfig;
   }
 
   onSubmit() {
-    if (this.form.invalid) return;
-    const v = this.form.value;
+    if (this.form.invalid) {
+      this.snackbar.open('Please fill in all required fields', 'Dismiss', { panelClass: ['error-snackbar'] });
+      return;
+    }
 
-    const stepConfig = JSON.stringify(this.formValuesToConfig(v));
+    // Validate the dynamic form — marks all controls touched, shows errors
+    if (this.dynamicForm) {
+      const isValid = this.dynamicForm.validate();
+      if (!isValid) {
+        this.snackbar.open('Please fix the highlighted errors before saving', 'Dismiss', { panelClass: ['error-snackbar'] });
+        return;
+      }
+    }
+
+    let stepConfig = '{}';
+    if (this.selectedSchema && this.dynamicForm) {
+      const result = this.dynamicForm.toConfig();
+      stepConfig = JSON.stringify(result.config);
+    }
 
     this.dialogRef.close({
       stepId: this.data.stepId,
-      stepName: v.stepName,
+      stepName: this.form.value.stepName,
       stepOrder: this.data.stepOrder,
-      stepType: v.stepType,
+      stepType: this.form.value.stepType,
       stepConfig,
-      continueOnFailure: v.continueOnFailure,
-      enabled: v.enabled,
+      continueOnFailure: this.form.value.continueOnFailure,
+      enabled: this.form.value.enabled,
     });
   }
 
   onCancel() {
     this.dialogRef.close();
-  }
-
-  private configToFormValues(type: StepType, configJson: string): Record<string, unknown> {
-    try {
-      const c = JSON.parse(configJson);
-      switch (type) {
-        case 'ENV_SETUP':
-          return { javaHome: (c as EnvSetupConfig).javaHome, classpath: ((c as EnvSetupConfig).classpathEntries ?? []).join(',') };
-        case 'LOG_CLEANUP':
-          return { cleanupDir: (c as LogCleanupConfig).directory, filePattern: (c as LogCleanupConfig).filePattern, extraPatterns: ((c as LogCleanupConfig).extraPatterns ?? []).join(',') };
-        case 'JAVA_EXEC':
-          return {
-            mainClass: (c as JavaExecConfig).mainClass ?? '',
-            jarPath: (c as JavaExecConfig).jarPath ?? '',
-            jvmArgs: ((c as JavaExecConfig).jvmArgs ?? []).join(' '),
-            args: ((c as JavaExecConfig).args ?? []).join(' '),
-            timeoutMinutes: (c as JavaExecConfig).timeoutMinutes ?? null,
-          };
-        case 'SFTP':
-          return {
-            host: (c as SftpConfig).host,
-            port: (c as SftpConfig).port,
-            username: (c as SftpConfig).username,
-            credentialRef: (c as SftpConfig).credentialRef,
-            remoteDir: (c as SftpConfig).remoteDir,
-            sftp_filePattern: (c as SftpConfig).filePattern,
-            direction: (c as SftpConfig).direction,
-            remoteFileName: (c as SftpConfig).remoteFileName,
-          };
-        case 'ARCHIVE':
-          return {
-            sourceDir: (c as ArchiveConfig).sourceDir,
-            archiveDir: (c as ArchiveConfig).archiveDir,
-            archivePatterns: ((c as ArchiveConfig).filePatterns ?? []).join(','),
-            archiveFormat: (c as ArchiveConfig).archiveFormat,
-            deleteOriginal: (c as ArchiveConfig).deleteOriginal ?? false,
-          };
-      }
-    } catch {
-      return {};
-    }
-    return {};
-  }
-
-  private formValuesToConfig(v: typeof this.form.value): Record<string, unknown> {
-    switch (v.stepType) {
-      case 'ENV_SETUP':
-        return {
-          javaHome: v.javaHome,
-          classpathEntries: (v.classpath ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
-          extraEnvVars: {},
-        };
-      case 'LOG_CLEANUP':
-        return {
-          directory: v.cleanupDir,
-          filePattern: v.filePattern,
-          extraPatterns: (v.extraPatterns ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
-        };
-      case 'JAVA_EXEC':
-        return {
-          mainClass: v.mainClass || null,
-          jarPath: v.jarPath || null,
-          jvmArgs: (v.jvmArgs ?? '').split(' ').filter(Boolean),
-          args: (v.args ?? '').split(' ').filter(Boolean),
-          timeoutMinutes: v.timeoutMinutes || null,
-        };
-      case 'SFTP':
-        return {
-          host: v.host,
-          port: v.port,
-          username: v.username,
-          credentialRef: v.credentialRef,
-          remoteDir: v.remoteDir,
-          filePattern: v.sftp_filePattern,
-          direction: v.direction,
-          remoteFileName: v.remoteFileName || null,
-        };
-      case 'ARCHIVE':
-        return {
-          sourceDir: v.sourceDir,
-          archiveDir: v.archiveDir,
-          filePatterns: (v.archivePatterns ?? '').split(',').map((s: string) => s.trim()).filter(Boolean),
-          archiveFormat: v.archiveFormat,
-          deleteOriginal: v.deleteOriginal ?? false,
-        };
-      default:
-        return {};
-    }
   }
 }

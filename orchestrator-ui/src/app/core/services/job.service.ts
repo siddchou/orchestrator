@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, Page } from '@app/core/models/api-response.model';
-import { JobDefinition, JobStep, EnvVar, JobSchedule } from '@app/core/models/job.model';
+import { JobDefinition, JobStep, EnvVar, JobSchedule, StepConfigSchema } from '@app/core/models/job.model';
 
 @Injectable({ providedIn: 'root' })
 export class JobService {
@@ -97,5 +97,10 @@ export class JobService {
 
   disableSchedule(jobId: number): Observable<ApiResponse<JobSchedule>> {
     return this.http.post<ApiResponse<JobSchedule>>(`${this.api}/jobs/${jobId}/schedule/disable`, {});
+  }
+
+  // Step Types (schema-driven UI)
+  listStepTypes(): Observable<ApiResponse<StepConfigSchema[]>> {
+    return this.http.get<ApiResponse<StepConfigSchema[]>>(`${this.api}/step-types`);
   }
 }

@@ -2,6 +2,7 @@ package com.novakai.orchestrator.security;
 
 import com.novakai.orchestrator.domain.entity.AppUser;
 import com.novakai.orchestrator.repository.AppUserRepository;
+import com.novakai.orchestrator.repository.UserTeamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +26,14 @@ class CustomUserDetailsServiceTest {
     private AppUserRepository userRepo;
 
     @Autowired
+    private UserTeamRepository userTeamRepo;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void setUp() {
+        userTeamRepo.deleteAll();
         userRepo.deleteAll();
         AppUser user = AppUser.builder()
                 .username("testuser")

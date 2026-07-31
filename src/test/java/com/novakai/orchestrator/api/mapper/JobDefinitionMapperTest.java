@@ -109,7 +109,7 @@ class JobDefinitionMapperTest {
         JobStep step = JobStep.builder()
                 .stepId(1L)
                 .stepName("env-setup")
-                .stepType(StepType.ENV_SETUP)
+                .stepType("ENV_SETUP")
                 .stepOrder(1)
                 .build();
 

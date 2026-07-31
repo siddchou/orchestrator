@@ -1,15 +1,13 @@
 package com.novakai.orchestrator.engine.executors;
 
-// @author Siddhant Choudhary
-
 import com.novakai.orchestrator.domain.config.ArchiveConfig;
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
-import com.novakai.orchestrator.engine.StepExecutor;
-import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
-import lombok.extern.slf4j.Slf4j;
+import com.novakai.orchestrator.engine.spi.FieldDefinition;
+import com.novakai.orchestrator.engine.spi.FieldType;
+import com.novakai.orchestrator.engine.spi.StepConfigSchema;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepExecutor;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
@@ -17,7 +15,12 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -26,7 +29,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 @Component
-@Slf4j
 public class ArchiveStepExecutor implements StepExecutor {
 
     private final JsonParser jsonParser;
@@ -36,16 +38,28 @@ public class ArchiveStepExecutor implements StepExecutor {
     }
 
     @Override
-    public StepType getSupportedType() {
-        return StepType.ARCHIVE;
+    public String getType() {
+        return "ARCHIVE";
     }
 
     @Override
-    public StepResult execute(ExecutionContext ctx, JobStep step) throws Exception {
-        ArchiveConfig config = jsonParser.parse(step.getStepConfig(), ArchiveConfig.class);
+    public StepConfigSchema getConfigSchema() {
+        return new StepConfigSchema("ARCHIVE", "Archive Files", List.of(
+            new FieldDefinition("sourceDir", "Source Directory", FieldType.STRING, true, null, null, "Directory containing files to archive"),
+            new FieldDefinition("filePatterns", "File Patterns", FieldType.LIST_STRING, true, null, null, "Comma-separated glob patterns for files to include (e.g., *.log,*.tmp)"),
+            new FieldDefinition("archiveDir", "Archive Output Directory", FieldType.STRING, true, null, null, "Directory where the archive file will be created"),
+            new FieldDefinition("archiveFormat", "Archive Format", FieldType.ENUM, false, "ZIP", List.of("TAR_GZ", "ZIP"), "Output format: TAR_GZ or ZIP"),
+            new FieldDefinition("deleteOriginal", "Delete Original Files", FieldType.BOOLEAN, false, false, null, "Whether to delete source files after archiving")
+        ));
+    }
+
+    @Override
+    public StepResult execute(StepContext ctx) throws Exception {
+        long start = System.nanoTime();
+        ArchiveConfig config = jsonParser.parse(ctx.getStepConfig(), ArchiveConfig.class);
 
         if (config == null) {
-            return StepResult.failure("ArchiveConfig is null or empty");
+            return StepResult.failure("ArchiveConfig is null or empty", Duration.ofNanos(System.nanoTime() - start));
         }
 
         StringBuilder output = new StringBuilder();
@@ -64,9 +78,8 @@ public class ArchiveStepExecutor implements StepExecutor {
         }
 
         if (filesToArchive.isEmpty()) {
-            log.debug("Archive: no files matched patterns in {}", config.sourceDir());
             output.append("No files matched patterns for archiving\n");
-            return StepResult.success(output.toString());
+            return StepResult.success(java.util.Map.of(), output.toString(), Duration.ofNanos(System.nanoTime() - start));
         }
 
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
@@ -76,7 +89,6 @@ public class ArchiveStepExecutor implements StepExecutor {
         Files.createDirectories(archiveDir);
         Path archivePath = archiveDir.resolve(jobName + "_" + timestamp + ext);
 
-        log.debug("Archive: creating {} with {} files", archivePath, filesToArchive.size());
         if ("TAR_GZ".equals(config.archiveFormat())) {
             writeTarGz(archivePath, filesToArchive, output);
         } else {
@@ -97,7 +109,7 @@ public class ArchiveStepExecutor implements StepExecutor {
             }
         }
 
-        return StepResult.success(output.toString());
+        return StepResult.success(java.util.Map.of(), output.toString(), Duration.ofNanos(System.nanoTime() - start));
     }
 
     private void writeZip(Path archivePath, List<Path> files, StringBuilder output) throws IOException {

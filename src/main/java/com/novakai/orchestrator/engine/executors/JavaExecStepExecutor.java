@@ -1,15 +1,14 @@
 package com.novakai.orchestrator.engine.executors;
 
-// @author Siddhant Choudhary
-
 import com.novakai.orchestrator.domain.config.JavaExecConfig;
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
-import com.novakai.orchestrator.engine.StepExecutor;
-import com.novakai.orchestrator.engine.StepResult;
 import com.novakai.orchestrator.engine.JsonParser;
 import com.novakai.orchestrator.engine.PathUtils;
+import com.novakai.orchestrator.engine.spi.FieldDefinition;
+import com.novakai.orchestrator.engine.spi.FieldType;
+import com.novakai.orchestrator.engine.spi.StepConfigSchema;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepExecutor;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -23,14 +22,15 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @Slf4j
-
 @Component
 public class JavaExecStepExecutor implements StepExecutor {
 
@@ -53,22 +53,34 @@ public class JavaExecStepExecutor implements StepExecutor {
     }
 
     @Override
-    public StepType getSupportedType() {
-        return StepType.JAVA_EXEC;
+    public String getType() {
+        return "JAVA_EXEC";
     }
 
     @Override
-    public StepResult execute(ExecutionContext ctx, JobStep step) throws Exception {
-        JavaExecConfig config = jsonParser.parse(step.getStepConfig(), JavaExecConfig.class);
+    public StepConfigSchema getConfigSchema() {
+        return new StepConfigSchema("JAVA_EXEC", "Java Execution", List.of(
+            new FieldDefinition("mainClass", "Main Class", FieldType.STRING, false, null, null, "Fully-qualified Java class name to execute"),
+            new FieldDefinition("jarPath", "JAR Path", FieldType.FILE_PATTERN, false, null, null, "Path to JAR file (alternative to mainClass)"),
+            new FieldDefinition("args", "Arguments", FieldType.LIST_STRING, false, null, null, "Comma-separated application arguments passed to main()"),
+            new FieldDefinition("jvmArgs", "JVM Arguments", FieldType.LIST_STRING, false, null, null, "Comma-separated JVM flags (e.g., -Xmx256m,-Xms128m)"),
+            new FieldDefinition("timeoutMinutes", "Timeout (minutes)", FieldType.NUMBER, false, null, null, "Execution timeout in minutes")
+        ));
+    }
+
+    @Override
+    public StepResult execute(StepContext ctx) throws Exception {
+        long start = System.nanoTime();
+        JavaExecConfig config = jsonParser.parse(ctx.getStepConfig(), JavaExecConfig.class);
 
         if (config == null) {
-            return StepResult.failure("JavaExecConfig is null or empty");
+            return StepResult.failure("JavaExecConfig is null or empty", Duration.ofNanos(System.nanoTime() - start));
         }
 
         // Validate inputs before building command
         String validationError = validateConfig(config);
         if (validationError != null) {
-            return StepResult.failure(validationError);
+            return StepResult.failure(validationError, Duration.ofNanos(System.nanoTime() - start));
         }
 
         StringBuilder output = new StringBuilder();
@@ -79,17 +91,16 @@ public class JavaExecStepExecutor implements StepExecutor {
         if (config.jvmArgs() != null) {
             for (String arg : config.jvmArgs()) {
                 if (!isSafeJvmArg(arg)) {
-                    return StepResult.failure("Invalid JVM argument detected");
+                    return StepResult.failure("Invalid JVM argument detected", Duration.ofNanos(System.nanoTime() - start));
                 }
                 command.add(arg);
             }
         }
 
         if (config.jarPath() != null && !config.jarPath().isBlank()) {
-            // Validate and resolve the jar path
             Path resolvedJarPath = validateAndResolveJarPath(config.jarPath(), ctx.getWorkingDir());
             if (resolvedJarPath == null) {
-                return StepResult.failure("Invalid or unsafe jar path");
+                return StepResult.failure("Invalid or unsafe jar path", Duration.ofNanos(System.nanoTime() - start));
             }
             command.add("-jar");
             command.add(resolvedJarPath.toString());
@@ -118,7 +129,6 @@ public class JavaExecStepExecutor implements StepExecutor {
 
         Process process = pb.start();
 
-        // Track the process for potential shutdown termination
         long pid = getProcessId(process);
         RunningProcess runningProcess = new RunningProcess(pid, process);
         if (pid > 0) {
@@ -139,7 +149,6 @@ public class JavaExecStepExecutor implements StepExecutor {
             }
         }
 
-        // Track cancellation/interruption during execution
         boolean cancelled = false;
         try {
             completed = process.waitFor(timeout, TimeUnit.MINUTES);
@@ -152,41 +161,42 @@ public class JavaExecStepExecutor implements StepExecutor {
 
         if (!completed && !cancelled) {
             process.destroyForcibly();
-            return StepResult.failure(-1, output + "\nPROCESS TIMED OUT after " + timeout + " minutes");
+            return StepResult.failure(output + "\nPROCESS TIMED OUT after " + timeout + " minutes",
+                Duration.ofNanos(System.nanoTime() - start));
         }
 
         int exitCode = process.exitValue();
         log.debug("JavaExec: process exited with code {}", exitCode);
         output.append("\nProcess exited with code: ").append(exitCode);
 
-        // Remove from tracking
         runningProcesses.remove(runningProcess);
 
-        return exitCode == 0
-            ? StepResult.success(output.toString())
-            : StepResult.failure(exitCode, output.toString());
+        Duration execTime = Duration.ofNanos(System.nanoTime() - start);
+        if (exitCode == 0) {
+            return StepResult.success(Map.of("exitCode", 0), output.toString(), execTime);
+        } else {
+            return new StepResult(
+                com.novakai.orchestrator.engine.spi.StepStatus.FAILED,
+                Map.of("exitCode", exitCode),
+                output.toString(),
+                execTime
+            );
+        }
     }
 
-    /**
-     * Validates the JavaExecConfig to prevent command injection.
-     * Returns null if valid, or an error message if invalid.
-     */
     private String validateConfig(JavaExecConfig config) {
-        // Validate mainClass - must be a valid Java class name
         if (config.mainClass() != null && !config.mainClass().isBlank()) {
             if (!JAVA_CLASS_NAME_PATTERN.matcher(config.mainClass()).matches()) {
                 return "Invalid mainClass: must be a valid Java fully-qualified class name";
             }
         }
 
-        // Validate jarPath - must only contain safe characters
         if (config.jarPath() != null && !config.jarPath().isBlank()) {
             if (!SAFE_JAR_PATH_PATTERN.matcher(config.jarPath()).matches()) {
                 return "Invalid jarPath: contains unsafe characters";
             }
         }
 
-        // Validate jvmArgs - each arg must be safe
         if (config.jvmArgs() != null) {
             for (String arg : config.jvmArgs()) {
                 if (!isSafeJvmArg(arg)) {
@@ -198,15 +208,10 @@ public class JavaExecStepExecutor implements StepExecutor {
         return null;
     }
 
-    /**
-     * Checks if a JVM argument is safe (no shell metacharacters or command injection attempts).
-     */
     private boolean isSafeJvmArg(String arg) {
         if (arg == null || arg.isBlank()) {
             return false;
         }
-        // Only allow alphanumeric, dashes, underscores, dots, equals, colons, slashes
-        // This prevents: ; | & $ ` () {} [] \n \r etc.
         for (int i = 0; i < arg.length(); i++) {
             char c = arg.charAt(i);
             if (!Character.isLetterOrDigit(c) &&
@@ -214,7 +219,6 @@ public class JavaExecStepExecutor implements StepExecutor {
                 return false;
             }
         }
-        // Block known dangerous patterns
         String lowerArg = arg.toLowerCase();
         return !lowerArg.contains("exec(") &&
                !lowerArg.contains("/bin/") &&
@@ -223,26 +227,19 @@ public class JavaExecStepExecutor implements StepExecutor {
                !arg.contains("`");
     }
 
-    /**
-     * Validates and resolves the jar path to prevent directory traversal.
-     * Returns null if the path is invalid or unsafe.
-     */
     private Path validateAndResolveJarPath(String jarPath, String workingDir) {
         try {
             Path baseDir = Paths.get(workingDir).normalize();
             Path resolvedPath = baseDir.resolve(jarPath).normalize();
 
-            // Ensure the resolved path is within the working directory (no traversal outside)
             if (!resolvedPath.startsWith(baseDir.toString())) {
                 return null;
             }
 
-            // Verify the file exists
             if (!Files.exists(resolvedPath)) {
                 return null;
             }
 
-            // Verify it's a regular file
             if (!Files.isRegularFile(resolvedPath)) {
                 return null;
             }
@@ -254,13 +251,8 @@ public class JavaExecStepExecutor implements StepExecutor {
         }
     }
 
-    /**
-     * Get the process ID from a Process object.
-     * Works on Java 9+ using Process#toHandle().pid()
-     */
     private long getProcessId(Process process) {
         try {
-            // Java 9+ approach
             return process.toHandle().pid();
         } catch (UnsupportedOperationException | SecurityException e) {
             log.debug("Could not obtain PID from Process", e);
@@ -268,22 +260,6 @@ public class JavaExecStepExecutor implements StepExecutor {
         }
     }
 
-    /**
-     * Inner class to track running processes for shutdown cleanup.
-     */
-    private static class RunningProcess {
-        final long pid;
-        final Process process;
-
-        RunningProcess(long pid, Process process) {
-            this.pid = pid;
-            this.process = process;
-        }
-    }
-
-    /**
-     * Shutdown hook to terminate any running processes when the application shuts down.
-     */
     @PreDestroy
     public void shutdown() {
         if (!runningProcesses.isEmpty()) {
@@ -296,6 +272,16 @@ public class JavaExecStepExecutor implements StepExecutor {
                     log.warn("Failed to terminate process PID {}: {}", p.pid, e.getMessage());
                 }
             }
+        }
+    }
+
+    private static class RunningProcess {
+        final long pid;
+        final Process process;
+
+        RunningProcess(long pid, Process process) {
+            this.pid = pid;
+            this.process = process;
         }
     }
 }

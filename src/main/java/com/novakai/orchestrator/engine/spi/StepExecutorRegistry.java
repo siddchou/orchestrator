@@ -1,0 +1,63 @@
+package com.novakai.orchestrator.engine.spi;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+/**
+ * Registry of step executors keyed by type string.
+ * Replaces StepExecutorFactory with an open type system.
+ */
+@Component
+@Slf4j
+public class StepExecutorRegistry {
+
+    private final Map<String, StepExecutor> executorMap = new ConcurrentHashMap<>();
+    private final List<StepConfigSchema> schemas = Collections.synchronizedList(new ArrayList<>());
+
+    public StepExecutorRegistry(List<StepExecutor> executors) {
+        for (StepExecutor e : executors) {
+            register(e);
+        }
+    }
+
+    /** Register an executor discovered at runtime (e.g. from a plugin JAR). */
+    public void register(StepExecutor executor) {
+        String type = executor.getType();
+        StepExecutor previous = this.executorMap.put(type, executor);
+        if (previous != null) {
+            log.warn("Duplicate executor for type '{}': {} replaces {}",
+                type, executor.getClass().getSimpleName(), previous.getClass().getSimpleName());
+        }
+        this.schemas.add(executor.getConfigSchema());
+    }
+
+    /** Resolve executor by type string. */
+    public Optional<StepExecutor> get(String type) {
+        StepExecutor executor = executorMap.get(type);
+        if (executor == null) {
+            log.debug("No executor registered for step type: {}", type);
+            return Optional.empty();
+        }
+        log.debug("Resolved executor {} for step type {}", executor.getClass().getSimpleName(), type);
+        return Optional.of(executor);
+    }
+
+    /** Return config schemas for all registered executors. */
+    public List<StepConfigSchema> listAll() {
+        return new ArrayList<>(schemas);
+    }
+
+    /** Return the set of registered type strings. */
+    public Set<String> registeredTypes() {
+        return Collections.unmodifiableSet(executorMap.keySet());
+    }
+}

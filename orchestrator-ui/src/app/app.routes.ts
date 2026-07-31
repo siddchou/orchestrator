@@ -24,6 +24,11 @@ export const routes: Routes = [
         loadComponent: () => import('@features/jobs/job-detail/job-detail.component').then(m => m.JobDetailComponent),
       },
       {
+        path: 'jobs/:id/canvas',
+        loadComponent: () => import('@features/jobs/dag-canvas-stub/dag-canvas-stub.component')
+          .then(m => m.DagCanvasStubComponent),
+      },
+      {
         path: 'jobs/:id',
         loadComponent: () => import('@features/jobs/job-detail/job-detail.component').then(m => m.JobDetailComponent),
       },

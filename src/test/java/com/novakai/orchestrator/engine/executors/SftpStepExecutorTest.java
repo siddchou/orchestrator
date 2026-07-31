@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.apache.sshd.sftp.client.SftpClient;
 
 /**
- * Test to explore SftpClient API
+ * Test to explore SftpClient API — compilation check only.
  */
 public class SftpStepExecutorTest {
 

@@ -1,16 +1,15 @@
 package com.novakai.orchestrator.engine.executors;
 
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.JsonParser;
-import com.novakai.orchestrator.engine.StepResult;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,22 +25,32 @@ class ArchiveStepExecutorTest {
     }
 
     @Test
-    void getSupportedType_returns_ARCHIVE() {
-        assertEquals(StepType.ARCHIVE, executor.getSupportedType());
+    void getType_returns_ARCHIVE() {
+        assertEquals("ARCHIVE", executor.getType());
+    }
+
+    @Test
+    void getConfigSchema_has_required_fields() {
+        var schema = executor.getConfigSchema();
+        assertNotNull(schema);
+        assertEquals("ARCHIVE", schema.stepType());
+        assertTrue(schema.fields().stream().anyMatch(f -> f.name().equals("sourceDir") && f.required()));
+        assertTrue(schema.fields().stream().anyMatch(f -> f.name().equals("archiveFormat") && f.type().name().equals("ENUM")));
     }
 
     @Test
     void execute_returns_failure_when_config_is_null() throws Exception {
-        JobStep step = JobStep.builder().stepConfig("").build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(toFsPath(tempDir.toString()))
+        var ctx = StepContext.builder()
+                .workDir(Path.of(toFsPath(tempDir.toString())))
                 .envVars(Map.of("JOB_NAME", "test"))
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig("")
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("null or empty"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("null or empty"));
     }
 
     @Test
@@ -55,16 +64,17 @@ class ArchiveStepExecutorTest {
                 "{\"sourceDir\":\"%s\",\"filePatterns\":[\"*.txt\"],\"archiveDir\":\"%s\",\"archiveFormat\":\"ZIP\"}",
                 sourceDir, archiveDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(sourceDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(sourceDir))
                 .envVars(Map.of("JOB_NAME", "testjob"))
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Archive created:"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Archive created:"));
         Path archiveDirPath = Path.of(archiveDir);
         var archives = Files.list(archiveDirPath).toList();
         assertFalse(archives.isEmpty());
@@ -81,16 +91,17 @@ class ArchiveStepExecutorTest {
                 "{\"sourceDir\":\"%s\",\"filePatterns\":[\"*.csv\"],\"archiveDir\":\"%s\",\"archiveFormat\":\"TAR_GZ\"}",
                 sourceDir, archiveDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(sourceDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(sourceDir))
                 .envVars(Map.of("JOB_NAME", "csvjob"))
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Archive created:"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Archive created:"));
         Path archiveDirPath = Path.of(archiveDir);
         var archives = Files.list(archiveDirPath).toList();
         assertTrue(archives.stream().anyMatch(p -> p.toString().endsWith(".tar.gz")));
@@ -104,16 +115,17 @@ class ArchiveStepExecutorTest {
                 "{\"sourceDir\":\"%s\",\"filePatterns\":[\"*.xyz\"],\"archiveDir\":\"%s\",\"archiveFormat\":\"ZIP\"}",
                 sourceDir, archiveDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(sourceDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(sourceDir))
                 .envVars(Map.of("JOB_NAME", "test"))
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("No files matched"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("No files matched"));
     }
 
     @Test
@@ -128,18 +140,19 @@ class ArchiveStepExecutorTest {
                 "{\"sourceDir\":\"%s\",\"filePatterns\":[\"*.log\",\"*.txt\"],\"archiveDir\":\"%s\",\"archiveFormat\":\"ZIP\"}",
                 sourceDir, archiveDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(sourceDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(sourceDir))
                 .envVars(Map.of("JOB_NAME", "multi"))
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("a.log"));
-        assertTrue(result.logOutput().contains("b.log"));
-        assertTrue(result.logOutput().contains("c.txt"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("a.log"));
+        assertTrue(result.getLogOutput().contains("b.log"));
+        assertTrue(result.getLogOutput().contains("c.txt"));
     }
 
     @Test
@@ -152,14 +165,15 @@ class ArchiveStepExecutorTest {
                 "{\"sourceDir\":\"%s\",\"filePatterns\":[\"*.txt\"],\"archiveDir\":\"%s\",\"archiveFormat\":\"ZIP\"}",
                 sourceDir, archiveDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(sourceDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(sourceDir))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
+        assertTrue(result.isSuccess());
     }
 }

@@ -1,16 +1,15 @@
 package com.novakai.orchestrator.engine.executors;
 
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.JsonParser;
-import com.novakai.orchestrator.engine.StepResult;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -26,22 +25,31 @@ class LogCleanupStepExecutorTest {
     }
 
     @Test
-    void getSupportedType_returns_LOG_CLEANUP() {
-        assertEquals(StepType.LOG_CLEANUP, executor.getSupportedType());
+    void getType_returns_LOG_CLEANUP() {
+        assertEquals("LOG_CLEANUP", executor.getType());
+    }
+
+    @Test
+    void getConfigSchema_has_required_directory_field() {
+        var schema = executor.getConfigSchema();
+        assertNotNull(schema);
+        assertEquals("LOG_CLEANUP", schema.stepType());
+        assertTrue(schema.fields().stream().anyMatch(f -> f.name().equals("directory") && f.required()));
     }
 
     @Test
     void execute_returns_failure_when_config_is_null() throws Exception {
-        JobStep step = JobStep.builder().stepConfig("").build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(toFsPath(tempDir.toString()))
+        var ctx = StepContext.builder()
+                .workDir(Path.of(toFsPath(tempDir.toString())))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig("")
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("null or empty"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("null or empty"));
     }
 
     @Test
@@ -49,16 +57,17 @@ class LogCleanupStepExecutorTest {
         String config = """
                 {"directory":"/nonexistent/path","filePattern":"*.log"}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(toFsPath(tempDir.toString()))
+        var ctx = StepContext.builder()
+                .workDir(Path.of(toFsPath(tempDir.toString())))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("does not exist"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("does not exist"));
     }
 
     @Test
@@ -72,16 +81,17 @@ class LogCleanupStepExecutorTest {
                 "{\"directory\":\"%s\",\"filePattern\":\"*.log\"}",
                 dir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(dir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(dir))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Total files deleted: 2"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Total files deleted: 2"));
         assertFalse(Files.exists(tempDir.resolve("app.log")));
         assertFalse(Files.exists(tempDir.resolve("error.log")));
         assertTrue(Files.exists(tempDir.resolve("data.txt")));
@@ -96,16 +106,17 @@ class LogCleanupStepExecutorTest {
                 "{\"directory\":\"%s\",\"filePattern\":\"*.log\"}",
                 dir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(dir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(dir))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Total files deleted: 0"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Total files deleted: 0"));
         assertTrue(Files.exists(tempDir.resolve("data.txt")));
     }
 
@@ -120,16 +131,17 @@ class LogCleanupStepExecutorTest {
                 "{\"directory\":\"logs\",\"filePattern\":\"*.log\"}",
                 workingDir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(workingDir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(workingDir))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Deleted: old.log"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Deleted: old.log"));
         assertFalse(Files.exists(subDir.resolve("old.log")));
     }
 
@@ -144,15 +156,16 @@ class LogCleanupStepExecutorTest {
                 "{\"directory\":\"%s\",\"filePattern\":\"app-*.log\"}",
                 dir
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = ExecutionContext.builder()
-                .workingDir(dir)
+        var ctx = StepContext.builder()
+                .workDir(Path.of(dir))
                 .envVars(Map.of())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
                 .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(ctx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("Total files deleted: 5"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("Total files deleted: 5"));
     }
 }

@@ -20,8 +20,8 @@
         <mat-label>Step Type</mat-label>
         <mat-icon matPrefix>category</mat-icon>
         <mat-select formControlName="stepType">
-          @for (type of stepTypes; track type) {
-            <mat-option [value]="type">{{ type }}</mat-option>
+          @for (schema of availableTypes; track schema.stepType) {
+            <mat-option [value]="schema.stepType">{{ schema.displayName }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -32,143 +32,23 @@
       <mat-slide-toggle formControlName="enabled">Enabled</mat-slide-toggle>
     </div>
 
-    <div class="section-divider"></div>
+    @if (form.get('stepType')?.value) {
+      <div class="section-divider"></div>
 
-    <!-- ENV_SETUP -->
-    <ng-container *ngIf="selectedType === 'ENV_SETUP'">
-      <div class="config-section">
-        <h3 class="config-section-title">Environment Setup</h3>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>JAVA_HOME</mat-label>
-          <input matInput formControlName="javaHome" placeholder="/usr/lib/jvm/java-21" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Classpath Entries (comma-separated)</mat-label>
-          <input matInput formControlName="classpath" placeholder="/opt/libs/app.jar,/opt/libs/deps.jar" />
-        </mat-form-field>
-      </div>
-    </ng-container>
-
-    <!-- LOG_CLEANUP -->
-    <ng-container *ngIf="selectedType === 'LOG_CLEANUP'">
-      <div class="config-section">
-        <h3 class="config-section-title">Log Cleanup</h3>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Directory</mat-label>
-          <input matInput formControlName="cleanupDir" placeholder="/opt/jobs/my-job/logs" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>File Pattern (glob)</mat-label>
-          <input matInput formControlName="filePattern" placeholder="*.log" />
-          <mat-hint>Examples: *.log · job_*.txt</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Additional Patterns (comma-separated)</mat-label>
-          <input matInput formControlName="extraPatterns" placeholder="*.out,*.trace,debug_*.log" />
-          <mat-hint>Add more glob patterns to match alongside the main pattern</mat-hint>
-        </mat-form-field>
-      </div>
-    </ng-container>
-
-    <!-- JAVA_EXEC -->
-    <ng-container *ngIf="selectedType === 'JAVA_EXEC'">
-      <div class="config-section">
-        <h3 class="config-section-title">Java Execution</h3>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Main Class (or leave blank if using JAR)</mat-label>
-          <input matInput formControlName="mainClass" placeholder="com.example.MainJob" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>JAR Path (or leave blank if using Main Class)</mat-label>
-          <input matInput formControlName="jarPath" placeholder="/opt/jobs/my-job/app.jar" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>JVM Args (space-separated)</mat-label>
-          <input matInput formControlName="jvmArgs" placeholder="-Xmx2g -Dspring.profiles.active=prod" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Program Args (space-separated)</mat-label>
-          <input matInput formControlName="args" placeholder="--date=today --output=/tmp" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Timeout (minutes, blank = default)</mat-label>
-          <input matInput type="number" formControlName="timeoutMinutes" />
-        </mat-form-field>
-      </div>
-    </ng-container>
-
-    <!-- SFTP -->
-    <ng-container *ngIf="selectedType === 'SFTP'">
-      <div class="config-section">
-        <h3 class="config-section-title">SFTP Transfer</h3>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Host</mat-label>
-          <input matInput formControlName="host" />
-        </mat-form-field>
-        <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Port</mat-label>
-            <input matInput type="number" formControlName="port" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Username</mat-label>
-            <input matInput formControlName="username" />
-          </mat-form-field>
+      <!-- E5: Step type removed from backend — show disabled warning -->
+      @if (isStepTypeRemoved) {
+        <div class="removed-step-warning">
+          <mat-icon>warning</mat-icon>
+          <span>Step type <strong>{{ form.get('stepType')?.value }}</strong> is no longer available. This step cannot be edited and will fail if run.</span>
         </div>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Credential Reference</mat-label>
-          <input matInput formControlName="credentialRef" placeholder="my-sftp-cred" />
-          <mat-hint>Name of a stored credential</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Remote Directory</mat-label>
-          <input matInput formControlName="remoteDir" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>File Pattern</mat-label>
-          <input matInput formControlName="sftp_filePattern" placeholder="*.pdf" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Remote File Name (optional)</mat-label>
-          <input matInput formControlName="remoteFileName" [attr.placeholder]="'report_${fileName}_${timestamp}.pdf'" />
-          <mat-hint>Template variables: $&#123;fileName&#125;, $&#123;fileExtension&#125;, $&#123;timestamp&#125;</mat-hint>
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Direction</mat-label>
-          <mat-select formControlName="direction">
-            <mat-option value="UPLOAD">Upload</mat-option>
-            <mat-option value="DOWNLOAD">Download</mat-option>
-          </mat-select>
-        </mat-form-field>
-      </div>
-    </ng-container>
-
-    <!-- ARCHIVE -->
-    <ng-container *ngIf="selectedType === 'ARCHIVE'">
-      <div class="config-section">
-        <h3 class="config-section-title">Archive</h3>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Source Directory</mat-label>
-          <input matInput formControlName="sourceDir" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>File Patterns (comma-separated)</mat-label>
-          <input matInput formControlName="archivePatterns" placeholder="*.log,*.out" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Archive Directory</mat-label>
-          <input matInput formControlName="archiveDir" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Format</mat-label>
-          <mat-select formControlName="archiveFormat">
-            <mat-option value="ZIP">ZIP</mat-option>
-            <mat-option value="TAR_GZ">TAR_GZ</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-slide-toggle formControlName="deleteOriginal">Delete original files after archiving</mat-slide-toggle>
-      </div>
-    </ng-container>
+      } @else {
+        <app-dynamic-step-form
+          #dynamicForm
+          [schema]="selectedSchema!"
+          [existingConfig]="existingConfig"
+          [credentials]="credentials" />
+      }
+    }
   </mat-dialog-content>
 
   <mat-dialog-actions align="end" class="dialog-actions">

@@ -1,10 +1,8 @@
 package com.novakai.orchestrator.engine.executors;
 
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.StepType;
-import com.novakai.orchestrator.engine.ExecutionContext;
 import com.novakai.orchestrator.engine.JsonParser;
-import com.novakai.orchestrator.engine.StepResult;
+import com.novakai.orchestrator.engine.spi.StepContext;
+import com.novakai.orchestrator.engine.spi.StepResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,26 +32,39 @@ class EnvSetupStepExecutorTest {
         return root.replace("\\", "/");
     }
 
-    private ExecutionContext newContext() {
-        return ExecutionContext.builder()
+    private StepContext newContext() {
+        return StepContext.builder()
                 .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
                 .build();
     }
 
     @Test
-    void getSupportedType_returns_ENV_SETUP() {
-        assertEquals(StepType.ENV_SETUP, executor.getSupportedType());
+    void getType_returns_ENV_SETUP() {
+        assertEquals("ENV_SETUP", executor.getType());
+    }
+
+    @Test
+    void getConfigSchema_has_required_javaHome_field() {
+        var schema = executor.getConfigSchema();
+        assertNotNull(schema);
+        assertEquals("ENV_SETUP", schema.stepType());
+        assertTrue(schema.fields().stream().anyMatch(f -> f.name().equals("javaHome") && f.required()));
     }
 
     @Test
     void execute_returns_failure_when_config_is_null() throws Exception {
-        JobStep step = JobStep.builder().stepConfig("").build();
-        ExecutionContext ctx = newContext();
+        StepContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig("")
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("null or empty"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("null or empty"));
     }
 
     @Test
@@ -60,13 +72,16 @@ class EnvSetupStepExecutorTest {
         String config = """
                 {"javaHome":"/nonexistent/path","classpathEntries":[],"extraEnvVars":{}}
                 """;
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertFalse(result.success());
-        assertTrue(result.logOutput().contains("does not exist"));
+        assertFalse(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("does not exist"));
     }
 
     @Test
@@ -77,15 +92,18 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[],\"extraEnvVars\":{\"MYVAR\":\"myval\"}}",
                 javaHomeRoot
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("JAVA_HOME validated"));
-        assertEquals(javaHomeRoot, ctx.getJavaHome());
-        assertEquals("myval", ctx.getEnvVars().get("MYVAR"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("JAVA_HOME validated"));
+        assertEquals(javaHomeRoot, stepCtx.getJavaHome());
+        assertEquals("myval", stepCtx.getEnvVars().get("MYVAR"));
     }
 
     @Test
@@ -96,14 +114,17 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[\"/fake/lib.jar\"],\"extraEnvVars\":{}}",
                 javaHomeRoot
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
-        assertTrue(result.logOutput().contains("WARNING"));
-        assertTrue(result.logOutput().contains("classpath entry not found"));
+        assertTrue(result.isSuccess());
+        assertTrue(result.getLogOutput().contains("WARNING"));
+        assertTrue(result.getLogOutput().contains("classpath entry not found"));
     }
 
     @Test
@@ -114,14 +135,17 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[\"lib/a.jar\",\"lib/b.jar\"],\"extraEnvVars\":{}}",
                 javaHomeRoot
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
-        assertNotNull(ctx.getClasspath());
-        assertEquals(2, ctx.getClasspath().size());
+        assertTrue(result.isSuccess());
+        assertNotNull(stepCtx.getClasspath());
+        assertEquals(2, stepCtx.getClasspath().size());
     }
 
     @Test
@@ -132,12 +156,15 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[],\"extraEnvVars\":null}",
                 javaHomeRoot
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
+        assertTrue(result.isSuccess());
     }
 
     @Test
@@ -154,12 +181,15 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[],\"extraEnvVars\":{}}",
                 fakeJavaHome.toString().replace("\\", "/")
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
+        assertTrue(result.isSuccess());
     }
 
     @Test
@@ -170,15 +200,18 @@ class EnvSetupStepExecutorTest {
                 "{\"javaHome\":\"%s\",\"classpathEntries\":[],\"extraEnvVars\":{\"A\":\"1\",\"B\":\"2\",\"C\":\"3\"}}",
                 javaHomeRoot
         );
-        JobStep step = JobStep.builder().stepConfig(config).build();
-        ExecutionContext ctx = newContext();
+        var stepCtx = StepContext.builder()
+                .envVars(new HashMap<>())
+                .logSink(new StepContext.LogSink(new LinkedBlockingQueue<>()))
+                .stepConfig(config)
+                .build();
 
-        StepResult result = executor.execute(ctx, step);
+        StepResult result = executor.execute(stepCtx);
 
-        assertTrue(result.success());
-        assertEquals("1", ctx.getEnvVars().get("A"));
-        assertEquals("2", ctx.getEnvVars().get("B"));
-        assertEquals("3", ctx.getEnvVars().get("C"));
-        assertTrue(result.logOutput().contains("Merged 3 extra env vars"));
+        assertTrue(result.isSuccess());
+        assertEquals("1", stepCtx.getEnvVars().get("A"));
+        assertEquals("2", stepCtx.getEnvVars().get("B"));
+        assertEquals("3", stepCtx.getEnvVars().get("C"));
+        assertTrue(result.getLogOutput().contains("Merged 3 extra env vars"));
     }
 }

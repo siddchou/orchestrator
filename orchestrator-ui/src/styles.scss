@@ -554,3 +554,411 @@ mat-tab-group {
 mat-sidenav-container {
   background: transparent;
 }
+
+/* ── Dark Mode Overrides ─────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Keep html at light so Material M3 light-dark() functions resolve to light values
+     that our overrides below can replace. Body gets dark for native form controls. */
+  color-scheme: light;
+
+  body {
+    color-scheme: dark !important;
+  }
+
+  /* Override Material M3 system variables — these drive text color across the app */
+  --mat-sys-on-surface: #e2e8f0 !important;
+  --mat-sys-on-surface-variant: #94a3b8 !important;
+  --mat-sys-on-background: #e2e8f0 !important;
+  --mat-sys-on-card: #e2e8f0 !important;
+  /* Override light-dark() palette colors — buttons, surfaces, outlines use these */
+  --mat-sys-primary: #3b82f6 !important;
+  --mat-sys-on-primary: #ffffff !important;
+  --mat-sys-primary-container: #1e3a5f !important;
+  --mat-sys-on-primary-container: #dbeafe !important;
+  --mat-sys-inverse-primary: #3b82f6 !important;
+
+  --mat-sys-secondary: #a78bfa !important;
+  --mat-sys-on-secondary: #ffffff !important;
+  --mat-sys-secondary-container: #3b2d5e !important;
+  --mat-sys-on-secondary-container: #ede9fe !important;
+
+  --mat-sys-tertiary: #f472b6 !important;
+  --mat-sys-on-tertiary: #ffffff !important;
+  --mat-sys-tertiary-container: #5c1a3d !important;
+  --mat-sys-on-tertiary-container: #fce7f3 !important;
+
+  --mat-sys-inverse-surface: #e2e8f0 !important;
+  --mat-sys-inverse-on-surface: #1a1d27 !important;
+
+  --mat-sys-outline: #4a5568 !important;
+  --mat-sys-outline-variant: #2d3748 !important;
+
+  --mat-sys-surface-tint: #3b82f6 !important;
+  --mat-sys-surface-bright: #2d3148 !important;
+  --mat-sys-surface-dim: #0f1117 !important;
+  --mat-sys-surface-container-low: #1a1d27 !important;
+  --mat-sys-surface-container-lowest: #0f1117 !important;
+  --mat-sys-surface-container-high: #2d3148 !important;
+  --mat-sys-surface-container-highest: #3d4259 !important;
+  --mat-sys-surface-variant: #4a5568 !important;
+
+  --mat-sys-error: #f87171 !important;
+  --mat-sys-on-error: #000000 !important;
+  --mat-sys-error-container: #7f1d1d !important;
+  --mat-sys-on-error-container: #fecaca !important;
+
+  --mat-sys-background: #0f1117 !important;
+  --mat-sys-surface: #1a1d27 !important;
+  --mat-sys-surface-container: #1a1d27 !important;
+
+  /* Neutral palette */
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.14);
+
+  /* Surface colors */
+  --page-bg: var(--color-bg);
+  --card-bg: var(--color-surface);
+  --sidenav-bg: var(--color-surface);
+  --toolbar-bg: var(--color-surface);
+
+  /* Shadows — lighter in dark mode */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+  /* Accent colors — lighter variants for dark bg */
+  --accent-primary: #60a5fa;
+  --accent-success: #4ade80;
+  --accent-warning: #fb923c;
+  --accent-danger: #f87171;
+  --accent-info: #38bdf8;
+
+  /* Status badges */
+  --status-pending-bg: #6b7280;
+  --status-running-bg: var(--accent-warning);
+  --status-success-bg: var(--accent-success);
+  --status-failed-bg: var(--accent-danger);
+  --status-partial-bg: #c084fc;
+  --status-cancelled-bg: #9ca3af;
+
+  /* Gradient accents */
+  --gradient-primary: linear-gradient(135deg, var(--accent-primary) 0%, #3b82f6 100%);
+  --gradient-success: linear-gradient(135deg, var(--accent-success) 0%, #22c55e 100%);
+  --gradient-warning: linear-gradient(135deg, var(--accent-warning) 0%, #f97316 100%);
+  --gradient-danger: linear-gradient(135deg, var(--accent-danger) 0%, #ef4444 100%);
+  --gradient-info: linear-gradient(135deg, var(--accent-info) 0%, #0ea5e9 100%);
+
+  /* Login background */
+  --login-gradient: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+
+  /* Scrollbar — lighter thumb for dark bg */
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+/* Dark mode element overrides */
+[data-theme="dark"] body {
+  background: var(--color-bg);
+}
+
+[data-theme="dark"] .mat-mdc-toolbar {
+  background: var(--toolbar-bg) !important;
+  color: var(--mat-sys-on-surface) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] mat-sidenav {
+  background: var(--sidenav-bg) !important;
+  border-right: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-mdc-table {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .mat-header-cell {
+  color: var(--mat-sys-on-surface-variant) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-cell {
+  border-top-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-row:hover {
+  background: rgba(96, 165, 250, 0.08) !important;
+}
+
+[data-theme="dark"] mat-card {
+  background: var(--card-bg) !important;
+}
+
+[data-theme="dark"] .loading-overlay {
+  background: rgba(15, 17, 23, 0.85);
+}
+
+[data-theme="dark"] .trigger-chip {
+  background: rgba(96, 165, 250, 0.12);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .env-key {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .validation-result.ok {
+  background: rgba(74, 222, 128, 0.1);
+  color: #86efac;
+}
+
+[data-theme="dark"] .validation-result.error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+}
+
+/* ── Dark mode overlay component overrides ─────────────────── */
+
+// Dialog container — dark surface with proper text color
+[data-theme="dark"] .mat-mdc-dialog-container,
+[data-theme="dark"] .mdc-dialog__surface,
+[data-theme="dark"] .mat-mdc-dialog-surface {
+  background: var(--card-bg) !important;
+  color: #e2e8f0 !important;
+}
+
+// Dialog form fields — input text visible in dark mode
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-text-field--outlined___textarea,
+[data-theme="dark"] .mat-mdc-dialog-container input,
+[data-theme="dark"] .mat-mdc-dialog-container textarea {
+  color: #e2e8f0 !important;
+}
+
+// Dialog form field label / floating label
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-floating-label,
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-floating-label {
+  color: #94a3b8 !important;
+}
+
+// Dialog form-field CSS custom properties — used by dynamic-field component fallbacks
+[data-theme="dark"] .mat-mdc-dialog-container {
+  --mat-form-field-label-color: #94a3b8;
+  --mat-app-on-background: #e2e8f0;
+  --mat-app-background: #1a1d27;
+  --mat-form-field-outline-color: #4a5568;
+}
+
+// Dialog form field outline — visible on dark surface
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline__notch,
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline .mdc-notched-outline__leading,
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline .mdc-notched-outline__trailing {
+  border-color: #4a5568 !important;
+}
+
+// Dialog form field prefix/trailing icons
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-icon-prefix,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-icon-suffix,
+[data-theme="dark"] .mat-mdc-dialog-container mat-icon {
+  color: #94a3b8 !important;
+}
+
+// Dialog actions bar — text and button visibility
+[data-theme="dark"] .mat-mdc-dialog-container .mat-dialog-actions,
+[data-theme="dark"] .mat-mdc-dialog-actions {
+  color: #e2e8f0 !important;
+}
+
+// Dialog select/autocomplete options inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-option {
+  color: #e2e8f0 !important;
+}
+
+// Dialog slide toggle text
+[data-theme="dark"] .mat-mdc-dialog-container .mat-slide-toggle-label,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-slide-toggle-label-text {
+  color: #e2e8f0 !important;
+}
+
+// Dialog header title / h2/h3 text
+[data-theme="dark"] .mat-mdc-dialog-container h2,
+[data-theme="dark"] .mat-mdc-dialog-container h3,
+[data-theme="dark"] .mat-mdc-dialog-container .dialog-title {
+  color: #e2e8f0 !important;
+}
+
+// Dialog mat-divider
+[data-theme="dark"] .mat-mdc-dialog-container .mat-divider,
+[data-theme="dark"] .mat-mdc-dialog-container hr {
+  border-color: var(--color-border) !important;
+}
+
+// Dynamic-field component inside dialog — list-label, chip input, help text
+[data-theme="dark"] .mat-mdc-dialog-container .list-label {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .mat-mdc-dialog-container .chip-container {
+  background: var(--card-bg) !important;
+  border-color: #4a5568 !important;
+
+  input {
+    color: #e2e8f0 !important;
+
+    &::placeholder {
+      color: rgba(148, 163, 184, 0.6) !important;
+    }
+  }
+
+  .help-text {
+    color: #94a3b8 !important;
+  }
+}
+
+// Dynamic-field component — mat-error / field-error inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .field-error,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-error {
+  color: #f87171 !important;
+}
+
+// Dynamic-field component — checkbox label text inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .dynamic-boolean-field {
+  color: #e2e8f0 !important;
+
+  .help-text {
+    color: #94a3b8 !important;
+  }
+}
+
+// Dynamic-step-form section title inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .config-section-title {
+  color: #94a3b8 !important;
+}
+
+// Removed step warning inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .removed-step-warning {
+  span {
+    color: #e2e8f0 !important;
+  }
+}
+
+// Tooltip — dark surface with light text
+[data-theme="dark"] .mat-mdc-tooltip {
+  background: #2d3148 !important;
+  color: #e2e8f0 !important;
+}
+
+// Snackbar — dark container
+[data-theme="dark"] .mat-mdc-snack-bar-container {
+  background: #2d3148 !important;
+  color: #e2e8f0 !important;
+}
+
+// Autocomplete panel — matches select/dropdown panels
+[data-theme="dark"] .mat-mdc-autocomplete-panel {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--color-border) !important;
+
+  .mdc-list-item__primary-text {
+    color: #e2e8f0 !important;
+  }
+
+  &.mat-mdc-autocomplete-panel-after-toggle .mdc-list-item--selected .mdc-list-item__primary-text {
+    color: var(--accent-primary) !important;
+  }
+}
+
+// Select panel (dropdown panels used by mat-select) — renders in CDK overlay outside dialog
+[data-theme="dark"] .mat-mdc-select-panel,
+.mat-mdc-select-panel {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] .mat-mdc-select-panel .mdc-list-item__primary-text,
+[data-theme="dark"] .mat-mdc-option .mdc-list-item__primary-text {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .mat-mdc-option,
+.mat-mdc-option {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .mat-mdc-select-panel .mat-pseudo-checkbox,
+[data-theme="dark"] .mat-mdc-option .mat-pseudo-checkbox {
+  color: transparent !important;
+}
+
+// Form field outline inputs — dark mode border and focus ring
+[data-theme="dark"] .mat-mdc-form-field-outline {
+  background-color: var(--card-bg) !important;
+}
+
+[data-theme="dark"] .mat-mdc-text-field-wrapper {
+  notched-outline {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing {
+      border-color: var(--color-border) !important;
+    }
+  }
+}
+
+// Floating label text — global dark mode (not just inside dialogs)
+[data-theme="dark"] .mdc-floating-label,
+[data-theme="dark"] .mat-mdc-form-field-label-text {
+  color: #94a3b8 !important;
+}
+
+// Form field input text — global dark mode
+[data-theme="dark"] .mat-mdc-input-element {
+  color: #e2e8f0 !important;
+}
+
+// Input text color in dark mode
+[data-theme="dark"] .mat-mdc-form-field-text-prefix mat-icon,
+[data-theme="dark"] .mat-mdc-form-field-text-suffix mat-icon {
+  color: #94a3b8 !important;
+}
+
+// Checkbox and radio — visible track in dark mode
+[data-theme="dark"] .mdc-checkbox__background {
+  border-color: var(--color-border) !important;
+  background-color: transparent !important;
+}
+
+// Table sort arrow color
+[data-theme="dark"] .mat-header-cell .mat-sort-header-arrow {
+  color: var(--accent-primary) !important;
+}
+
+// FAB and icon button dark overrides
+[data-theme="dark"] .mat-mdc-fab,
+[data-theme="dark"] .mat-mdc-mini-fab {
+  background: var(--color-surface) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .mat-mdc-icon-button {
+  color: #94a3b8 !important;
+}
+
+// Pagination dark overrides
+[data-theme="dark"] .mat-mdc-paginator {
+  background: var(--card-bg) !important;
+  color: #e2e8f0 !important;
+  border-top: 1px solid var(--color-border) !important;
+}
+
+// Divider in dark mode
+[data-theme="dark"] .mat-divider,
+[data-theme="dark"] mat-divider {
+  border-color: var(--color-border) !important;
+}

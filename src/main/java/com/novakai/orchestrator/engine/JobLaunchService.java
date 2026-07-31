@@ -20,8 +20,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
 
+import com.novakai.orchestrator.api.dto.JobRunRequest;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +46,8 @@ public class JobLaunchService {
     private final JobEnvVarRepository envVarRepo;
     private final JobRunRepository runRepo;
     private final JobStepRepository stepRepo;
-    private final JobExecutionOrchestrator orchestrator;
+    private final DagExecutionEngine dagEngine;
+    private final JobExecutionOrchestrator orchestrator; // for single-step execution only
     private final ThreadPoolTaskExecutor taskExecutor;
     private final JsonParser jsonParser;
 
@@ -56,6 +60,7 @@ public class JobLaunchService {
                             JobEnvVarRepository envVarRepo,
                             JobRunRepository runRepo,
                             JobStepRepository stepRepo,
+                            DagExecutionEngine dagEngine,
                             JobExecutionOrchestrator orchestrator,
                             ThreadPoolTaskExecutor taskExecutor,
                             JsonParser jsonParser) {
@@ -63,28 +68,41 @@ public class JobLaunchService {
         this.envVarRepo = envVarRepo;
         this.runRepo = runRepo;
         this.stepRepo = stepRepo;
+        this.dagEngine = dagEngine;
         this.orchestrator = orchestrator;
         this.taskExecutor = taskExecutor;
         this.jsonParser = jsonParser;
     }
 
     public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy) {
+        return launch(jobId, triggerType, triggeredBy, Map.of());
+    }
+
+    public JobRun launch(Long jobId, TriggerType triggerType, String triggeredBy,
+                         Map<String, Object> runParameters) {
         JobDefinition job = jobRepo.findByIdWithSteps(jobId)
             .orElseThrow(() -> new JobNotFoundException(jobId));
-        return launchInternal(job, triggerType, triggeredBy, (ctx, j, r) -> orchestrator.execute(ctx, j, r));
+        return launchInternal(job, triggerType, triggeredBy, runParameters,
+            (ctx, j, r) -> dagEngine.execute(ctx, j, r));
     }
 
     public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy) {
+        return launchByName(jobName, triggerType, triggeredBy, Map.of());
+    }
+
+    public JobRun launchByName(String jobName, TriggerType triggerType, String triggeredBy,
+                               Map<String, Object> runParameters) {
         JobDefinition job = jobRepo.findByJobNameWithSteps(jobName)
             .orElseThrow(() -> new JobNotFoundException(jobName));
-        return launchInternal(job, triggerType, triggeredBy, (ctx, j, r) -> orchestrator.execute(ctx, j, r));
+        return launchInternal(job, triggerType, triggeredBy, runParameters,
+            (ctx, j, r) -> dagEngine.execute(ctx, j, r));
     }
 
     public JobRun launchStep(Long stepId, TriggerType triggerType, String triggeredBy) {
         JobStep step = stepRepo.findStepWithJobDefinition(stepId)
             .orElseThrow(() -> new StepNotFoundException(stepId));
         JobDefinition job = step.getJobDefinition();
-        return launchInternal(job, triggerType, triggeredBy,
+        return launchInternal(job, triggerType, triggeredBy, Map.of(),
             (ctx, j, r) -> orchestrator.executeSingleStep(ctx, j, r, step));
     }
 
@@ -92,11 +110,12 @@ public class JobLaunchService {
         JobStep step = stepRepo.findStepWithJobDefinitionByStepName(stepName)
             .orElseThrow(() -> new StepNotFoundException(stepName));
         JobDefinition job = step.getJobDefinition();
-        return launchInternal(job, triggerType, triggeredBy,
+        return launchInternal(job, triggerType, triggeredBy, Map.of(),
             (ctx, j, r) -> orchestrator.executeSingleStep(ctx, j, r, step));
     }
 
     private JobRun launchInternal(JobDefinition job, TriggerType triggerType, String triggeredBy,
+                                  Map<String, Object> runParameters,
                                   TriConsumer<ExecutionContext, JobDefinition, JobRun> executionAction) {
         Long jobId = job.getJobId();
 
@@ -118,7 +137,8 @@ public class JobLaunchService {
         BlockingQueue<String> logQueue = new LinkedBlockingQueue<>();
         liveLogQueues.put(runId, logQueue);
 
-        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue);
+        ExecutionContext ctx = buildContext(runId, jobId, job, logQueue,
+            runParameters != null ? Collections.unmodifiableMap(runParameters) : Map.of());
 
         Future<?> future = taskExecutor.submit(
             () -> {
@@ -163,7 +183,8 @@ public class JobLaunchService {
     }
 
     private ExecutionContext buildContext(Long runId, Long jobId, JobDefinition job,
-                                          BlockingQueue<String> logQueue) {
+                                          BlockingQueue<String> logQueue,
+                                          Map<String, Object> runParameters) {
         List<String> classpath = parseJobClasspath(job.getClasspath());
         return ExecutionContext.builder()
             .runId(runId)
@@ -174,6 +195,7 @@ public class JobLaunchService {
             .envVars(buildEnvMap(jobId))
             .liveLogQueue(logQueue)
             .cancelRequested(false)
+            .runParameters(runParameters)
             .build();
     }
 

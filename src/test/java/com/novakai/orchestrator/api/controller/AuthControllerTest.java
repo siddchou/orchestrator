@@ -3,7 +3,11 @@ package com.novakai.orchestrator.api.controller;
 import com.novakai.orchestrator.api.dto.ChangePasswordRequest;
 import com.novakai.orchestrator.api.dto.LoginRequest;
 import com.novakai.orchestrator.domain.entity.AppUser;
+import com.novakai.orchestrator.domain.entity.Team;
+import com.novakai.orchestrator.domain.entity.UserTeam;
 import com.novakai.orchestrator.repository.AppUserRepository;
+import com.novakai.orchestrator.repository.TeamRepository;
+import com.novakai.orchestrator.repository.UserTeamRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -30,6 +34,12 @@ class AuthControllerTest {
     private AppUserRepository userRepo;
 
     @Autowired
+    private UserTeamRepository userTeamRepo;
+
+    @Autowired
+    private TeamRepository teamRepo;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private String token;
@@ -40,7 +50,8 @@ class AuthControllerTest {
     void setUp() {
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new NoOpResponseErrorHandler());
-            
+
+        userTeamRepo.deleteAll();
         userRepo.deleteAll();
         AppUser admin = AppUser.builder()
                 .username("admin")
@@ -68,6 +79,17 @@ class AuthControllerTest {
         int start = body.indexOf("\"token\":\"") + 9;
         int end = body.indexOf("\"", start);
         token = body.substring(start, end);
+
+        // Restore TestDataInitializer user-team associations so other tests aren't broken
+        Team testTeam = teamRepo.findByTeamName("test-team")
+                .orElseGet(() -> teamRepo.save(Team.builder().teamName("test-team").build()));
+        AppUser operator = userRepo.findByUsername("operator")
+                .orElseGet(() -> userRepo.save(AppUser.builder()
+                        .username("operator").passwordHash(passwordEncoder.encode("changeme"))
+                        .role("OPERATOR").enabled("Y").passwordExpired("N").build()));
+        userTeamRepo.save(UserTeam.builder().user(admin).team(testTeam).role("ADMIN").build());
+        userTeamRepo.save(UserTeam.builder().user(viewer).team(testTeam).role("VIEWER").build());
+        userTeamRepo.save(UserTeam.builder().user(operator).team(testTeam).role("MEMBER").build());
     }
 
     @Test

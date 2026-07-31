@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +19,9 @@ import { JobService } from '@app/core/services/job.service';
 import { SystemService } from '@app/core/services/system.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { StepFormDialog, StepFormData } from '../step-builder/step-form-dialog';
+import { StepPaletteComponent } from '../step-builder/step-palette';
 import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { FormGuardService } from '@app/core/services/form-guard.service';
 
 @Component({
   selector: 'app-job-detail',
@@ -32,7 +34,7 @@ import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
 })
-export class JobDetailComponent implements OnInit {
+export class JobDetailComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private jobService = inject(JobService);
   private systemService = inject(SystemService);
@@ -41,6 +43,7 @@ export class JobDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cd = inject(ChangeDetectorRef);
+  private formGuard = inject(FormGuardService, { optional: true });
 
   jobId: number | null = null;
   job: JobDefinition | null = null;
@@ -64,7 +67,18 @@ export class JobDetailComponent implements OnInit {
   pathValidation: Record<string, string> = {};
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  ngOnInit() {
+  ngOnInit(): void {
+    // Track dirty state for team-switch guard (E2)
+    if (this.formGuard) {
+      this.generalForm.statusChanges.subscribe(() => {
+        if (this.generalForm.dirty) {
+          this.formGuard!.markDirty();
+        } else {
+          this.formGuard!.markClean();
+        }
+      });
+    }
+
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam) {
       this.jobId = +idParam;
@@ -129,15 +143,28 @@ export class JobDetailComponent implements OnInit {
   }
 
   openStepForm(step?: JobStep) {
-    const data: StepFormData = {
-      stepId: step?.stepId,
-      stepName: step?.stepName ?? '',
-      stepOrder: step?.stepOrder ?? (this.job?.steps.length ?? 0),
-      stepType: step?.stepType ?? ('JAVA_EXEC' as StepType),
-      stepConfig: step?.stepConfig ?? '{}',
-      continueOnFailure: step?.continueOnFailure ?? false,
-      enabled: step?.enabled ?? true,
-    };
+    if (step) {
+      // Edit existing step — go straight to form
+      this.openStepFormDialog(step);
+      return;
+    }
+
+    // Add new step — show palette first
+    this.dialog.open(StepPaletteComponent, { width: '560px' }).afterClosed().subscribe(result => {
+      if (!result?.stepType) return;
+      this.openStepFormDialog({
+        stepId: null,
+        stepName: '',
+        stepOrder: this.job?.steps.length ?? 0,
+        stepType: result.stepType as StepType,
+        stepConfig: '{}',
+        continueOnFailure: false,
+        enabled: true,
+      });
+    });
+  }
+
+  private openStepFormDialog(data: StepFormData) {
     this.dialog.open(StepFormDialog, { data, width: '550px' }).afterClosed().subscribe(result => {
       if (!result) return;
       if (this.jobId == null) return;
@@ -281,5 +308,11 @@ export class JobDetailComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/jobs']);
+  }
+
+  ngOnDestroy(): void {
+    if (this.formGuard) {
+      this.formGuard.markClean();
+    }
   }
 }
