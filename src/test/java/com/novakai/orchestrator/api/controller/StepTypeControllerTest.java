@@ -47,14 +47,14 @@ class StepTypeControllerTest {
     }
 
     @Test
-    void listStepTypes_returns_json_array() {
+    void listStepTypes_returns_api_response_wrapper() {
         ResponseEntity<String> response = restTemplate.getForEntity(
             base() + "/api/step-types", String.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         String body = response.getBody();
-        assertTrue(body.startsWith("[") || body.trim().startsWith("["),
-            "Expected JSON array but got: " + body.substring(0, Math.min(50, body.length())));
+        assertTrue(body.contains("\"status\":\"SUCCESS\""), "Expected ApiResponse wrapper but got: " + body.substring(0, Math.min(50, body.length())));
+        assertTrue(body.contains("\"data\":"));
     }
 
     @Test

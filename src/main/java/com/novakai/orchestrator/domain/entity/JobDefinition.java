@@ -48,18 +48,24 @@ public class JobDefinition {
     @Column(name = "UPDATED_AT")
     private LocalDateTime updatedAt;
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("stepOrder ASC")
     private List<JobStep> steps = new ArrayList<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
                orphanRemoval = true, fetch = FetchType.LAZY)
     private List<JobEnvVar> envVars = new ArrayList<>();
 
-    @OneToOne(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
+@OneToOne(mappedBy = "jobDefinition", cascade = CascadeType.ALL,
               orphanRemoval = true, fetch = FetchType.LAZY)
     private JobSchedule schedule;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "TEAM_ID")
+    private Team team;
 
     @PrePersist
     protected void onCreate() {

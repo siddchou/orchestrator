@@ -86,6 +86,10 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
 
         <!-- Jakarta Annotations for @PreDestroy -->
         <dependency>
@@ -137,6 +141,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -174,6 +183,7 @@
                     <workingDirectory>orchestrator-ui</workingDirectory>
                     <nodeVersion>v22.22.3</nodeVersion>
                     <npmVersion>10.2.4</npmVersion>
+                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>

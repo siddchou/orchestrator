@@ -4,13 +4,17 @@ import com.novakai.orchestrator.api.dto.JobDefinitionRequest;
 import com.novakai.orchestrator.api.dto.JobScheduleRequest;
 import com.novakai.orchestrator.api.dto.JobStepRequest;
 import com.novakai.orchestrator.domain.entity.JobDefinition;
-import com.novakai.orchestrator.domain.enums.StepType;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
+import com.novakai.orchestrator.repository.JobStepDependencyRepository;
+import com.novakai.orchestrator.repository.JobStepRepository;
+import com.novakai.orchestrator.security.JwtService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 
 import org.springframework.web.client.NoOpResponseErrorHandler;
@@ -30,13 +34,31 @@ class JobDefinitionControllerTest {
     @Autowired
     private JobDefinitionRepository jobRepo;
 
-    private Long savedJobId;
+    @Autowired
+    private JobStepDependencyRepository stepDepRepo;
+
+    @Autowired
+    private JobStepRepository stepRepo;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private UserDetailsService userDetailsService;
+
+    private String adminToken;
 
     @BeforeEach
     void setUp() {
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new NoOpResponseErrorHandler());
-            
+
+        // Generate admin token for authenticated requests
+        UserDetails adminUser = userDetailsService.loadUserByUsername("admin");
+        adminToken = jwtService.generateToken(adminUser);
+
+        stepDepRepo.deleteAll();
+        stepRepo.deleteAll();
         jobRepo.deleteAll();
         JobDefinition job = JobDefinition.builder()
                 .jobName("test-job")
@@ -49,7 +71,15 @@ class JobDefinitionControllerTest {
         savedJobId = job.getJobId();
     }
 
+    private Long savedJobId;
+
     String base() { return "http://localhost:" + port; }
+
+    private HttpHeaders authHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + adminToken);
+        return headers;
+    }
 
     @Test
     void list_returns_jobs() {
@@ -62,8 +92,9 @@ class JobDefinitionControllerTest {
     void create_valid_job() {
         JobDefinitionRequest request = new JobDefinitionRequest(
                 "new-job", "Description", "/tmp/new", "/usr/lib/jvm/java-21", null);
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                base() + "/api/jobs", request, String.class);
+        HttpEntity<JobDefinitionRequest> entity = new HttpEntity<>(request, authHeaders());
+        ResponseEntity<String> response = restTemplate.exchange(
+                base() + "/api/jobs", HttpMethod.POST, entity, String.class);
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertTrue(response.getBody().contains("\"jobName\":\"new-job\""));
     }
@@ -72,8 +103,9 @@ class JobDefinitionControllerTest {
     void create_duplicate_name_returns_400() {
         JobDefinitionRequest request = new JobDefinitionRequest(
                 "test-job", "Duplicate", "/tmp/dup", null, null);
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                base() + "/api/jobs", request, String.class);
+        HttpEntity<JobDefinitionRequest> entity = new HttpEntity<>(request, authHeaders());
+        ResponseEntity<String> response = restTemplate.exchange(
+                base() + "/api/jobs", HttpMethod.POST, entity, String.class);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
@@ -81,8 +113,9 @@ class JobDefinitionControllerTest {
     void create_blank_fields_returns_400() {
         JobDefinitionRequest request = new JobDefinitionRequest(
                 "", null, "", null, null);
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                base() + "/api/jobs", request, String.class);
+        HttpEntity<JobDefinitionRequest> entity = new HttpEntity<>(request, authHeaders());
+        ResponseEntity<String> response = restTemplate.exchange(
+                base() + "/api/jobs", HttpMethod.POST, entity, String.class);
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 

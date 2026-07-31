@@ -60,6 +60,32 @@
 /* Steps */
 .steps-header {
   margin-bottom: var(--spacing-md);
+
+  .view-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+
+    button {
+      padding: 6px 14px;
+      font-size: var(--font-size-sm);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+
+      &.active {
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--accent-primary);
+      }
+    }
+  }
+}
+
+.canvas-container {
+  height: calc(100vh - 280px);
+  min-height: 500px;
 }
 
 .step-list {

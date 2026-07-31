@@ -8,5 +8,6 @@ public enum RunStatus {
     SUCCESS,
     FAILED,
     PARTIAL,
-    CANCELLED
+    CANCELLED,
+    SKIPPED  // for Phase 3 DAG — step skipped due to unsatisfied edge condition
 }

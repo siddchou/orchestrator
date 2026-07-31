@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ApiResponse, Page } from '@app/core/models/api-response.model';
-import { JobDefinition, JobStep, EnvVar, JobSchedule, StepConfigSchema } from '@app/core/models/job.model';
+import { JobDefinition, JobStep, EnvVar, JobSchedule, StepConfigSchema, StepDependency } from '@app/core/models/job.model';
 
 @Injectable({ providedIn: 'root' })
 export class JobService {
@@ -102,5 +102,14 @@ export class JobService {
   // Step Types (schema-driven UI)
   listStepTypes(): Observable<ApiResponse<StepConfigSchema[]>> {
     return this.http.get<ApiResponse<StepConfigSchema[]>>(`${this.api}/step-types`);
+  }
+
+  // Step Dependencies (DAG)
+  getStepDependencies(jobId: number, stepId: number): Observable<ApiResponse<StepDependency[]>> {
+    return this.http.get<ApiResponse<StepDependency[]>>(`${this.api}/jobs/${jobId}/steps/${stepId}/dependencies`);
+  }
+
+  setStepDependencies(jobId: number, stepId: number, dependencies: StepDependency[]): Observable<ApiResponse<void>> {
+    return this.http.put<ApiResponse<void>>(`${this.api}/jobs/${jobId}/steps/${stepId}/dependencies`, dependencies);
   }
 }

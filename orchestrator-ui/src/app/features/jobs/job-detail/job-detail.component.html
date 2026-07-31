@@ -88,35 +88,55 @@
             <button mat-stroked-button (click)="openStepForm()">
               <mat-icon>add</mat-icon> Add Step
             </button>
+            <span class="spacer"></span>
+            <div class="view-toggle">
+              <button mat-icon-button [class.active]="stepsViewMode === 'list'" (click)="stepsViewMode = 'list'" title="List view">
+                <mat-icon>list</mat-icon>
+              </button>
+              <button mat-icon-button [class.active]="stepsViewMode === 'canvas'" (click)="onSwitchToCanvas()" title="Canvas view">
+                <mat-icon>account_tree</mat-icon>
+              </button>
+            </div>
           </div>
 
-          <div cdkDropList class="step-list" (cdkDropListDropped)="onStepDropped($event)">
-            @for (step of job.steps; track step.stepId) {
-              <div cdkDrag class="step-row">
-                <mat-icon cdkDragHandle class="drag-handle">drag_indicator</mat-icon>
-                <span class="step-order">{{ step.stepOrder }}</span>
-                <div class="step-info">
-                  <span class="step-name">{{ step.stepName }}</span>
-                  <mat-chip class="step-type-chip">{{ step.stepType }}</mat-chip>
+          @if (stepsViewMode === 'list') {
+            <div cdkDropList class="step-list" (cdkDropListDropped)="onStepDropped($event)">
+              @for (step of job.steps; track step.stepId) {
+                <div cdkDrag class="step-row">
+                  <mat-icon cdkDragHandle class="drag-handle">drag_indicator</mat-icon>
+                  <span class="step-order">{{ step.stepOrder }}</span>
+                  <div class="step-info">
+                    <span class="step-name">{{ step.stepName }}</span>
+                    <mat-chip class="step-type-chip">{{ step.stepType }}</mat-chip>
+                  </div>
+                  <span class="spacer"></span>
+                  <div class="step-actions">
+                    <button mat-icon-button (click)="openStepForm(step)" aria-label="Edit step configuration">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="deleteStep(step)" aria-label="Remove this step from the job" color="warn">
+                      <mat-icon>delete</mat-icon>
+                    </button>
+                  </div>
                 </div>
-                <span class="spacer"></span>
-                <div class="step-actions">
-                  <button mat-icon-button (click)="openStepForm(step)" aria-label="Edit step configuration">
-                    <mat-icon>edit</mat-icon>
-                  </button>
-                  <button mat-icon-button (click)="deleteStep(step)" aria-label="Remove this step from the job" color="warn">
-                    <mat-icon>delete</mat-icon>
-                  </button>
+              }
+              @if (job.steps.length === 0) {
+                <div class="empty-state">
+                  <mat-icon>event_note</mat-icon>
+                  <p>No steps yet. Click <strong>Add Step</strong> to begin.</p>
                 </div>
-              </div>
-            }
-            @if (job.steps.length === 0) {
-              <div class="empty-state">
-                <mat-icon>event_note</mat-icon>
-                <p>No steps yet. Click <strong>Add Step</strong> to begin.</p>
-              </div>
-            }
-          </div>
+              }
+            </div>
+          } @else if (stepsViewMode === 'canvas') {
+            <app-dag-canvas
+              [jobId]="jobId!"
+              [steps]="stepsWithDeps"
+              (stepSelected)="onCanvasStepSelected($event)"
+              (stepDeleted)="onCanvasStepDeleted($event)"
+              (addStepRequested)="openStepForm()"
+              (saveRequested)="onSaveDependencies($event)"
+            ></app-dag-canvas>
+          }
         </div>
       </mat-tab>
     }

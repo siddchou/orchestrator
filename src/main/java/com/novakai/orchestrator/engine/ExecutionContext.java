@@ -21,4 +21,8 @@ public class ExecutionContext {
     private List<String> classpath;
     private BlockingQueue<String> liveLogQueue;
     private volatile boolean cancelRequested;
+
+    /** Runtime parameters from POST body, available as ${job.param.<key>} in templates. */
+    @Builder.Default
+    private Map<String, Object> runParameters = Map.of();
 }

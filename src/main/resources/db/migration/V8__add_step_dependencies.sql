@@ -1,0 +1,23 @@
+-- ============================================================
+-- V8: Add DAG dependency model for step execution ordering
+-- Replaces linear stepOrder with explicit dependency edges
+-- ============================================================
+
+-- 1. Create the dependency join table
+CREATE TABLE JOB_STEP_DEPENDENCY (
+    DEPENDENCY_ID       NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    STEP_ID             NUMBER NOT NULL,
+    DEPENDS_ON_STEP_ID  NUMBER NOT NULL,
+    EDGE_CONDITION      VARCHAR2(20) DEFAULT 'ON_SUCCESS'
+                        CHECK (EDGE_CONDITION IN ('ON_SUCCESS', 'ON_FAILURE', 'ALWAYS')),
+    CONSTRAINT FK_DEP_STEP       FOREIGN KEY (STEP_ID) REFERENCES JOB_STEP(STEP_ID) ON DELETE CASCADE,
+    CONSTRAINT FK_DEP_ON_STEP    FOREIGN KEY (DEPENDS_ON_STEP_ID) REFERENCES JOB_STEP(STEP_ID),
+    CONSTRAINT UQ_STEP_DEP       UNIQUE (STEP_ID, DEPENDS_ON_STEP_ID)
+);
+
+COMMENT ON TABLE JOB_STEP_DEPENDENCY IS 'DAG edges between steps: STEP_ID depends on DEPENDS_ON_STEP_ID';
+COMMENT ON COLUMN JOB_STEP_DEPENDENCY.EDGE_CONDITION IS 'ON_SUCCESS (default), ON_FAILURE, or ALWAYS';
+
+-- 2. Indexes for DAG traversal queries
+CREATE INDEX IDX_DEP_TARGET ON JOB_STEP_DEPENDENCY(STEP_ID);
+CREATE INDEX IDX_DEP_SOURCE ON JOB_STEP_DEPENDENCY(DEPENDS_ON_STEP_ID);

@@ -14,6 +14,12 @@ public record ApiResponse<T>(
         return new ApiResponse<>("SUCCESS", data, null, LocalDateTime.now());
     }
 
+    public static <T> ApiResponse<T> success() {
+        @SuppressWarnings("unchecked")
+        ApiResponse<T> response = (ApiResponse<T>) new ApiResponse<>("SUCCESS", null, null, LocalDateTime.now());
+        return response;
+    }
+
     public static <T> ApiResponse<T> error(String message) {
         return new ApiResponse<>("ERROR", null, message, LocalDateTime.now());
     }

@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +20,10 @@ import { SystemService } from '@app/core/services/system.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { StepFormDialog, StepFormData } from '../step-builder/step-form-dialog';
 import { StepPaletteComponent } from '../step-builder/step-palette';
-import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { DagCanvasComponent } from '../dag-canvas/dag-canvas.component';
+import { JobDefinition, JobStep, JobStepWithDependencies, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { forkJoin, take } from 'rxjs';
+import { FormGuardService } from '@app/core/services/form-guard.service';
 
 @Component({
   selector: 'app-job-detail',
@@ -29,11 +32,12 @@ import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
     CdkDrag, CdkDropList, CdkDragHandle,
+    DagCanvasComponent,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
 })
-export class JobDetailComponent implements OnInit {
+export class JobDetailComponent implements OnInit, OnDestroy {
   private fb = inject(FormBuilder);
   private jobService = inject(JobService);
   private systemService = inject(SystemService);
@@ -42,6 +46,7 @@ export class JobDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private cd = inject(ChangeDetectorRef);
+  private formGuard = inject(FormGuardService, { optional: true });
 
   jobId: number | null = null;
   job: JobDefinition | null = null;
@@ -63,9 +68,22 @@ export class JobDetailComponent implements OnInit {
   scheduleCron = '';
   scheduleEnabled = false;
   pathValidation: Record<string, string> = {};
+  stepsViewMode: 'list' | 'canvas' = 'list';
+  stepsWithDeps: JobStepWithDependencies[] = [];
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  ngOnInit() {
+  ngOnInit(): void {
+    // Track dirty state for team-switch guard (E2)
+    if (this.formGuard) {
+      this.generalForm.statusChanges.subscribe(() => {
+        if (this.generalForm.dirty) {
+          this.formGuard!.markDirty();
+        } else {
+          this.formGuard!.markClean();
+        }
+      });
+    }
+
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam) {
       this.jobId = +idParam;
@@ -295,5 +313,71 @@ export class JobDetailComponent implements OnInit {
 
   goBack() {
     this.router.navigate(['/jobs']);
+  }
+
+  onSwitchToCanvas(): void {
+    if (this.jobId == null || !this.job) return;
+    const steps = this.job.steps;
+    if (steps.length === 0) {
+      this.stepsWithDeps = [];
+      this.stepsViewMode = 'canvas';
+      return;
+    }
+
+    forkJoin(
+      steps.map(step =>
+        this.jobService.getStepDependencies(this.jobId!, step.stepId).pipe(take(1))
+      )
+    ).subscribe({
+      next: (results) => {
+        this.stepsWithDeps = steps.map((step, i) => ({
+          ...step,
+          dependencies: results[i].status === 'SUCCESS' ? results[i].data : [],
+        }));
+        this.stepsViewMode = 'canvas';
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  onSwitchToList(): void {
+    this.stepsViewMode = 'list';
+  }
+
+  onCanvasStepSelected(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.openStepForm(step);
+    }
+  }
+
+  onCanvasStepDeleted(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.deleteStep(step);
+    }
+  }
+
+  onSaveDependencies(updatedSteps: JobStepWithDependencies[]): void {
+    if (this.jobId == null) return;
+    forkJoin(
+      updatedSteps.map(step =>
+        this.jobService.setStepDependencies(this.jobId!, step.stepId, step.dependencies).pipe(take(1))
+      )
+    ).subscribe({
+      next: () => {
+        this.snackBar.open('Dependencies saved', 'Dismiss', { duration: 3000 });
+        this.loadJob();
+      },
+      error: () => {
+        this.snackBar.open('Failed to save dependencies', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.formGuard) {
+      this.formGuard.markClean();
+    }
   }
 }

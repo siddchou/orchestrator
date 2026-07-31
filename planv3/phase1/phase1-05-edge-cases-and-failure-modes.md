@@ -4,56 +4,115 @@
 
 **All 10 scenarios addressed in code.** Verified against actual implementation:
 
-| # | Scenario | Handling Implemented | Verified In |
-|---|----------|---------------------|-------------|
-| 1 | Duplicate registration | ✅ Warning + last-wins merge function | `StepExecutorRegistry.java` constructor |
-| 2 | Unregistered type | ✅ Structured failure message, no stack trace | `JobExecutionOrchestrator.java:130` |
-| 3 | Plugin boot failure | ✅ Fast-fail via Spring (documented as expected) | Standard Spring behavior |
-| 4 | Concurrent registry access | ✅ Immutable ConcurrentHashMap after construction | `StepExecutorRegistry.java` — no mutation methods exposed |
-| 5 | RuntimeException during execute() | ✅ Catch-all handler, timing preserved | `JobExecutionOrchestrator.java:184` |
-| 6 | Config schema mismatch | ✅ Pre-execute presence-only validation | `JobExecutionOrchestrator.java:245-274` (Task 10) |
-| 7 | Context mutation across steps | ✅ Sequential execution documented, no code change needed | N/A — design constraint |
-| 8 | Log queue overflow | ✅ Warning at 10k entries in LogSink | `StepContext.java` — `LogSink.log()` method |
-| 9 | Credential decryption failure | ✅ Exception propagates to orchestrator catch-all | `JobExecutionOrchestrator.java:245-274` validation path |
-| 10 | Cancel mid-execution | ✅ `isCancelRequested()` checked in SFTP loops, thread interruption for JavaExec | `SftpStepExecutor.java:153,256`, `JavaExecStepExecutor.java` |
+| Scenario | Handled In | Mechanism |
+|----------|-----------|-----------|
+| 1. Duplicate type registration | `StepExecutorRegistry.java` constructor | `putIfAbsent()` + warning log, last-registered wins |
+| 2. Unknown step type at execution | `JobExecutionOrchestrator.executeStep()` line ~130 | `registry.get(type).orElseThrow()` with descriptive error message |
+| 3. Plugin JAR fails to load | `PluginScanner.onApplicationEvent()` | Try-catch per JAR, logs error, continues scanning remaining JARs |
+| 4. Concurrent registry access | `StepExecutorRegistry` field type | `ConcurrentHashMap` — thread-safe without external synchronization |
+| 5. Config validation failure | `JobExecutionOrchestrator.validateRequiredFields()` lines 245–274 | Returns `StepResult.failure()` with missing field names, executor never invoked |
+| 6. Missing credential reference | `SftpStepExecutor` via `CredentialResolver` | `resolver.resolve(ref)` throws → caught by orchestrator retry loop → FAILED result |
+| 7. Step cancellation during execution | `StepContext.cancelRequested`, executor interrupt checks | Virtual thread in orchestrator checks `Thread.interrupted()` between retries; executors check `cancelRequested` flag |
+| 8. Empty plugins directory | `PluginScanner.onApplicationEvent()` | Directory not found or empty → logs info message, continues startup |
+| 9. Config JSON parse failure | Each executor's config parsing | Caught as runtime exception → orchestrator wraps in FAILED result with error message |
+| 10. Retry exhaustion | `JobExecutionOrchestrator` retry loop lines 156–180 | After `maxAttempts`, returns last failed `StepResult` with cumulative execution time |
 
-## Scenario Matrix
+## Detailed Scenarios
 
-| # | Scenario | Current Behavior Without Fix | Required Handling |
-|---|----------|------------------------------|-------------------|
-| 1 | **Duplicate step-type registration**: Two executor beans (e.g., from a plugin and the core app) register the same `getType()` string like `"JAVA_EXEC"`. | `StepExecutorFactory` constructor uses `Collectors.toMap(StepExecutor::getSupportedType, e -> e)` which throws `IllegalStateException` on duplicate keys at boot time. App fails to start. | `StepExecutorRegistry` detects duplicates during construction and logs a **warning** (does not fail startup). Last-registered wins, but the warning includes both bean names so the operator can resolve the conflict. Implementation: use `toMap(key, value, (existing, replacement) -> { log.warn(...); return replacement; })`. |
-| 2 | **Unregistered step type referenced by existing job**: A `JOB_STEP` row has `STEP_TYPE = 'CUSTOM_FOO'` but no executor bean implements that type. | `StepExecutorFactory.resolve(type)` throws `IllegalArgumentException("No executor registered for step type: ...")`. The orchestrator catches this in the catch-all `catch (Exception ex)` block at `JobExecutionOrchestrator.java:126`, logs the error, marks the step FAILED, and continues (or aborts per `continueOnFailure`). | Same behavior is acceptable — but improve the error message. Registry's `get(String type)` returns `Optional.empty()`. Orchestrator checks for empty Optional and produces a structured failure: `StepResult.failure("No executor registered for step type 'CUSTOM_FOO'. Is the plugin JAR on the classpath?", Duration.ZERO)`. This is clearer than an IllegalArgumentException stack trace. |
-| 3 | **Plugin throws exception during Spring boot** (e.g., constructor injection fails because a required bean doesn't exist). | Spring context refresh fails entirely. App does not start. All executors — including core ones — are unavailable. | Document this as expected behavior for v1. Mitigation: the registry construction catches per-executor initialization errors and logs them, allowing the app to start with fewer executors registered. Implementation: wrap the `List<StepExecutor>` injection in a `@Configuration` that creates each executor bean individually inside try-catch, so one bad plugin doesn't kill the context. **However**, since Option A (classpath extension) uses standard `@Component` scanning, Spring fails fast on constructor errors — this is actually desirable for catching misconfigured plugins early. The graceful-degrade approach belongs in Option B's PluginManager. |
-| 4 | **Concurrent registry access during a running job**: Two runs execute simultaneously (the async executor pool allows up to 20 concurrent jobs per `AsyncConfig.java:27`), both resolving executors from the registry. | The current factory builds `executorMap` once at construction and reads it immutably during `resolve()`. No concurrency issue — the map is effectively final after construction. | New registry must preserve this property: build the map once in the constructor, expose only read operations (`get`, `listAll`, `registeredTypes`). Use `Collections.unmodifiableMap()` or an immutable collection to prevent accidental mutation. **No synchronization needed** — the registry is thread-safe by design (immutable after construction). |
-| 5 | **Executor throws RuntimeException during execute()**: An executor has a bug that throws an unchecked exception (NPE, IllegalStateException) mid-execution. | `JobExecutionOrchestrator.executeStep()` catches all exceptions at line 126: `catch (Exception ex)`. Logs the error, sets step status to FAILED with `"EXCEPTION: " + ex.getMessage()`, returns true (step failed). Run continues per `continueOnFailure` logic. | Preserve this behavior exactly. The new interface's `execute(StepContext) throws Exception` declares checked exceptions, but the orchestrator's catch block handles both. Ensure the StepResult returned from the error path includes timing info: `Duration executionTime = Duration.ofNanos(System.nanoTime() - startTime)`. |
-| 6 | **Config JSON doesn't match executor's expected schema**: A step's `STEP_CONFIG` CLOB contains JSON missing a required field that the executor expects. | Executor-specific behavior today. JavaExecStepExecutor validates config fields and returns `StepResult.failure("...")` for null/invalid values (e.g., line 64-72). SftpStepExecutor throws `RuntimeException` if credential ref not found (line 87). Inconsistent — some validate, some throw. | Implemented as **Task 10** in `phase1-02-task-breakdown.md`: the orchestrator checks presence of every `required=true` field from `executor.getConfigSchema()` before calling `execute()`, failing fast with a structured message if any are missing. This is **presence-only** validation (no type/enum/format checks) — deliberately scoped down from full schema enforcement to avoid a second config-parsing layer that could drift from what executors actually expect; each executor still does its own runtime-specific validation (e.g., JavaExec's regex checks) exactly as it does today. See `phase1-07-gap-analysis-and-fixes.md` Fix #3 and Fix #4 for the full reasoning. |
-| 7 | **StepContext mutated by one executor affects downstream executors**: ENV_SETUP mutates `ctx.setJavaHome()` and `ctx.getEnvVars().putAll(...)`. If a concurrent step reads these values before ENV_SETUP runs, it sees stale state. | Current code is sequential — this cannot happen today. Steps run in `stepOrder` order within a single thread (`JobExecutionOrchestrator.java:48`). | Document that StepContext fields are **not** thread-safe for concurrent access. Phase 3's DAG execution will need to handle this via dependency ordering (ENV_SETUP must be an upstream dependency of steps that consume its outputs). For Phase 1, sequential execution guarantees safety — no code change needed. |
-| 8 | **Live log queue overflow**: An executor produces logs faster than the SSE consumer reads them. The `LinkedBlockingQueue` is unbounded (default constructor at `JobLaunchService.java:118`). | Queue grows without bound until heap exhaustion → OOM. No backpressure mechanism exists today. | ✅ **Implemented** in `StepContext.LogSink.log()` — warns when queue hits 10,000 entries and every 10k after (avoids log spam). Phase 3 can add a bounded queue with drop-tail policy. For now: the existing `LinkedBlockingQueue` (unbounded) is unchanged — executors write to it identically. |
-| 9 | **Credential decryption fails**: The encryption key changes between deploys, or the stored credential value is corrupted. | `CredentialDecryptionService.decrypt()` throws a crypto exception. SftpStepExecutor doesn't catch it — it propagates to the orchestrator's catch-all handler → step marked FAILED. | Preserve this behavior. The new `StepContext.CredentialResolver` functional interface should throw a checked or unchecked exception on failure, which the executor propagates. Document that credential integrity is validated at step execution time, not at boot time. |
-| 10 | **Cancel requested mid-execution**: User cancels a run while an executor is in the middle of `execute()`. | `ExecutionContext.cancelRequested` (volatile boolean) is checked by executors in loops (SFTP upload/download loops check it per-file). JavaExecStepExecutor responds to thread interruption via `InterruptedException` on `process.waitFor()`. The orchestrator's cancel path interrupts the Future and sets the flag. | StepContext preserves the volatile `cancelRequested` field with identical semantics. Executors should check `ctx.isCancelRequested()` in long-running loops. Document this convention in the SPI contract. |
+### Scenario 1 — Duplicate Type Registration
 
----
+**Trigger:** Two Spring beans or plugin JARs register an executor with the same `getType()` string.
 
-## Summary of Required Code Changes (Beyond Happy Path)
+**Behavior:** `StepExecutorRegistry` constructor calls `putIfAbsent(type, executor)`. If a value already exists for that type key, the existing one is kept and a warning is logged: `"Duplicate executor registration for type: {type}"`.
 
-| Change | Location | Purpose |
-|--------|----------|---------|
-| Merge function in `toMap()` for duplicate detection | `StepExecutorRegistry` constructor | Scenario 1 — warn instead of crash |
-| Optional return type + structured error message | `StepExecutorRegistry.get(String)` | Scenario 2 — clear failure for unregistered types |
-| Pre-execute required-field validation against schema (presence-only) | `JobExecutionOrchestrator.executeStep()` — Task 10 | Scenario 6 — consistent, fail-fast validation before invoking the executor |
-| Timing wrapper around execute() call | `JobExecutionOrchestrator.executeStep()` | Scenario 5 — timing on error path too |
-| Queue size warning threshold log | `StepContext.LogSink.log()` | ✅ Implemented — warns at 10k entries, then every 10k |
+**Risk:** Low — Spring bean names are unique within a context; plugin conflicts would require two JARs with the same type string. Warning log provides visibility.
 
----
+### Scenario 2 — Unknown Step Type at Execution Time
 
-## Status: COMPLETE
+**Trigger:** A `JOB_STEP` row has `STEP_TYPE='CUSTOM_TYPE'` but no executor is registered for that type (plugin JAR missing, not deployed, or type typo).
 
-All 10 scenarios addressed. All 228 tests pass. Code changes implemented in this phase:
-- Scenario 1 → `StepExecutorRegistry.register()` — duplicate warning via merge function
-- Scenario 2 → `StepExecutorRegistry.get()` returns `Optional`, structured error at orchestrator
-- Scenario 4 → `ConcurrentHashMap` with read-only API surface
-- Scenario 5 → Timing wrapper captures duration on both success and error paths
-- Scenario 6 → `validateRequiredFields()` checks schema before execution
-- Scenario 8 → `LogSink.log()` warns at 10k queue entries, then every 10k (avoids spam)
+**Behavior:** `registry.get("CUSTOM_TYPE")` returns `Optional.empty()`. Orchestrator throws a descriptive error: `"No executor registered for step type: CUSTOM_TYPE"`. Step marked as FAILED. If `continueOnFailure=true`, subsequent steps still execute.
 
-Scenarios 3, 7, 9, 10 documented as expected behavior — no code change needed.
+**Risk:** Medium — silent data corruption if old enum values are dropped from the codebase without updating persisted rows. Mitigated by retaining all legacy executors.
+
+### Scenario 3 — Plugin JAR Load Failure
+
+**Trigger:** Corrupt JAR, missing dependency class, or incompatible `StepExecutor` implementation in a plugin JAR.
+
+**Behavior:** `PluginScanner` wraps each JAR's loading in try-catch. On failure: logs error with JAR filename and exception message. Scanning continues for remaining JARs. Application starts successfully — only the failed plugin's executors are unavailable.
+
+**Risk:** Low per-JAR isolation prevents one bad JAR from blocking others or crashing startup. However, a job referencing a missing plugin type will fail at execution time (Scenario 2).
+
+### Scenario 4 — Concurrent Registry Access
+
+**Trigger:** Multiple virtual threads executing steps concurrently, each calling `registry.get(type)`.
+
+**Behavior:** `ConcurrentHashMap.get()` is thread-safe without synchronization. No performance degradation from locking. Registration happens only at startup (single-threaded), so no concurrent write concern during normal operation.
+
+**Risk:** None — ConcurrentHashMap handles this correctly by design.
+
+### Scenario 5 — Config Validation Failure
+
+**Trigger:** Step config JSON is missing a required field defined in the executor's schema. E.g., SFTP step with `{"username": "admin"}` but no `"host"` field.
+
+**Behavior:** Orchestrator parses config as `Map<String, Object>`, iterates schema fields where `required=true`, checks presence and non-blank. Missing fields collected into a list. Returns `StepResult.failure("Missing required config field(s): host", Duration.ZERO)` — executor's `execute()` is never called.
+
+**Risk:** Low — validation happens before any I/O, fails fast with clear error message. Note: this is **presence-only** — it does not validate types, enum membership, or format. An SFTP step with `"host": "not-a-number"` for port would pass pre-validation but fail inside the executor.
+
+### Scenario 6 — Missing Credential Reference
+
+**Trigger:** SFTP step references `credentialRef: "prod-sftp-key"` but no row exists in `JOB_CREDENTIAL` with that ref.
+
+**Behavior:** Orchestrator's `CredentialResolver` lambda calls `credentialRepo.findByCredentialRef(ref).orElseThrow(() -> new CredentialNotFoundException(ref))`. Exception propagates through executor → caught by orchestrator retry loop → after exhausting retries, step marked FAILED.
+
+**Risk:** Medium — credential references are validated at execution time only, not at job save time. A typo in `credentialRef` won't be caught until the job runs. Future enhancement: validate credential refs at job definition save time.
+
+### Scenario 7 — Step Cancellation During Execution
+
+**Trigger:** User cancels a running job via API while a step is executing (e.g., long-running SFTP transfer or Java process).
+
+**Behavior:**
+1. `JobLaunchService.cancelRun(runId)` sets `cancelRequested` AtomicBoolean to true
+2. Orchestrator's retry loop checks `Thread.interrupted()` between attempts — if interrupted, breaks out of retry and marks step FAILED
+3. Long-running executors (JavaExec, ShellExec) check `context.getCancelRequested().get()` during execution and can abort early
+4. JavaExecStepExecutor kills the child process on cancellation
+
+**Risk:** Low — cancellation is cooperative; a blocking executor that doesn't check the flag will run to completion. All implemented executors check for cancellation.
+
+### Scenario 8 — Empty or Missing Plugins Directory
+
+**Trigger:** `orchestrator.plugins.dir` points to a non-existent directory, is empty, or is not set.
+
+**Behavior:** If property is blank (default), scanning is skipped entirely with an info log. If directory doesn't exist, logs warning and skips. If directory exists but contains no JARs, logs info message. Application starts normally in all cases.
+
+**Risk:** None — plugin loading is optional; the 8 built-in executors are on the classpath regardless.
+
+### Scenario 9 — Config JSON Parse Failure
+
+**Trigger:** `STEP_CONFIG` contains malformed JSON (e.g., trailing comma, unescaped quote).
+
+**Behavior:** Each executor parses config with Jackson's `ObjectMapper`. A `JsonProcessingException` propagates up to the orchestrator's retry loop → caught as a runtime exception → step marked FAILED with error message containing the parse failure detail.
+
+**Risk:** Low — malformed JSON fails fast with a clear error. However, this happens inside the executor rather than in pre-execute validation because the schema is descriptive-only (not used for parsing). Future enhancement: validate JSON structure against schema before invoking executor.
+
+### Scenario 10 — Retry Exhaustion
+
+**Trigger:** Executor's `defaultRetryPolicy()` allows N attempts; all N fail.
+
+**Behavior:** Orchestrator's retry loop runs up to `maxAttempts` times with `delayBetweenAttempts` sleep between each. After exhausting retries, returns the last failed `StepResult`. Execution time reflects cumulative duration across all attempts (measured from first attempt start to final failure). If `continueOnFailure=true`, subsequent steps still execute; otherwise job fails at this step.
+
+**Risk:** Low — retry behavior is executor-configured and visible in logs. No infinite retry loops possible because `maxAttempts` is bounded.
+
+## Additional Edge Cases Observed in Code
+
+### CredentialDecryptionService Key Padding
+
+The encryption service pads keys shorter than 32 bytes with zeros (`CredentialDecryptionService.java:31-32`). This means a short key like `"mykey"` becomes `"mykey\0\0\0..."` — weak effective entropy. **Recommendation for production:** enforce minimum key length and use a proper key derivation function (PBKDF2/HKDF) rather than zero-padding.
+
+### Default Encryption Key
+
+The service has a hardcoded default key (`"default-encryption-key-32bytes!!"`). This means credentials are encrypted with a known key if `ORCHESTRATOR_ENCRYPTION_KEY` is not set. **Recommendation for production:** fail startup if the env var is not set, rather than falling back to a default.
+
+### StepType Enum Incompleteness
+
+The `StepType` enum contains only 5 values (ENV_SETUP, LOG_CLEANUP, JAVA_EXEC, SFTP, ARCHIVE) but does NOT include HTTP_CALL, SHELL_EXEC, or DB_QUERY. This is intentional — those types are not in the legacy enum because they were added as new types after opening the system. However, it means `getStepTypeEnum()` returns null for these valid types, which could confuse callers that expect a non-null enum value.

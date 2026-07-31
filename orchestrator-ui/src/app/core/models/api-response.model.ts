@@ -12,3 +12,9 @@ export interface Page<T> {
   number: number;
   size: number;
 }
+
+export interface TeamSummary {
+  teamId: number;
+  teamName: string;
+  role?: string;
+}

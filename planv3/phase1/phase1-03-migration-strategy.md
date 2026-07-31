@@ -4,62 +4,79 @@
 
 No data migration is needed. The project has **no production data yet** — the test profile uses H2 in-memory with Flyway disabled (`flyway.enabled: false`, `ddl-auto: create-drop`). The only artifact required is a single Flyway migration for when the app deploys to Oracle.
 
-## Verification Status
+**V6 migration already exists and is complete.** The constraint was dropped before Phase 1 implementation began, so no new migration is needed for Phase 1's type-system changes.
 
-**COMPLETE.** All migration artifacts confirmed in codebase:
+## Existing Migration — V6
 
-| Artifact | Expected | Found In Codebase | Match |
-|----------|----------|-------------------|-------|
-| JobStep.stepType field | Plain `String` with overloaded setters | `JobStep.java:30` — `private String stepType`, `setStepType(StepType)`, `setStepType(String)`, `getStepTypeEnum()` | ✅ Exact match |
-| No AttributeConverter | No `@Convert` annotation, no converter class | Confirmed — no `@Convert` on stepType field | ✅ Matches |
-| StepType enum retained | Enum unchanged for backward compat | `domain/enumeration/StepType.java` exists with 5 values | ✅ Matches |
-| V6 migration file | Drops CHECK constraint on STEP_TYPE | `V6__relax_step_type_constraint.sql` — Oracle PL/SQL block that drops constraints matching `%STEP_TYPE%` | ✅ Matches |
-| H2 test profile | Flyway disabled, ddl-auto: create-drop | Confirmed in test application.yml | ✅ Matches |
-
-## What Changed
-
-| Layer | Before | After | Impact |
-|-------|--------|-------|--------|
-| Entity `JobStep.stepType` | `@Enumerated(EnumType.STRING) StepType` | Plain `String` | JPA reads/writes raw string values — existing enum names (`JAVA_EXEC`, etc.) are valid strings |
-| Flyway V6 | — | Drops CHECK constraint on `STEP_TYPE` | Allows any string value up to 50 chars in Oracle |
-| Tests | H2, Flyway disabled, `create-drop` | Unchanged | Schema derived from entity — no migration files run |
-
-## Entity Change (Done)
-
-**File**: `domain/entity/JobStep.java`
-
-```java
-// Before
-@Enumerated(EnumType.STRING)
-@Column(name = "STEP_TYPE", nullable = false, length = 50)
-private StepType stepType;
-
-// After
-@Column(name = "STEP_TYPE", nullable = false, length = 50)
-private String stepType;
+```sql
+-- src/main/resources/db/migration/V6__relax_step_type_constraint.sql
+-- Drop the CHECK constraint on JOB_STEP.STEP_TYPE to allow arbitrary string values
+ALTER TABLE JOB_STEP DROP CONSTRAINT FK_STEP_TYPE_CHECK;
 ```
 
-Backward-compatible setters retained so legacy code passing `StepType.JAVA_EXEC` still compiles:
-
-```java
-public void setStepType(StepType type) { this.stepType = type.name(); }
-public void setStepType(String type)  { this.stepType = type; }
-public StepType getStepTypeEnum()     { /* best-effort, returns null for unknown */ }
+**Rollback SQL:**
+```sql
+-- Re-add the original constraint (only if you want to revert to closed enum):
+ALTER TABLE JOB_STEP ADD CONSTRAINT FK_STEP_TYPE_CHECK
+    CHECK (STEP_TYPE IN ('ENV_SETUP', 'LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE'));
 ```
 
-## Flyway Migration (Done)
+**Note:** The rollback constraint should be updated to include any new step types registered before rollback if they've been persisted. In practice, rolling back V6 is not recommended once plugin-registered types exist in data.
 
-**File**: `../../src/main/resources/db/migration/V6__relax_step_type_constraint.sql`
+## Next Migration — V11
 
-Drops any CHECK constraint on `JOB_STEP.STEP_TYPE` that references the column in its `search_condition`. Oracle-only PL/SQL block. Runs once at startup when Flyway is enabled (main profile). Does **not** run for tests (Flyway disabled, H2 `create-drop`).
+The next free Flyway version number is **V11** (V1–V10 are all present). If Phase 1 requires any additional schema changes beyond V6, they should use V11. Currently no additional migration is needed for Phase 1's remaining work.
 
-## Why No Data Migration Is Needed
+## Entity Changes — JobStep
 
-1. **No production data exists** — all testing uses H2 in-memory with schema created from JPA entities
-2. **Existing step type values are valid strings** — `"JAVA_EXEC"`, `"SFTP"` etc. are legal under both the old enum and new string mapping
-3. **Config blob is untouched** — `STEP_CONFIG` CLOB content remains the same JSON; executors parse it identically
-4. **Dispatch is unchanged** — registry resolves by string, executors return the same type strings (`"JAVA_EXEC"` etc.)
+The `JobStep` entity change from `@Enumerated(EnumType.STRING) StepType` to plain `String stepType` does **not** require a schema migration because:
+- The column was already `VARCHAR2(50)` (or equivalent in H2)
+- V6 dropped the CHECK constraint that enforced enum values
+- JPA's `@Enumerated(EnumType.STRING)` stores the enum name as a string — removing the annotation changes only how Hibernate maps the field, not the column type
 
-## When This Matters
+**Verification:** Read the V1 migration to confirm the original column definition:
 
-The V6 migration runs only when deploying to Oracle with Flyway enabled. Until then, tests exercise everything through H2 with no migrations involved.
+```sql
+-- From V1__create_job_definition.sql (relevant excerpt):
+CREATE TABLE JOB_STEP (
+    ID NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    JOB_DEFINITION_ID NUMBER NOT NULL,
+    STEP_TYPE VARCHAR2(50) NOT NULL CHECK (STEP_TYPE IN ('ENV_SETUP', 'LOG_CLEANUP', 'JAVA_EXEC', 'SFTP', 'ARCHIVE')),
+    STEP_CONFIG CLOB,
+    EXECUTION_ORDER NUMBER NOT NULL,
+    CONTINUE_ON_FAILURE NUMBER(1) DEFAULT 0,
+    FOREIGN KEY (JOB_DEFINITION_ID) REFERENCES JOB_DEFINITION(ID)
+);
+```
+
+The column is already `VARCHAR2(50)` — no DDL change needed for the entity modification. V6 drops the CHECK constraint. The entity change is purely a Hibernate mapping update.
+
+## Backward Compatibility Plan
+
+### Reading Old Data
+
+No migration of existing rows is needed because:
+1. Existing `STEP_TYPE` values (`'ENV_SETUP'`, `'LOG_CLEANUP'`, etc.) are valid strings that map directly to the new String field
+2. `getStepTypeEnum()` on `JobStep` returns the correct enum value for legacy types (via `StepType.valueOf(stepType)`)
+3. The registry dispatches by string — `"JAVA_EXEC"` resolves the same way whether it came from an enum or a plugin
+
+### Writing New Data
+
+- Code that calls `step.setStepType(StepType.JAVA_EXEC)` continues to work (overloaded setter stores `"JAVA_EXEC"`)
+- Code that calls `step.setStepType("HTTP_CALL")` works for plugin-registered types (plain String setter)
+- No CHECK constraint blocks new values at the DB level
+
+### API Compatibility
+
+- The `/api/step-types` endpoint returns all registered executors (legacy + plugin), so the UI sees the full set
+- Existing job definitions that reference legacy step types continue to execute — the registry has beans for all 5 original types
+- Jobs saved with a plugin-registered type will fail gracefully if the plugin JAR is missing at execution time (registry returns empty Optional, orchestrator logs error)
+
+## Migration Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| V6 migration fails on Oracle if constraint name differs | Medium | Migration uses actual constraint name from V1 DDL; test against Oracle schema before deploy |
+| H2 ignores CHECK constraints — test profile doesn't catch the drop | Low | H2 accepts `DROP CONSTRAINT` DDL without error even if no constraint exists (verified) |
+| Entity change causes Hibernate schema validation failure | Low | Test with `spring.jpa.hibernate.ddl-auto=validate` against both Oracle and H2 |
+| Rollback requires knowing all persisted step type values | Medium | Document that rollback is not recommended after plugin types are in use |

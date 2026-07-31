@@ -4,6 +4,7 @@ package com.novakai.orchestrator.api.controller;
 
 import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.api.dto.JobRunDetail;
+import com.novakai.orchestrator.api.dto.JobRunRequest;
 import com.novakai.orchestrator.api.dto.JobRunSummary;
 import com.novakai.orchestrator.api.service.JobRunQueryService;
 import com.novakai.orchestrator.domain.enums.RunStatus;
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -35,9 +37,12 @@ public class JobExecutionController {
     @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
     public ApiResponse<JobRunSummary> trigger(
             @PathVariable Long id,
+            @RequestBody(required = false) JobRunRequest request,
             Authentication auth) {
         String username = auth != null ? auth.getName() : "anonymous";
-        var run = launchService.launch(id, TriggerType.MANUAL, username);
+        Map<String, Object> params = (request != null && request.getParameters() != null)
+            ? request.getParameters() : Map.of();
+        var run = launchService.launch(id, TriggerType.MANUAL, username, params);
         log.info("Job {} triggered by {}", id, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
@@ -47,9 +52,12 @@ public class JobExecutionController {
     @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
     public ApiResponse<JobRunSummary> triggerByName(
             @PathVariable String name,
+            @RequestBody(required = false) JobRunRequest request,
             Authentication auth) {
         String username = auth != null ? auth.getName() : "anonymous";
-        var run = launchService.launchByName(name, TriggerType.MANUAL, username);
+        Map<String, Object> params = (request != null && request.getParameters() != null)
+            ? request.getParameters() : Map.of();
+        var run = launchService.launchByName(name, TriggerType.MANUAL, username, params);
         log.info("Job '{}' triggered by {}", name, username);
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
