@@ -688,6 +688,7 @@ mat-sidenav-container {
 
 // Dialog container — dark surface with proper text color
 [data-theme="dark"] .mat-mdc-dialog-container,
+[data-theme="dark"] .mdc-dialog__surface,
 [data-theme="dark"] .mat-mdc-dialog-surface {
   background: var(--card-bg) !important;
   color: #e2e8f0 !important;
@@ -704,6 +705,107 @@ mat-sidenav-container {
 [data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-floating-label,
 [data-theme="dark"] .mat-mdc-dialog-container .mdc-floating-label {
   color: #94a3b8 !important;
+}
+
+// Dialog form-field CSS custom properties — used by dynamic-field component fallbacks
+[data-theme="dark"] .mat-mdc-dialog-container {
+  --mat-form-field-label-color: #94a3b8;
+  --mat-app-on-background: #e2e8f0;
+  --mat-app-background: #1a1d27;
+  --mat-form-field-outline-color: #4a5568;
+}
+
+// Dialog form field outline — visible on dark surface
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline__notch,
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline .mdc-notched-outline__leading,
+[data-theme="dark"] .mat-mdc-dialog-container .mdc-notched-outline .mdc-notched-outline__trailing {
+  border-color: #4a5568 !important;
+}
+
+// Dialog form field prefix/trailing icons
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-icon-prefix,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-form-field-icon-suffix,
+[data-theme="dark"] .mat-mdc-dialog-container mat-icon {
+  color: #94a3b8 !important;
+}
+
+// Dialog actions bar — text and button visibility
+[data-theme="dark"] .mat-mdc-dialog-container .mat-dialog-actions,
+[data-theme="dark"] .mat-mdc-dialog-actions {
+  color: #e2e8f0 !important;
+}
+
+// Dialog select/autocomplete options inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-option {
+  color: #e2e8f0 !important;
+}
+
+// Dialog slide toggle text
+[data-theme="dark"] .mat-mdc-dialog-container .mat-slide-toggle-label,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-slide-toggle-label-text {
+  color: #e2e8f0 !important;
+}
+
+// Dialog header title / h2/h3 text
+[data-theme="dark"] .mat-mdc-dialog-container h2,
+[data-theme="dark"] .mat-mdc-dialog-container h3,
+[data-theme="dark"] .mat-mdc-dialog-container .dialog-title {
+  color: #e2e8f0 !important;
+}
+
+// Dialog mat-divider
+[data-theme="dark"] .mat-mdc-dialog-container .mat-divider,
+[data-theme="dark"] .mat-mdc-dialog-container hr {
+  border-color: var(--color-border) !important;
+}
+
+// Dynamic-field component inside dialog — list-label, chip input, help text
+[data-theme="dark"] .mat-mdc-dialog-container .list-label {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .mat-mdc-dialog-container .chip-container {
+  background: var(--card-bg) !important;
+  border-color: #4a5568 !important;
+
+  input {
+    color: #e2e8f0 !important;
+
+    &::placeholder {
+      color: rgba(148, 163, 184, 0.6) !important;
+    }
+  }
+
+  .help-text {
+    color: #94a3b8 !important;
+  }
+}
+
+// Dynamic-field component — mat-error / field-error inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .field-error,
+[data-theme="dark"] .mat-mdc-dialog-container .mat-mdc-error {
+  color: #f87171 !important;
+}
+
+// Dynamic-field component — checkbox label text inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .dynamic-boolean-field {
+  color: #e2e8f0 !important;
+
+  .help-text {
+    color: #94a3b8 !important;
+  }
+}
+
+// Dynamic-step-form section title inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .config-section-title {
+  color: #94a3b8 !important;
+}
+
+// Removed step warning inside dialog
+[data-theme="dark"] .mat-mdc-dialog-container .removed-step-warning {
+  span {
+    color: #e2e8f0 !important;
+  }
 }
 
 // Tooltip — dark surface with light text
