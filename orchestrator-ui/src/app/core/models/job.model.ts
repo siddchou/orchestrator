@@ -119,3 +119,23 @@ export interface ArchiveConfig {
   archiveFormat: 'ZIP' | 'TAR_GZ';
   deleteOriginal?: boolean;
 }
+
+// --- Export / Import / Version models ---
+
+/** Summary of a job version snapshot */
+export interface JobVersionSummary {
+  versionId: number;
+  versionNumber: number;
+  createdAt: string;
+  createdBy: string;
+  message: string | null;
+}
+
+/** Request body for importing a job definition */
+export interface JobImportRequest {
+  format: 'json' | 'yaml';
+  content: string;
+}
+
+/** Conflict resolution mode when importing a job that already exists */
+export type ImportConflictMode = 'ERROR' | 'UPDATE' | 'SKIP';
