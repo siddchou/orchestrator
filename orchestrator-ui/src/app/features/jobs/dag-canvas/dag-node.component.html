@@ -1,0 +1,19 @@
+<div class="dag-node" [class.read-only]="readOnly" [class.running]="isRunning" [style.left.px]="node.position.x" [style.top.px]="node.position.y">
+  @if (node.status) {
+    <div class="status-ring" [style.border-color]="statusColor"></div>
+  }
+
+  <div class="node-body" (click)="onBodyClick()">
+    <mat-icon>{{ iconFor(node.stepType) }}</mat-icon>
+    <div class="node-labels">
+      <span class="step-name">{{ node.stepName }}</span>
+      <span class="step-type">{{ node.stepType }}</span>
+    </div>
+  </div>
+
+  @if (!readOnly) {
+    <div class="port port-output" (mousedown)="onPortMouseDown($event)" title="Drag to create dependency"></div>
+    <div class="port port-input" (mouseenter)="onInputPortHover()" title="Drop here to add dependency"></div>
+    <button mat-icon-button class="delete-btn" (click)="onDeleteClick($event)" aria-label="Delete step">✕</button>
+  }
+</div>
