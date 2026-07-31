@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { downloadFile } from '../../core/utils/file-utils';
 
 export interface KeyDialogData {
   privateKey: string;
@@ -186,14 +187,6 @@ export class KeyDialogComponent {
   }
 
   downloadPrivateKey() {
-    const blob = new Blob([this.data.privateKey], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ssh-private-key-${new Date().toISOString().split('T')[0]}.pem`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadFile(this.data.privateKey, `ssh-private-key-${new Date().toISOString().split('T')[0]}.pem`);
   }
 }
