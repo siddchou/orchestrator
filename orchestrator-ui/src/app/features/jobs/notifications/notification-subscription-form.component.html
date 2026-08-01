@@ -31,15 +31,11 @@
   @if (selectedChannelSchema) {
     <div class="config-fields">
       <label class="section-label">Channel Configuration</label>
-      <div formGroupName="configFields" class="field-grid">
-        @for (field of selectedChannelSchema.fields; track field.name) {
-          <app-dynamic-field
-            [fieldDef]="field"
-            [control]="form.get('configFields.' + field.name)!"
-            [showError]="true">
-          </app-dynamic-field>
-        }
-      </div>
+      <app-dynamic-config-form
+        #configForm
+        [fields]="selectedChannelSchema.fields"
+        [existingConfig]="data.subscription?.config ?? null">
+      </app-dynamic-config-form>
     </div>
   }
 

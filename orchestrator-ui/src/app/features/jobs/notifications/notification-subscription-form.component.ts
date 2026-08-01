@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { DynamicFieldComponent } from '@app/shared/components/dynamic-field/dynamic-field';
+import { DynamicConfigFormComponent } from '@app/shared/components/dynamic-config-form/dynamic-config-form';
 import { NotificationService } from '@app/core/services/notification.service';
 import { ChannelConfigSchema, NotificationEventName, NotificationSubscription, NotificationSubscriptionRequest } from '@app/core/models/notification.model';
 
@@ -25,7 +25,7 @@ export interface SubscriptionFormDialogData {
   imports: [
     CommonModule, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule,
-    DynamicFieldComponent,
+    DynamicConfigFormComponent,
   ],
   templateUrl: './notification-subscription-form.component.html',
   styleUrl: './notification-subscription-form.component.scss',
@@ -35,6 +35,8 @@ export class NotificationSubscriptionFormComponent implements OnInit {
   private notificationService = inject(NotificationService);
   private dialogRef = inject(MatDialogRef<NotificationSubscription>);
   data = inject<SubscriptionFormDialogData>(MAT_DIALOG_DATA);
+
+  @ViewChild(DynamicConfigFormComponent) configForm?: DynamicConfigFormComponent;
 
   channelSchemas: ChannelConfigSchema[] = this.data.channelSchemas;
 
@@ -59,12 +61,10 @@ export class NotificationSubscriptionFormComponent implements OnInit {
   ngOnInit(): void {
     this.form = this.fb.group({
       channelType: ['', Validators.required],
-      configFields: this.fb.group({}),
     });
 
     this.form.get('channelType')!.valueChanges.subscribe(type => {
       this.selectedChannelSchema = this.channelSchemas.find(s => s.type === type) ?? null;
-      this.buildConfigFields();
     });
 
     if (this.data.mode === 'edit' && this.data.subscription) {
@@ -73,20 +73,9 @@ export class NotificationSubscriptionFormComponent implements OnInit {
       this.selectedEvents = events;
       this.form.patchValue({ channelType: sub.channelType });
       this.selectedChannelSchema = this.channelSchemas.find(s => s.type === sub.channelType) ?? null;
-      this.buildConfigFields();
     } else if (this.channelSchemas.length > 0) {
       this.form.patchValue({ channelType: this.channelSchemas[0].type });
     }
-  }
-
-  private buildConfigFields(): void {
-    const fields = this.selectedChannelSchema?.fields ?? [];
-    const configGroup = this.fb.group({});
-    for (const field of fields) {
-      const init = field.defaultValue != null ? field.defaultValue : '';
-      configGroup.addControl(field.name, this.fb.control(init, field.required ? Validators.required : []));
-    }
-    this.form.setControl('configFields', configGroup);
   }
 
   onEventCheckboxChange(event: string, checked: boolean): void {
@@ -99,22 +88,18 @@ export class NotificationSubscriptionFormComponent implements OnInit {
 
   save(): void {
     if (this.form.invalid || this.selectedEvents.size === 0) return;
-    const val = this.form.value;
-    const config: Record<string, unknown> = {};
-    const fields = this.selectedChannelSchema?.fields ?? [];
-    for (const field of fields) {
-      let value = val.configFields?.[field.name];
-      if (field.type === 'LIST_STRING' && typeof value === 'string') {
-        value = (value as string).split(',').map((s: string) => s.trim()).filter(Boolean);
-      }
-      config[field.name] = value;
+
+    const result = this.configForm?.toConfig();
+    if (result && !result.valid) {
+      this.configForm.validate();
+      return;
     }
 
     const request: NotificationSubscriptionRequest = {
       jobId: this.data.jobId,
-      channelType: val.channelType,
+      channelType: this.form.value.channelType,
       events: Array.from(this.selectedEvents),
-      config,
+      config: result?.config ?? {},
     };
 
     const obs$ = this.data.mode === 'edit' && this.data.subscription
