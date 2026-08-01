@@ -68,7 +68,6 @@ export class NotificationsTabComponent implements OnInit {
         this.snackBar.error('Failed to load channel schemas', 'Dismiss');
       },
     });
-    });
   }
 
   openCreateDialog(): void {
@@ -94,20 +93,30 @@ export class NotificationsTabComponent implements OnInit {
     });
   }
 
-  toggleActive(subscription: NotificationSubscription): void {
-    this.notificationService.toggleSubscription(subscription.id).subscribe({
-      next: (res) => {
-        if (res.status === 'SUCCESS') {
-          subscription.active = res.data.active;
-          this.snackBar.open(
-            subscription.active ? 'Notification enabled' : 'Notification disabled',
-            'Dismiss', { duration: 2000 }
-          );
-        }
+  confirmToggleSubscription(subscription: NotificationSubscription): void {
+    const action = subscription.active ? 'Disable' : 'Enable';
+    this.dialog.open(ConfirmDialog, {
+      data: {
+        title: `${action} Notification`,
+        message: `${action} the ${subscription.channelType} notification?`,
+        confirmButton: action,
       },
-      error: () => {
-        this.snackBar.error('Failed to toggle notification', 'Dismiss');
-      },
+    }).afterClosed().subscribe(confirmed => {
+      if (!confirmed) return;
+      this.notificationService.toggleSubscription(subscription.id).subscribe({
+        next: (res) => {
+          if (res.status === 'SUCCESS') {
+            subscription.active = res.data.active;
+            this.snackBar.open(
+              subscription.active ? 'Notification enabled' : 'Notification disabled',
+              'Dismiss', { duration: 2000 }
+            );
+          }
+        },
+        error: () => {
+          this.snackBar.error('Failed to toggle notification', 'Dismiss');
+        },
+      });
     });
   }
 
