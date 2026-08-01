@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,7 +25,7 @@ export interface SubscriptionFormDialogData {
   selector: 'app-notification-subscription-form',
   imports: [
     CommonModule, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule,
+    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatSnackBarModule,
     DynamicConfigFormComponent,
   ],
   templateUrl: './notification-subscription-form.component.html',
@@ -33,6 +34,7 @@ export interface SubscriptionFormDialogData {
 export class NotificationSubscriptionFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private notificationService = inject(NotificationService);
+  private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<NotificationSubscription>);
   data = inject<SubscriptionFormDialogData>(MAT_DIALOG_DATA);
 
@@ -111,6 +113,12 @@ export class NotificationSubscriptionFormComponent implements OnInit {
         if (res.status === 'SUCCESS') {
           this.dialogRef.close(res.data);
         }
+      },
+      error: () => {
+        this.snackBar.error(
+          this.data.mode === 'edit' ? 'Failed to update notification' : 'Failed to create notification',
+          'Dismiss'
+        );
       },
     });
   }

@@ -52,7 +52,10 @@ export class NotificationsTabComponent implements OnInit {
         }
         this.loading = false;
       },
-      error: () => { this.loading = false; },
+      error: () => {
+        this.loading = false;
+        this.snackBar.error('Failed to load notifications', 'Dismiss');
+      },
     });
 
     this.notificationService.listChannelSchemas().subscribe({
@@ -61,6 +64,10 @@ export class NotificationsTabComponent implements OnInit {
           this.channelSchemas = res.data;
         }
       },
+      error: () => {
+        this.snackBar.error('Failed to load channel schemas', 'Dismiss');
+      },
+    });
     });
   }
 
@@ -98,6 +105,9 @@ export class NotificationsTabComponent implements OnInit {
           );
         }
       },
+      error: () => {
+        this.snackBar.error('Failed to toggle notification', 'Dismiss');
+      },
     });
   }
 
@@ -119,6 +129,9 @@ export class NotificationsTabComponent implements OnInit {
             }
             this.snackBar.open('Notification deleted', 'Dismiss', { duration: 2000 });
           }
+        },
+        error: () => {
+          this.snackBar.error('Failed to delete notification', 'Dismiss');
         },
       });
     });
