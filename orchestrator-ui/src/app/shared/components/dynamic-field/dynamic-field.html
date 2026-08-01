@@ -5,6 +5,8 @@
     <input [formControl]="control" matInput [placeholder]="placeholder" (blur)="blur.emit()" />
     @if (showFieldError) {
       <mat-error>{{ errorMessage }}</mat-error>
+    } @else if (fieldDef.helpText) {
+      <mat-hint>{{ fieldDef.helpText }}</mat-hint>
     }
   </mat-form-field>
 
