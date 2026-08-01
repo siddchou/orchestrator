@@ -6,6 +6,7 @@ import com.novakai.orchestrator.domain.entity.JobRunStep;
 import com.novakai.orchestrator.domain.entity.JobStep;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
+import com.novakai.orchestrator.notification.service.RunCompletionPublisher;
 import com.novakai.orchestrator.engine.spi.FieldDefinition;
 import com.novakai.orchestrator.engine.spi.RetryPolicy;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
@@ -39,19 +40,22 @@ public class JobExecutionOrchestrator {
     private final JobCredentialRepository credentialRepo;
     private final CredentialDecryptionService decryptionService;
     private final JsonParser jsonParser;
+    private final RunCompletionPublisher notificationPublisher;
 
     public JobExecutionOrchestrator(JobRunRepository runRepo,
                                     JobRunStepRepository runStepRepo,
                                     StepExecutorRegistry registry,
                                     JobCredentialRepository credentialRepo,
                                     CredentialDecryptionService decryptionService,
-                                    JsonParser jsonParser) {
+                                    JsonParser jsonParser,
+                                    RunCompletionPublisher notificationPublisher) {
         this.runRepo = runRepo;
         this.runStepRepo = runStepRepo;
         this.registry = registry;
         this.credentialRepo = credentialRepo;
         this.decryptionService = decryptionService;
         this.jsonParser = jsonParser;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public void execute(ExecutionContext oldCtx, JobDefinition job, JobRun run) {
@@ -95,6 +99,20 @@ public class JobExecutionOrchestrator {
             }
             log.debug("Run {} completed with status {}", run.getRunId(), run.getStatus());
             runRepo.save(run);
+
+            if (notificationPublisher != null) {
+                try {
+                    notificationPublisher.publish(
+                        run.getRunId(),
+                        job.getJobId(),
+                        job.getJobName(),
+                        run.getStatus(),
+                        run.getTriggeredBy()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+                }
+            }
         }
     }
 
@@ -119,6 +137,20 @@ public class JobExecutionOrchestrator {
                 run.setStatus(stepFailed ? RunStatus.FAILED : RunStatus.SUCCESS);
             }
             runRepo.save(run);
+
+            if (notificationPublisher != null) {
+                try {
+                    notificationPublisher.publish(
+                        run.getRunId(),
+                        job.getJobId(),
+                        job.getJobName(),
+                        run.getStatus(),
+                        run.getTriggeredBy()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+                }
+            }
         }
     }
 
