@@ -5,12 +5,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 import { NotificationService } from '@app/core/services/notification.service';
 import { NotificationDeliveryLog } from '@app/core/models/notification.model';
 
 @Component({
   selector: 'app-delivery-log',
-  imports: [CommonModule, MatTableModule, MatIconModule, MatChipsModule, MatProgressSpinnerModule, MatSnackBarModule],
+  imports: [CommonModule, MatTableModule, MatIconModule, MatChipsModule, MatProgressSpinnerModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   templateUrl: './delivery-log.component.html',
   styleUrl: './delivery-log.component.scss',
 })
@@ -23,6 +26,7 @@ export class DeliveryLogComponent implements OnInit {
 
   logs: NotificationDeliveryLog[] = [];
   loading = true;
+  filterRunId = '';
 
   displayedColumns = ['status', 'channelType', 'runId', 'attempts', 'error', 'sentAt'];
 
@@ -32,7 +36,8 @@ export class DeliveryLogComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.notificationService.getDeliveryLog(this.subscriptionId ?? undefined, this.runId ?? undefined).subscribe({
+    const runIdFilter = this.filterRunId ? Number(this.filterRunId) : (this.runId ?? undefined);
+    this.notificationService.getDeliveryLog(this.subscriptionId ?? undefined, runIdFilter).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.logs = res.data.slice(0, 20); // show last 20
@@ -44,6 +49,15 @@ export class DeliveryLogComponent implements OnInit {
         this.snackBar.error('Failed to load delivery log', 'Dismiss');
       },
     });
+  }
+
+  onFilterSubmit(): void {
+    this.load();
+  }
+
+  clearFilter(): void {
+    this.filterRunId = '';
+    this.load();
   }
 
   getStatusColor(status: string): string {
