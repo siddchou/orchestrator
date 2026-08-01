@@ -130,7 +130,7 @@ public class NotificationDispatcher {
             event.getJobId(),
             event.getJobName(),
             event.getStatus(),
-            java.time.LocalDateTime.now(),
+            event.getCompletedAt(),
             event.getTriggeredBy()
         );
     }

@@ -9,6 +9,7 @@ import com.novakai.orchestrator.domain.entity.JobStepDependency.EdgeCondition;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.exception.CircularDependencyException;
 import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
+import com.novakai.orchestrator.notification.service.RunCompletionPublisher;
 import com.novakai.orchestrator.engine.spi.FieldDefinition;
 import com.novakai.orchestrator.engine.spi.RetryPolicy;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
@@ -24,6 +25,7 @@ import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +59,7 @@ public class DagExecutionEngine {
     private final ParamResolver paramResolver;
     private final JobStepDependencyRepository dependencyRepo;
     private final ThreadPoolTaskExecutor taskExecutor;
+    private final RunCompletionPublisher notificationPublisher;
 
     public DagExecutionEngine(JobRunRepository runRepo,
                               JobRunStepRepository runStepRepo,
@@ -66,7 +69,8 @@ public class DagExecutionEngine {
                               JsonParser jsonParser,
                               ParamResolver paramResolver,
                               JobStepDependencyRepository dependencyRepo,
-                              ThreadPoolTaskExecutor taskExecutor) {
+                              @Qualifier("jobTaskExecutor") ThreadPoolTaskExecutor taskExecutor,
+                              RunCompletionPublisher notificationPublisher) {
         this.runRepo = runRepo;
         this.runStepRepo = runStepRepo;
         this.registry = registry;
@@ -76,6 +80,7 @@ public class DagExecutionEngine {
         this.paramResolver = paramResolver;
         this.dependencyRepo = dependencyRepo;
         this.taskExecutor = taskExecutor;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public void execute(ExecutionContext ctx, JobDefinition job, JobRun run) {
@@ -511,6 +516,21 @@ public class DagExecutionEngine {
 
         log.info("Run {} completed with status {}", run.getRunId(), run.getStatus());
         runRepo.save(run);
+
+        if (notificationPublisher != null) {
+            try {
+                notificationPublisher.publish(
+                    run.getRunId(),
+                    run.getJobDefinition().getJobId(),
+                    run.getJobDefinition().getJobName(),
+                    run.getStatus(),
+                    run.getEndedAt(),
+                    run.getTriggeredBy()
+                );
+            } catch (Exception e) {
+                log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+            }
+        }
     }
 
     // ------------------------------------------------------------------

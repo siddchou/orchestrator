@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,6 +35,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class NotificationDispatcherTest {
+
+    private static final LocalDateTime TEST_COMPLETED_AT = LocalDateTime.of(2026, 7, 31, 14, 30, 0);
 
     @Mock private NotificationSubscriptionRepository subscriptionRepo;
     @Mock private NotificationDeliveryLogRepository deliveryLogRepo;
@@ -67,7 +70,7 @@ class NotificationDispatcherTest {
     void noActiveSubscriptions_skipsDispatch() {
         when(subscriptionRepo.findByJobIdAndActiveTrue(1L)).thenReturn(Collections.emptyList());
 
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, "test_user");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, TEST_COMPLETED_AT, "test_user");
         dispatcher.onRunCompleted(event);
 
         verifyNoInteractions(deliveryLogRepo);
@@ -78,7 +81,7 @@ class NotificationDispatcherTest {
         NotificationSubscription sub = createSubscription(99L, 1L, "EMAIL", "FAILED");
         when(subscriptionRepo.findByJobIdAndActiveTrue(1L)).thenReturn(List.of(sub));
 
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, "test_user");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, TEST_COMPLETED_AT, "test_user");
         dispatcher.onRunCompleted(event);
 
         // onRunCompleted is synchronous but dispatchAsync is @Async — it fires asynchronously.
@@ -94,7 +97,7 @@ class NotificationDispatcherTest {
     void unregisteredChannelType_createsFailedDeliveryLog() {
         // CRITICAL-2: Unregistered channel must create a FAILED delivery log entry
         NotificationSubscription sub = createSubscription(99L, 1L, "NONEXISTENT", "SUCCESS,FAILED");
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, "test_user");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 10L, 1L, "Test Job", RunStatus.SUCCESS, TEST_COMPLETED_AT, "test_user");
 
         dispatcher.dispatchAsync(event, sub);
 
@@ -112,7 +115,7 @@ class NotificationDispatcherTest {
     void successfulDispatch_createsSentDeliveryLog() {
         registerChannel("GOOD_CHANNEL", null); // null = no exception
         NotificationSubscription sub = createSubscription(100L, 2L, "GOOD_CHANNEL", "SUCCESS");
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 20L, 2L, "Good Job", RunStatus.SUCCESS, "api");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 20L, 2L, "Good Job", RunStatus.SUCCESS, TEST_COMPLETED_AT, "api");
 
         dispatcher.dispatchAsync(event, sub);
 
@@ -128,7 +131,7 @@ class NotificationDispatcherTest {
     void channelThrowsException_retriesThenFails() {
         registerChannel("BAD_CHANNEL", new NotificationException("Connection refused"));
         NotificationSubscription sub = createSubscription(101L, 3L, "BAD_CHANNEL", "FAILED");
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 30L, 3L, "Bad Job", RunStatus.FAILED, "scheduler");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 30L, 3L, "Bad Job", RunStatus.FAILED, TEST_COMPLETED_AT, "scheduler");
 
         dispatcher.dispatchAsync(event, sub);
 
@@ -149,7 +152,7 @@ class NotificationDispatcherTest {
 
         registerChannel("ALWAYS_FAILS", new NotificationException("timeout"));
         NotificationSubscription sub = createSubscription(102L, 4L, "ALWAYS_FAILS", "FAILED");
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 40L, 4L, "Flaky Job", RunStatus.FAILED, "scheduler");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 40L, 4L, "Flaky Job", RunStatus.FAILED, TEST_COMPLETED_AT, "scheduler");
 
         dispatcher.dispatchAsync(event, sub);
 
@@ -162,7 +165,7 @@ class NotificationDispatcherTest {
         registerChannel("CONFIG_CHANNEL", null);
         NotificationSubscription sub = createSubscription(103L, 5L, "CONFIG_CHANNEL", "SUCCESS");
         sub.setConfigJson("{\"recipients\":[\"a@b.com\"],\"template\":\"hello\"}");
-        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 50L, 5L, "Config Job", RunStatus.SUCCESS, "test_user");
+        JobRunCompletedEvent event = new JobRunCompletedEvent(this, 50L, 5L, "Config Job", RunStatus.SUCCESS, TEST_COMPLETED_AT, "test_user");
 
         dispatcher.dispatchAsync(event, sub);
 

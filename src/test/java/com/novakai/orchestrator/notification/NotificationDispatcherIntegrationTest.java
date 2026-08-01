@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -49,10 +50,11 @@ class NotificationDispatcherIntegrationTest {
 
         // 2. Publish a run completion event (triggers the full async pipeline)
         publisher.publish(
-            100L,           // runId
-            999L,           // jobId — matches subscription
+            100L,                    // runId
+            999L,                    // jobId — matches subscription
             "Integration Job",
             RunStatus.SUCCESS,
+            LocalDateTime.now(),     // completedAt
             "integration_test"
         );
 
@@ -79,10 +81,11 @@ class NotificationDispatcherIntegrationTest {
         long countBefore = deliveryLogRepo.count();
 
         publisher.publish(
-            200L,           // runId
-            888L,           // jobId — no subscription for this
+            200L,                    // runId
+            888L,                    // jobId — no subscription for this
             "No Sub Job",
             RunStatus.FAILED,
+            LocalDateTime.now(),     // completedAt
             "integration_test"
         );
 

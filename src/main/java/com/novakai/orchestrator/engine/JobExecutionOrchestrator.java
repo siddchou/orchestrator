@@ -107,6 +107,7 @@ public class JobExecutionOrchestrator {
                         job.getJobId(),
                         job.getJobName(),
                         run.getStatus(),
+                        run.getEndedAt(),
                         run.getTriggeredBy()
                     );
                 } catch (Exception e) {
@@ -145,6 +146,7 @@ public class JobExecutionOrchestrator {
                         job.getJobId(),
                         job.getJobName(),
                         run.getStatus(),
+                        run.getEndedAt(),
                         run.getTriggeredBy()
                     );
                 } catch (Exception e) {
