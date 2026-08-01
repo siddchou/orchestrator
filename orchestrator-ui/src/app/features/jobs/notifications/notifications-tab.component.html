@@ -1,0 +1,86 @@
+<div class="notifications-tab">
+  <div class="tab-header">
+    <button mat-stroked-button (click)="openCreateDialog()">
+      <mat-icon>add</mat-icon> Add Notification
+    </button>
+  </div>
+
+  @if (loading) {
+    <div class="loading-spinner">
+      <mat-spinner diameter="24"></mat-spinner>
+    </div>
+  } @else if (subscriptions.length === 0) {
+    <div class="empty-state">
+      <mat-icon>notifications_none</mat-icon>
+      <p>No notifications configured for this job.</p>
+      <button mat-stroked-button (click)="openCreateDialog()">
+        <mat-icon>add</mat-icon> Add Your First Notification
+      </button>
+    </div>
+  } @else {
+    <table mat-table [dataSource]="subscriptions">
+      <!-- Channel Type -->
+      <ng-container matColumnDef="channelType">
+        <th mat-header-cell *matHeaderCellDef>Channel</th>
+        <td mat-cell *matCellDef="let sub">{{ sub.channelType }}</td>
+      </ng-container>
+
+      <!-- Events -->
+      <ng-container matColumnDef="events">
+        <th mat-header-cell *matHeaderCellDef>Events</th>
+        <td mat-cell *matCellDef="let sub">
+          <div class="event-chips">
+            @for (evt of getEventChips(sub.events); track evt) {
+              <mat-chip class="event-chip" [style.background]="getEventColor(evt)">
+                {{ evt }}
+              </mat-chip>
+            }
+          </div>
+        </td>
+      </ng-container>
+
+      <!-- Active -->
+      <ng-container matColumnDef="active">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let sub">
+          <button mat-stroked-button class="toggle-btn" (click)="toggleActive(sub)">
+            {{ sub.active ? 'Enabled' : 'Disabled' }}
+          </button>
+        </td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let sub">
+          <div class="action-buttons">
+            <button mat-icon-button (click)="toggleDeliveryLog(sub.id)"
+                    matTooltip="Delivery log" aria-label="Toggle delivery log">
+              <mat-icon>history</mat-icon>
+            </button>
+            <button mat-icon-button (click)="openEditDialog(sub)"
+                    matTooltip="Edit notification" aria-label="Edit notification">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button (click)="deleteSubscription(sub)" color="warn"
+                    matTooltip="Delete notification" aria-label="Delete notification">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <!-- Delivery log expansion per subscription -->
+    @for (sub of subscriptions; track sub.id) {
+      @if (expandedSubscriptionId === sub.id) {
+        <div class="delivery-log-panel">
+          <app-delivery-log [subscriptionId]="sub.id"></app-delivery-log>
+        </div>
+      }
+    }
+  }
+</div>
