@@ -1,0 +1,52 @@
+<div class="dialog-header">
+  <h2>{{ data.mode === 'create' ? 'Add Notification' : 'Edit Notification' }}</h2>
+</div>
+
+<form [formGroup]="form" class="notification-form">
+  <mat-form-field appearance="outline">
+    <mat-label>Channel Type</mat-label>
+    <mat-select formControlName="channelType">
+      @for (schema of channelSchemas; track schema.type) {
+        <mat-option [value]="schema.type">{{ typeToLabel(schema.type) }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <div class="events-section">
+    <label class="section-label">Trigger On</label>
+    <div class="event-checkboxes">
+      @for (evt of eventOptions; track evt) {
+        <div class="checkbox-row">
+          <mat-checkbox
+            [color]="evt === 'SUCCESS' ? 'primary' : evt === 'FAILED' ? 'warn' : ''"
+            [checked]="selectedEvents.has(evt)"
+            (change)="onEventCheckboxChange(evt, $event.checked)">
+            {{ evt }}
+          </mat-checkbox>
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (selectedChannelSchema) {
+    <div class="config-fields">
+      <label class="section-label">Channel Configuration</label>
+      <div formGroupName="configFields" class="field-grid">
+        @for (field of selectedChannelSchema.fields; track field.name) {
+          <app-dynamic-field
+            [fieldDef]="field"
+            [control]="form.get('configFields.' + field.name)!"
+            [showError]="true">
+          </app-dynamic-field>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="dialog-actions">
+    <button mat-stroked-button (click)="cancel()">Cancel</button>
+    <button mat-flat-button color="primary" (click)="save()" [disabled]="form.invalid || selectedEvents.size === 0">
+      {{ data.mode === 'create' ? 'Create' : 'Save Changes' }}
+    </button>
+  </div>
+</form>
