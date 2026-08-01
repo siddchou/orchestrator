@@ -172,7 +172,7 @@ class NotificationControllerTest {
                 base() + "/api/notifications/subscriptions/99999",
                 HttpMethod.PUT, entity, String.class);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertTrue(response.getBody().contains("ERROR"));
     }
 
@@ -215,6 +215,37 @@ class NotificationControllerTest {
         HttpResponse<String> response = patch(base() + "/api/notifications/subscriptions/99999/toggle");
         assertEquals(200, response.statusCode());
         assertTrue(response.body().contains("ERROR"));
+    }
+
+    // ------------------------------------------------------------------
+    // Validation
+    // ------------------------------------------------------------------
+
+    @Test
+    void createSubscription_unregisteredChannel_returnsError() throws JsonProcessingException {
+        NotificationSubscriptionRequest request = new NotificationSubscriptionRequest(
+                2L, "NONEXISTENT_CHANNEL", List.of("SUCCESS"), Map.of());
+
+        HttpEntity<NotificationSubscriptionRequest> entity = new HttpEntity<>(request);
+        ResponseEntity<String> response = restTemplate.exchange(
+                base() + "/api/notifications/subscriptions", HttpMethod.POST, entity, String.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().contains("ERROR"));
+    }
+
+    @Test
+    void createSubscription_invalidEventName_returnsError() throws JsonProcessingException {
+        NotificationSubscriptionRequest request = new NotificationSubscriptionRequest(
+                2L, "GENERIC_WEBHOOK", List.of("INVALID_STATUS"),
+                Map.of("url", "https://example.com/hook"));
+
+        HttpEntity<NotificationSubscriptionRequest> entity = new HttpEntity<>(request);
+        ResponseEntity<String> response = restTemplate.exchange(
+                base() + "/api/notifications/subscriptions", HttpMethod.POST, entity, String.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertTrue(response.getBody().contains("ERROR"));
     }
 
     // ------------------------------------------------------------------

@@ -1,6 +1,5 @@
 package com.novakai.orchestrator.api.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Collections;
@@ -9,14 +8,15 @@ import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.api.dto.NotificationDeliveryLogResponse;
 import com.novakai.orchestrator.api.dto.NotificationSubscriptionRequest;
 import com.novakai.orchestrator.api.dto.NotificationSubscriptionResponse;
+import com.novakai.orchestrator.api.service.NotificationService;
 import com.novakai.orchestrator.notification.entity.NotificationDeliveryLog;
 import com.novakai.orchestrator.notification.entity.NotificationSubscription;
 import com.novakai.orchestrator.notification.repository.NotificationDeliveryLogRepository;
-import com.novakai.orchestrator.notification.repository.NotificationSubscriptionRepository;
 import com.novakai.orchestrator.notification.spi.ChannelConfigSchema;
 import com.novakai.orchestrator.notification.spi.NotificationChannelRegistry;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -29,7 +29,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationController {
 
-    private final NotificationSubscriptionRepository subscriptionRepo;
+    private final NotificationService notificationService;
     private final NotificationDeliveryLogRepository deliveryLogRepo;
     private final NotificationChannelRegistry channelRegistry;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -40,79 +40,67 @@ public class NotificationController {
 
     @GetMapping("/subscriptions")
     public ApiResponse<List<NotificationSubscriptionResponse>> listSubscriptions() {
-        return ApiResponse.success(subscriptionRepo.findAll().stream()
+        return ApiResponse.success(notificationService.listAll().stream()
             .map(this::toResponse)
             .toList());
     }
 
     @GetMapping("/subscriptions/{id}")
     public ApiResponse<NotificationSubscriptionResponse> getSubscription(@PathVariable Long id) {
-        NotificationSubscription sub = subscriptionRepo.findById(id).orElse(null);
+        NotificationSubscription sub = notificationService.getById(id);
         if (sub == null) return ApiResponse.error("Subscription not found: " + id);
         return ApiResponse.success(toResponse(sub));
     }
 
     @GetMapping("/subscriptions/job/{jobId}")
     public ApiResponse<List<NotificationSubscriptionResponse>> getSubscriptionsForJob(@PathVariable Long jobId) {
-        return ApiResponse.success(subscriptionRepo.findByJobIdAndActiveTrue(jobId).stream()
+        return ApiResponse.success(notificationService.getByJobId(jobId).stream()
             .map(this::toResponse)
             .toList());
     }
 
     @PostMapping("/subscriptions")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<NotificationSubscriptionResponse> createSubscription(
+    public ResponseEntity<ApiResponse<NotificationSubscriptionResponse>> createSubscription(
             @Valid @RequestBody NotificationSubscriptionRequest request) {
         try {
-            String configJson = objectMapper.writeValueAsString(request.config());
-            NotificationSubscription sub = NotificationSubscription.builder()
-                .jobId(request.jobId())
-                .channelType(request.channelType())
-                .events(String.join(",", request.events()))
-                .configJson(configJson)
-                .active(true)
-                .build();
-            sub = subscriptionRepo.save(sub);
-            return ApiResponse.success(toResponse(sub));
-        } catch (JsonProcessingException e) {
-            return ApiResponse.error("Invalid config JSON: " + e.getMessage());
+            NotificationSubscription sub = notificationService.create(request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success(toResponse(sub)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @PutMapping("/subscriptions/{id}")
-    public ApiResponse<NotificationSubscriptionResponse> updateSubscription(
+    public ResponseEntity<ApiResponse<NotificationSubscriptionResponse>> updateSubscription(
             @PathVariable Long id,
             @Valid @RequestBody NotificationSubscriptionRequest request) {
-        NotificationSubscription sub = subscriptionRepo.findById(id).orElse(null);
-        if (sub == null) return ApiResponse.error("Subscription not found: " + id);
-
         try {
-            String configJson = objectMapper.writeValueAsString(request.config());
-            sub.setChannelType(request.channelType());
-            sub.setEvents(String.join(",", request.events()));
-            sub.setConfigJson(configJson);
-            sub = subscriptionRepo.save(sub);
-            return ApiResponse.success(toResponse(sub));
-        } catch (JsonProcessingException e) {
-            return ApiResponse.error("Invalid config JSON: " + e.getMessage());
+            NotificationSubscription sub = notificationService.update(id, request);
+            if (sub == null) return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Subscription not found: " + id));
+            return ResponseEntity.ok(ApiResponse.success(toResponse(sub)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
 
     @DeleteMapping("/subscriptions/{id}")
     public ApiResponse<Void> deleteSubscription(@PathVariable Long id) {
-        if (!subscriptionRepo.existsById(id)) {
-            return ApiResponse.error("Subscription not found: " + id);
+        try {
+            notificationService.delete(id);
+            return ApiResponse.success();
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(e.getMessage());
         }
-        subscriptionRepo.deleteById(id);
-        return ApiResponse.success();
     }
 
     @PatchMapping("/subscriptions/{id}/toggle")
     public ApiResponse<NotificationSubscriptionResponse> toggleSubscription(@PathVariable Long id) {
-        NotificationSubscription sub = subscriptionRepo.findById(id).orElse(null);
+        NotificationSubscription sub = notificationService.toggle(id);
         if (sub == null) return ApiResponse.error("Subscription not found: " + id);
-        sub.setActive(!sub.isActive());
-        sub = subscriptionRepo.save(sub);
         return ApiResponse.success(toResponse(sub));
     }
 
