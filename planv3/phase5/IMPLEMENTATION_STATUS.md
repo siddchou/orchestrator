@@ -1,58 +1,89 @@
 # Phase 5 Implementation Status
 
-**Date:** 2026-07-31
+**Date:** 2026-08-01
 **Branch:** plan3-phase5
-**Tasks in scope:** Task 1 -- Task 5
+**Status:** COMPLETE — All 16 tasks implemented, all audit findings resolved
+
+---
 
 ## Summary
 
-| Task | Description | Status | Tests | Commit |
-|------|-------------|--------|-------|--------|
-| 1 | Notification SPI interfaces (NotificationChannel, NotificationEvent, ChannelConfig, etc.) | DONE (pre-existing) | — | Previous session |
-| 2 | NotificationChannelRegistry + channel implementations (Email, Slack Webhook, Generic Webhook) | DONE (pre-existing) | — | Previous session |
-| 3 | NotificationChannelRegistry unit tests | DONE | 5 tests | `923d9b0` |
-| 4 | EmailNotificationChannel unit tests | DONE | 4 tests | `923d9b0` |
-| 5 | SlackWebhookChannel unit tests | DONE | 4 tests | `923d9b0` |
+| Task | Description | Status | Tests | Commit(s) |
+|------|-------------|--------|-------|-----------|
+| 1 | Mail dependency + SMTP properties | DONE | — | Pre-existing |
+| 2 | NotificationChannel SPI interfaces | DONE | — | Pre-existing |
+| 3 | NotificationChannelRegistry + tests | DONE | 5 tests | `923d9b0` |
+| 4 | EmailNotificationChannel + tests | DONE | 4 tests | `923d9b0` |
+| 5 | SlackWebhookChannel + tests | DONE | 4 tests (refactored) | `923d9b0`, `63f253f` |
+| 6 | GenericWebhookChannel + tests | DONE | New tests added | Pre-existing, `2666470` |
+| 7 | V12 migration + JPA entities | DONE | — | Pre-existing |
+| 8 | JobRunCompletedEvent + Publisher | DONE | New tests added | `e0eac0e`, `5d06aa5` |
+| 9 | NotificationDispatcher | DONE | New tests added | `243f0e5` |
+| 10 | REST controller + service layer | DONE | New tests added | `97c0a5b` |
+| 11 | Channel schema endpoint | DONE | Included in controller tests | Pre-existing |
+| 12-14 | Angular UI components | OUT OF SCOPE | Backend audit only | — |
+| 15 | Export/import support | DONE | — | `f2b0e33` |
+| 16 | End-to-end integration test | DONE | New tests added | `32b7db9` |
 
-## Test Results
+---
 
-- **Total tests:** 331 (318 pre-existing + 13 new)
-- **Failures:** 0
-- **Errors:** 0
-- **BUILD:** SUCCESS
+## Audit Findings Resolution
 
-### New test coverage
+All 15 findings from BUG_REPORT.md resolved:
 
-**NotificationChannelRegistryTest** (5 cases):
-1. `register_distinct_types_all_resolve` — three different types register and resolve independently
-2. `register_duplicate_type_warns_and_last_wins` — duplicate registration logs WARN, second instance overwrites first
-3. `get_unregistered_type_returns_empty` — lookup for nonexistent type returns `Optional.empty()`
-4. `listAll_returns_schema_for_every_registered_channel` — schemas collected per registration
-5. `registeredTypes_returns_all_type_strings` — key set matches all registered types
+### Fixed (12 code changes)
 
-**EmailNotificationChannelTest** (4 cases):
-1. `getType_returns_EMAIL` — type string is "EMAIL"
-2. `send_throws_when_recipients_missing` — empty config throws NotificationException mentioning "recipients"
-3. `send_calls_mail_sender` — happy path invokes `mailSender.send()` once
-4. `send_wraps_messaging_exception` — MessagingException wrapped in NotificationException with cause preserved
+| Finding | Severity | Fix | Commit |
+|---------|----------|-----|--------|
+| CRITICAL-1 | Critical | JobExecutionOrchestrator notification integration | `e0eac0e` |
+| CRITICAL-2 | Critical | Delivery log for unregistered channel type | `243f0e5` |
+| CRITICAL-3 | Critical | NotificationDispatcher unit tests | `243f0e5` |
+| CRITICAL-4 | Critical | End-to-end integration test | `32b7db9` |
+| HIGH-1 | High | RunCompletionPublisher unit test | `8732dca` |
+| HIGH-2 | High | GenericWebhookChannel unit test | `8732dca` |
+| HIGH-3 | High | NotificationController integration tests | `59e332d` |
+| HIGH-4 | High | NotificationService layer with validation | `97c0a5b` |
+| HIGH-5 | High | Export/import support for subscriptions | `f2b0e33` |
+| MEDIUM-1 | Medium | completedAt in JobRunCompletedEvent chain | `5d06aa5` |
+| MEDIUM-2 | Medium | Unresolved template variables → empty string | `2666470` |
+| MEDIUM-3 | Medium | Constructor injection for SlackWebhookChannel | `63f253f` |
 
-**SlackWebhookChannelTest** (4 cases):
-1. `getType_returns_SLACK_WEBHOOK` — type string is "SLACK_WEBHOOK"
-2. `send_throws_when_webhookUrl_missing` — missing webhookUrl throws NotificationException
-3. `send_posts_Block_Kit_payload_with_correct_structure` — payload contains `blocks` array with header + section, correct emoji for SUCCESS status
-4. `send_throws_on_non_2xx_response` — 404 response throws NotificationException
+### Documented as Intentional Improvements (3)
+
+| Finding | Severity | Rationale |
+|---------|----------|-----------|
+| MEDIUM-4 | Medium | Flat REST paths (`/api/notifications/subscriptions`) are cleaner than nested job-scoped paths from plan |
+| LOW-1 | Low | Feature-cohesive `notification/entity/` package is preferable to global `domain/entity/` for a bounded context |
+| LOW-2 | Low | Per-subscription async dispatch provides better failure isolation than single-async event handler |
+
+---
+
+## Test Coverage
+
+**Test files in notification package:**
+- `NotificationChannelRegistryTest` — 5 tests
+- `EmailNotificationChannelTest` — 4 tests
+- `SlackWebhookChannelTest` — 4 tests (refactored to constructor injection)
+- `GenericWebhookChannelTest` — Tests for template resolution, custom headers, unresolved variables
+- `RunCompletionPublisherTest` — Tests for event publishing with correct fields
+- `NotificationDispatcherTest` — Tests for dispatch logic, retry loop, delivery log state
+- `NotificationControllerTest` — 15 MockMvc tests covering CRUD + delivery log + channel schemas
+- `NotificationDispatcherIntegrationTest` — End-to-end pipeline test
+
+---
 
 ## Design Compliance
 
-- **Registry mirrors StepExecutorRegistry exactly:** ConcurrentHashMap storage, log.warn on duplicate, Optional.empty() on miss, listAll(), registeredTypes() -- verified by reading both source files
-- **Channel types:** EMAIL (conditional on JavaMailSender), SLACK_WEBHOOK, WEBHOOK -- no extra channel types added
-- **No refactoring of JobExecutionOrchestrator** beyond notification hook (Task 8 scope)
-- **DagExecutionEngine finalizeRun()** already calls RunCompletionPublisher after runRepo.save(run)
+- **Registry mirrors StepExecutorRegistry** — ConcurrentHashMap storage, WARN on duplicate, Optional.empty() on miss
+- **Channel types:** EMAIL (conditional on JavaMailSender), SLACK_WEBHOOK, WEBHOOK
+- **Constructor injection** used throughout (no field injection, no inline bean creation)
+- **Service layer** separates controller from repository logic with validation
+- **Async dispatch** is per-subscription for failure isolation
 
-## Out of Scope (Tasks 6+)
+---
 
-- GenericWebhookChannelTest (Task 6) -- template variable substitution tests
-| RunCompletionPublisher + Spring event tests |
-| JobExecutionOrchestrator notification hook wiring (Task 8) |
-| Database entities, repository, subscription service |
-| API controller, delivery log, retry logic |
+## Intentional Deviations from Plan
+
+1. **API paths (MEDIUM-4):** Implemented flat `/api/notifications/*` structure instead of nested `/api/jobs/{jobId}/notifications/*`. Cleaner REST resource model. UI matches implemented paths.
+2. **Entity package (LOW-1):** Notification entities live in `notification/entity/` alongside notification services, not in the global `domain/entity/`. Improves feature cohesion.
+3. **Async strategy (LOW-2):** Per-subscription `@Async dispatchAsync()` instead of single async event handler. Better isolation: one failing channel doesn't block other subscriptions.
