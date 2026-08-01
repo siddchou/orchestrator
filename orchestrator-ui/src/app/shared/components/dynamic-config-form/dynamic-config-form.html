@@ -1,0 +1,19 @@
+<div class="dynamic-config-form">
+  @if (title) {
+    <div class="config-form-title">{{ title }}</div>
+  }
+  @if (form) {
+    @for (field of fields; track field.name) {
+      @let ctrl = form.get(field.name);
+      @if (ctrl) {
+        <app-dynamic-field
+          [fieldDef]="field"
+          [control]="ctrl"
+          [credentials]="credentials"
+          [showError]="touchedFields.has(field.name)"
+          (blur)="touchedFields.add(field.name)"
+        />
+      }
+    }
+  }
+</div>

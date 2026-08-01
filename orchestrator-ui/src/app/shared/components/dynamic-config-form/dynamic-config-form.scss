@@ -1,0 +1,12 @@
+.dynamic-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .config-form-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+}
