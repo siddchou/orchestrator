@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.domain.entity.JobDefinition;
+import com.novakai.orchestrator.notification.entity.NotificationSubscription;
+import com.novakai.orchestrator.notification.repository.NotificationSubscriptionRepository;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobDefinitionVersionRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
@@ -48,6 +50,9 @@ class JobExportImportRoundTripTest {
     private JobDefinitionVersionRepository versionRepo;
 
     @Autowired
+    private NotificationSubscriptionRepository subscriptionRepo;
+
+    @Autowired
     private JwtService jwtService;
 
     @Autowired
@@ -61,6 +66,7 @@ class JobExportImportRoundTripTest {
         UserDetails adminUser = userDetailsService.loadUserByUsername("admin");
         adminToken = jwtService.generateToken(adminUser);
 
+        subscriptionRepo.deleteAll();
         depRepo.deleteAll();
         stepRepo.deleteAll();
         versionRepo.deleteAll();
@@ -115,6 +121,7 @@ class JobExportImportRoundTripTest {
                 parseStepsFromExport(exportedJson),
                 parseDepsFromExport(exportedJson),
                 parseEnvVarsFromExport(exportedJson),
+                parseSubscriptionsFromExport(exportedJson),
                 parseScheduleFromExport(exportedJson),
                 null
         );
@@ -180,7 +187,7 @@ class JobExportImportRoundTripTest {
         JobImportRequest updateReq = new JobImportRequest(
                 "1.0", "UPDATE", null, "update-job", "Updated desc", "/tmp/updated",
                 null, null, true, "test-team",
-                updatedSteps, null, null, null, null
+                updatedSteps, null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(updateReq, authHeaders());
@@ -213,7 +220,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "error-mode-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -301,7 +308,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "bad-type-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "NONEXISTENT_TYPE", "{}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -331,7 +338,7 @@ class JobExportImportRoundTripTest {
         JobImportRequest req = new JobImportRequest(
                 "1.0", "ERROR", null, "cycle-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
-                steps, circularDeps, null, null, null
+                steps, circularDeps, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -351,7 +358,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "bad-cron-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
-                null, null,
+                null, null, null,
                 new ImportScheduleDefinition("not-a-valid-cron", true),
                 null
         );
@@ -378,7 +385,7 @@ class JobExportImportRoundTripTest {
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("new-step", 1, "SHELL_EXEC",
                         "{\"command\":\"echo modified\"}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -415,7 +422,7 @@ class JobExportImportRoundTripTest {
                 "99.0", "ERROR", null, "future-format-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -445,7 +452,7 @@ class JobExportImportRoundTripTest {
                         new ImportStepDefinition("step-a", 1, "SHELL_EXEC", "{\"command\":\"echo a-modified\"}", false, true),
                         new ImportStepDefinition("step-b", 2, "SHELL_EXEC", "{\"command\":\"echo b\"}", false, true)
                 ),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> updateEntity = new HttpEntity<>(updateReq, authHeaders());
@@ -501,6 +508,7 @@ class JobExportImportRoundTripTest {
                 parseStepsFromExport(exportedJson),
                 parseDepsFromExport(exportedJson),
                 envVars,
+                null, // subscriptions
                 parseScheduleFromExport(exportedJson),
                 null
         );
@@ -518,6 +526,70 @@ class JobExportImportRoundTripTest {
                 base() + "/api/jobs/" + jobs.get(0).getJobId() + "/export?format=json", String.class).getBody());
         assertTrue(reExportedJson.contains("DATABASE_URL"), "Should preserve env var DATABASE_URL");
         assertTrue(reExportedJson.contains("APP_MODE"), "Should preserve env var APP_MODE");
+    }
+
+    // =====================================================================
+    //  Test 12: Export/Import preserves notification subscriptions
+    // =====================================================================
+
+    @Test
+    void exportImport_preservesNotificationSubscriptions() {
+        Long jobId = createJobViaApi("subscription-job", "desc", "/tmp/test", null);
+        addStepViaApi(jobId, "step-a", 1, "SHELL_EXEC", "{}");
+
+        // Create notification subscriptions directly
+        NotificationSubscription sub1 = new NotificationSubscription();
+        sub1.setJobId(jobId);
+        sub1.setChannelType("GENERIC_WEBHOOK");
+        sub1.setEvents("SUCCESS,FAILURE");
+        sub1.setConfigJson("{\"url\":\"https://example.com/hook\"}");
+        sub1.setActive(true);
+        subscriptionRepo.save(sub1);
+
+        NotificationSubscription sub2 = new NotificationSubscription();
+        sub2.setJobId(jobId);
+        sub2.setChannelType("GENERIC_WEBHOOK");
+        sub2.setEvents("SUCCESS");
+        sub2.setConfigJson("{\"url\":\"https://example.com/other\"}");
+        sub2.setActive(true);
+        subscriptionRepo.save(sub2);
+
+        // Export and verify subscriptions are in the payload
+        String exportedJson = extractData(restTemplate.getForEntity(
+                base() + "/api/jobs/" + jobId + "/export?format=json", String.class).getBody());
+        assertTrue(exportedJson.contains("GENERIC_WEBHOOK"), "Export should contain subscription channel type");
+        assertTrue(exportedJson.contains("https://example.com/hook"), "Export should contain subscription config");
+
+        // Delete the job (subscriptions should cascade delete, but we re-create on import)
+        restTemplate.delete(base() + "/api/jobs/" + jobId);
+
+        // Import back with subscriptions
+        JobImportRequest importReq = new JobImportRequest(
+                "1.0", "ERROR", null, "subscription-job", "desc", "/tmp/test",
+                null, null, true, "test-team",
+                parseStepsFromExport(exportedJson),
+                parseDepsFromExport(exportedJson),
+                parseEnvVarsFromExport(exportedJson),
+                parseSubscriptionsFromExport(exportedJson),
+                parseScheduleFromExport(exportedJson),
+                null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(importReq, authHeaders());
+        ResponseEntity<String> importResp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+        assertEquals(HttpStatus.CREATED, importResp.getStatusCode());
+
+        // Verify re-imported job exists and has subscriptions
+        List<JobDefinition> jobs = jobRepo.findByJobNameContainingIgnoreCase(
+                "subscription-job", org.springframework.data.domain.PageRequest.of(0, 10)).getContent();
+        assertEquals(1, jobs.size());
+        Long newJobId = jobs.get(0).getJobId();
+
+        List<NotificationSubscription> importedSubs = subscriptionRepo.findByJobId(newJobId);
+        assertEquals(2, importedSubs.size(), "Should have 2 subscriptions after import");
+        assertEquals("GENERIC_WEBHOOK", importedSubs.get(0).getChannelType());
+        assertTrue(importedSubs.get(0).getConfigJson().contains("example.com"));
     }
 
     // =====================================================================
@@ -657,6 +729,31 @@ class JobExportImportRoundTripTest {
             );
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ImportNotificationSubscriptionDefinition> parseSubscriptionsFromExport(String json) {
+        try {
+            ObjectMapper om = new ObjectMapper();
+            var map = om.readValue(json, Map.class);
+            List<Map<String, Object>> subs = (List<Map<String, Object>>) map.get("subscriptions");
+            if (subs == null) return List.of();
+            return subs.stream().map(s -> {
+                @SuppressWarnings("unchecked")
+                List<String> events = (List<String>) s.get("events");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> config = (Map<String, Object>) s.get("config");
+                Boolean active = s.get("active") != null ? (Boolean) s.get("active") : true;
+                return new ImportNotificationSubscriptionDefinition(
+                        (String) s.get("channelType"),
+                        events,
+                        config,
+                        active
+                );
+            }).toList();
+        } catch (Exception e) {
+            return List.of();
         }
     }
 }

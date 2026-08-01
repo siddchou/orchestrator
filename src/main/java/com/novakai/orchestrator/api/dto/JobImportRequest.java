@@ -24,6 +24,7 @@ public record JobImportRequest(
         java.util.List<ImportStepDefinition> steps,
         java.util.List<ImportDependencyDefinition> dependencies,
         java.util.List<ImportEnvVarDefinition> envVars,
+        java.util.List<ImportNotificationSubscriptionDefinition> subscriptions,
         ImportScheduleDefinition schedule,
         java.util.Map<String, Object> metadata
 ) {

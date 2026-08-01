@@ -115,6 +115,7 @@ public class JobVersionService {
                 importRequest.steps(),
                 importRequest.dependencies(),
                 importRequest.envVars(),
+                importRequest.subscriptions(),
                 importRequest.schedule(),
                 importRequest.metadata()
         );
