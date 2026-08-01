@@ -12,8 +12,10 @@ import org.slf4j.MDC;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import java.util.Map;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @EnableAsync
@@ -47,6 +49,31 @@ public class AsyncConfig {
         return executor;
     }
 
+    @Bean(name = "notificationExecutor")
+    public ThreadPoolTaskExecutor notificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(5);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("notif-exec-");
+        executor.setRejectedExecutionHandler(new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setTaskDecorator(runnable -> {
+            Map<String, String> contextMap = MDC.getCopyOfContextMap();
+            return () -> {
+                try {
+                    if (contextMap != null) {
+                        MDC.setContextMap(contextMap);
+                    }
+                    runnable.run();
+                } finally {
+                    MDC.clear();
+                }
+            };
+        });
+        executor.initialize();
+        return executor;
+    }
+
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
@@ -59,6 +86,16 @@ public class AsyncConfig {
         scheduler.setAwaitTerminationSeconds(120);
         scheduler.initialize();
         return scheduler;
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 
     /**

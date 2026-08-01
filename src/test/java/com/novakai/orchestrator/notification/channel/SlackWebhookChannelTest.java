@@ -14,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -33,8 +32,7 @@ class SlackWebhookChannelTest {
     private SlackWebhookChannel channel;
 
     void setUpChannel() {
-        channel = new SlackWebhookChannel();
-        ReflectionTestUtils.setField(channel, "restTemplate", restTemplate);
+        channel = new SlackWebhookChannel(restTemplate, new ObjectMapper());
     }
 
     private NotificationEvent createEvent(RunStatus status) {
