@@ -16,6 +16,7 @@ import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobStepRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
@@ -62,7 +63,7 @@ public class JobLaunchService {
                             JobStepRepository stepRepo,
                             DagExecutionEngine dagEngine,
                             JobExecutionOrchestrator orchestrator,
-                            ThreadPoolTaskExecutor taskExecutor,
+                            @Qualifier("jobTaskExecutor") ThreadPoolTaskExecutor taskExecutor,
                             JsonParser jsonParser) {
         this.jobRepo = jobRepo;
         this.envVarRepo = envVarRepo;

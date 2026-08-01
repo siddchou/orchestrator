@@ -317,6 +317,7 @@ public class JobDefinitionController {
     public ApiResponse<List<JobVersionSummary>> listVersions(@PathVariable Long id) {
         var versions = versionService.listVersions(id);
         return ApiResponse.success(versions.stream().map(v -> new JobVersionSummary(
+                v.getVersionId(),
                 v.getVersionNumber(),
                 v.getVersionLabel(),
                 v.getCreatedAt(),
