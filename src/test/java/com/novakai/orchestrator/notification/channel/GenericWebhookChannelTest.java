@@ -130,14 +130,28 @@ class GenericWebhookChannelTest {
     }
 
     @Test
-    void resolveTemplate_leavesUnresolvedVariablesAsIs() {
+    void resolveTemplate_replacesUnresolvedVariablesWithEmpty() {
         String template = "{{runId}} and {{unknownField}}";
         NotificationEvent event = createEvent();
 
         String resolved = channel.resolveTemplate(template, event);
 
         assertTrue(resolved.contains("42")); // runId resolved
-        assertTrue(resolved.contains("{{unknownField}}")); // unresolved left as-is
+        assertFalse(resolved.contains("{{unknownField}}")); // unresolved replaced with empty
+        assertFalse(resolved.contains("{{")); // no leftover placeholders
+    }
+
+    @Test
+    void resolveTemplate_multipleUnresolvedVariables_allReplaced() {
+        String template = "{\"known\":\"{{jobName}}\",\"bad1\":\"{{foo}}\",\"bad2\":\"{{bar}}\"}";
+        NotificationEvent event = createEvent();
+
+        String resolved = channel.resolveTemplate(template, event);
+
+        assertTrue(resolved.contains("\"known\":\"Test Job\""));
+        assertTrue(resolved.contains("\"bad1\":\"\""));
+        assertTrue(resolved.contains("\"bad2\":\"\""));
+        assertFalse(resolved.contains("{{"));
     }
 
     @Test

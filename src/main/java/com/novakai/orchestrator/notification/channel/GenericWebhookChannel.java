@@ -92,9 +92,9 @@ public class GenericWebhookChannel implements NotificationChannel {
         resolved = resolved.replace("{{completedAt}}", escapeJsonString(String.valueOf(event.completedAt())));
         resolved = resolved.replace("{{triggeredBy}}", escapeJsonString(event.triggeredBy() != null ? event.triggeredBy() : ""));
 
-        // Log any unresolved variables
+        // Replace any unresolved variables with empty string
         if (resolved.contains("{{")) {
-            log.debug("Unresolved template variables remaining in: {}", resolved);
+            resolved = resolved.replaceAll("\\{\\{[^}]+\\}\\}", "");
         }
         return resolved;
     }
