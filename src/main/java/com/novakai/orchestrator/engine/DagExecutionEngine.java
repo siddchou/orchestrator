@@ -16,6 +16,7 @@ import com.novakai.orchestrator.engine.spi.StepConfigSchema;
 import com.novakai.orchestrator.engine.spi.StepContext;
 import com.novakai.orchestrator.engine.spi.StepExecutor;
 import com.novakai.orchestrator.engine.spi.StepExecutorRegistry;
+import com.novakai.orchestrator.engine.observability.ObservabilityService;
 import com.novakai.orchestrator.engine.spi.StepResult;
 import com.novakai.orchestrator.engine.spi.StepStatus;
 import com.novakai.orchestrator.engine.template.ParamResolver;
@@ -60,6 +61,7 @@ public class DagExecutionEngine {
     private final JobStepDependencyRepository dependencyRepo;
     private final ThreadPoolTaskExecutor taskExecutor;
     private final RunCompletionPublisher notificationPublisher;
+    private final ObservabilityService observabilityService;
 
     public DagExecutionEngine(JobRunRepository runRepo,
                               JobRunStepRepository runStepRepo,
@@ -70,7 +72,8 @@ public class DagExecutionEngine {
                               ParamResolver paramResolver,
                               JobStepDependencyRepository dependencyRepo,
                               @Qualifier("jobTaskExecutor") ThreadPoolTaskExecutor taskExecutor,
-                              RunCompletionPublisher notificationPublisher) {
+                              RunCompletionPublisher notificationPublisher,
+                              ObservabilityService observabilityService) {
         this.runRepo = runRepo;
         this.runStepRepo = runStepRepo;
         this.registry = registry;
@@ -81,9 +84,11 @@ public class DagExecutionEngine {
         this.dependencyRepo = dependencyRepo;
         this.taskExecutor = taskExecutor;
         this.notificationPublisher = notificationPublisher;
+        this.observabilityService = observabilityService;
     }
 
     public void execute(ExecutionContext ctx, JobDefinition job, JobRun run) {
+        observabilityService.incrementActiveRuns();
         List<JobStep> enabledSteps = getEnabledSteps(job);
         if (enabledSteps.isEmpty()) {
             log.info("Run {}: no enabled steps — marking success", ctx.getRunId());
@@ -91,6 +96,9 @@ public class DagExecutionEngine {
             run.setStartedAt(LocalDateTime.now());
             run.setEndedAt(LocalDateTime.now());
             runRepo.save(run);
+            observabilityService.recordRunDuration(Duration.ZERO, job.getJobName(), RunStatus.SUCCESS);
+            observabilityService.incrementRunCount(RunStatus.SUCCESS);
+            observabilityService.decrementActiveRuns();
             return;
         }
 
@@ -247,7 +255,7 @@ public class DagExecutionEngine {
             Thread.currentThread().interrupt();
         }
 
-        finalizeRun(ctx, run, stepResults, runSteps, startTimes, remaining, graph.roots);
+        finalizeRun(ctx, job, run, stepResults, runSteps, startTimes, remaining, graph.roots);
     }
 
     private void submitStep(ExecutionContext ctx, JobDefinition job, JobRun run,
@@ -302,6 +310,9 @@ public class DagExecutionEngine {
                 runSteps.put(stepId, createRunStepEntity(run, step, result, startedAt, endedAt));
                 startTimes.put(stepId, startedAt);
                 stepResults.put(stepId, result);
+
+                observabilityService.recordStepDuration(result.executionTime(), step.getStepType(), result.status());
+                observabilityService.incrementStepCount(step.getStepType(), result.status());
 
                 if (!result.isSuccess()) {
                     anyFailed.set(true);
@@ -480,7 +491,7 @@ public class DagExecutionEngine {
     // ------------------------------------------------------------------
 
     @Transactional
-    private void finalizeRun(ExecutionContext ctx, JobRun run,
+    private void finalizeRun(ExecutionContext ctx, JobDefinition job, JobRun run,
                              Map<Long, StepResult> stepResults,
                              Map<Long, JobRunStep> runSteps,
                              Map<Long, LocalDateTime> startTimes,
@@ -516,6 +527,13 @@ public class DagExecutionEngine {
 
         log.info("Run {} completed with status {}", run.getRunId(), run.getStatus());
         runRepo.save(run);
+
+        if (run.getStartedAt() != null && run.getEndedAt() != null) {
+            Duration runDuration = Duration.between(run.getStartedAt(), run.getEndedAt());
+            observabilityService.recordRunDuration(runDuration, job.getJobName(), run.getStatus());
+        }
+        observabilityService.incrementRunCount(run.getStatus());
+        observabilityService.decrementActiveRuns();
 
         if (notificationPublisher != null) {
             try {
