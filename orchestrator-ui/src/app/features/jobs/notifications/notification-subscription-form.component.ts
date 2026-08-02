@@ -10,7 +10,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { DynamicConfigFormComponent } from '@app/shared/components/dynamic-config-form/dynamic-config-form';
 import { NotificationService } from '@app/core/services/notification.service';
+import { CredentialService } from '@app/core/services/credential.service';
 import { ChannelConfigSchema, NotificationEventName, NotificationSubscription, NotificationSubscriptionRequest } from '@app/core/models/notification.model';
+import { Credential } from '@app/core/models/credential.model';
 
 const ALL_EVENTS: NotificationEventName[] = ['SUCCESS', 'FAILED', 'PARTIAL', 'CANCELLED'];
 
@@ -34,6 +36,7 @@ export interface SubscriptionFormDialogData {
 export class NotificationSubscriptionFormComponent implements OnInit {
   private fb = inject(FormBuilder);
   private notificationService = inject(NotificationService);
+  private credentialService = inject(CredentialService);
   private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<NotificationSubscription>);
   data = inject<SubscriptionFormDialogData>(MAT_DIALOG_DATA);
@@ -41,6 +44,7 @@ export class NotificationSubscriptionFormComponent implements OnInit {
   @ViewChild(DynamicConfigFormComponent) configForm?: DynamicConfigFormComponent;
 
   channelSchemas: ChannelConfigSchema[] = this.data.channelSchemas;
+  credentials: Credential[] = [];
 
   static typeToLabel(type: string): string {
     const labels: Record<string, string> = {
@@ -78,6 +82,14 @@ export class NotificationSubscriptionFormComponent implements OnInit {
     } else if (this.channelSchemas.length > 0) {
       this.form.patchValue({ channelType: this.channelSchemas[0].type });
     }
+
+    // Load credentials for SECRET_REF fields
+    this.credentialService.listCredentials().subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') this.credentials = res.data;
+      },
+      error: () => { /* non-critical — SECRET_REF fields will fall back to text input */ },
+    });
   }
 
   onEventCheckboxChange(event: string, checked: boolean): void {
@@ -115,9 +127,9 @@ export class NotificationSubscriptionFormComponent implements OnInit {
         }
       },
       error: () => {
-        this.snackBar.error(
+        this.snackBar.open(
           this.data.mode === 'edit' ? 'Failed to update notification' : 'Failed to create notification',
-          'Dismiss'
+          'Dismiss', { panelClass: 'error-snackbar' }
         );
       },
     });

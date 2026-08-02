@@ -22,7 +22,7 @@
       <!-- Channel Type -->
       <ng-container matColumnDef="channelType">
         <th mat-header-cell *matHeaderCellDef>Channel</th>
-        <td mat-cell *matCellDef="let sub">{{ sub.channelType }}</td>
+        <td mat-cell *matCellDef="let sub">{{ typeToLabel(sub.channelType) }}</td>
       </ng-container>
 
       <!-- Events -->

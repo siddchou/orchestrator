@@ -4,6 +4,9 @@
       <mat-label>Filter by Run ID</mat-label>
       <input matInput #runIdInput [value]="filterRunId" (keyup.enter)="onFilterSubmit()" (blur)="filterRunId = runIdInput.value" />
     </mat-form-field>
+    <button mat-icon-button (click)="onFilterSubmit()" aria-label="Apply filter">
+      <mat-icon>search</mat-icon>
+    </button>
     @if (filterRunId) {
       <button mat-icon-button (click)="clearFilter()" aria-label="Clear filter">
         <mat-icon>close</mat-icon>
@@ -69,5 +72,8 @@
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
+    @if (totalLogs > 20) {
+      <div class="truncation-notice">Showing 20 of {{ totalLogs }} entries.</div>
+    }
   }
 </div>

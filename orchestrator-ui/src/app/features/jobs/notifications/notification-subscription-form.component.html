@@ -34,7 +34,8 @@
       <app-dynamic-config-form
         #configForm
         [fields]="selectedChannelSchema.fields"
-        [existingConfig]="data.subscription?.config ?? null">
+        [existingConfig]="data.subscription?.config ?? null"
+        [credentials]="credentials">
       </app-dynamic-config-form>
     </div>
   }

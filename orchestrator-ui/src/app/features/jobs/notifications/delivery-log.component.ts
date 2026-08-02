@@ -25,6 +25,7 @@ export class DeliveryLogComponent implements OnInit {
   @Input() runId: number | null = null;
 
   logs: NotificationDeliveryLog[] = [];
+  totalLogs = 0;
   loading = true;
   filterRunId = '';
 
@@ -40,13 +41,14 @@ export class DeliveryLogComponent implements OnInit {
     this.notificationService.getDeliveryLog(this.subscriptionId ?? undefined, runIdFilter).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
+          this.totalLogs = res.data.length;
           this.logs = res.data.slice(0, 20); // show last 20
         }
         this.loading = false;
       },
       error: () => {
         this.loading = false;
-        this.snackBar.error('Failed to load delivery log', 'Dismiss');
+        this.snackBar.open('Failed to load delivery log', 'Dismiss', { panelClass: 'error-snackbar' });
       },
     });
   }

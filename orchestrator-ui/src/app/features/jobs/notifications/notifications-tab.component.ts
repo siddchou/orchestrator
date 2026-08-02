@@ -54,7 +54,7 @@ export class NotificationsTabComponent implements OnInit {
       },
       error: () => {
         this.loading = false;
-        this.snackBar.error('Failed to load notifications', 'Dismiss');
+        this.snackBar.open('Failed to load notifications', 'Dismiss', { panelClass: 'error-snackbar' });
       },
     });
 
@@ -65,7 +65,7 @@ export class NotificationsTabComponent implements OnInit {
         }
       },
       error: () => {
-        this.snackBar.error('Failed to load channel schemas', 'Dismiss');
+        this.snackBar.open('Failed to load channel schemas', 'Dismiss', { panelClass: 'error-snackbar' });
       },
     });
   }
@@ -98,7 +98,7 @@ export class NotificationsTabComponent implements OnInit {
     this.dialog.open(ConfirmDialog, {
       data: {
         title: `${action} Notification`,
-        message: `${action} the ${subscription.channelType} notification?`,
+        message: `${action} the ${this.typeToLabel(subscription.channelType)} notification?`,
         confirmButton: action,
       },
     }).afterClosed().subscribe(confirmed => {
@@ -106,15 +106,16 @@ export class NotificationsTabComponent implements OnInit {
       this.notificationService.toggleSubscription(subscription.id).subscribe({
         next: (res) => {
           if (res.status === 'SUCCESS') {
-            subscription.active = res.data.active;
+            const newActive = res.data.active;
+            this.subscriptions = this.subscriptions.map(s => s.id === subscription.id ? { ...s, active: newActive } : s);
             this.snackBar.open(
-              subscription.active ? 'Notification enabled' : 'Notification disabled',
+              newActive ? 'Notification enabled' : 'Notification disabled',
               'Dismiss', { duration: 2000 }
             );
           }
         },
         error: () => {
-          this.snackBar.error('Failed to toggle notification', 'Dismiss');
+          this.snackBar.open('Failed to toggle notification', 'Dismiss', { panelClass: 'error-snackbar' });
         },
       });
     });
@@ -124,7 +125,7 @@ export class NotificationsTabComponent implements OnInit {
     this.dialog.open(ConfirmDialog, {
       data: {
         title: 'Delete Notification',
-        message: `Delete the ${subscription.channelType} notification?`,
+        message: `Delete the ${this.typeToLabel(subscription.channelType)} notification?`,
         confirmButton: 'Delete',
       },
     }).afterClosed().subscribe(confirmed => {
@@ -140,7 +141,7 @@ export class NotificationsTabComponent implements OnInit {
           }
         },
         error: () => {
-          this.snackBar.error('Failed to delete notification', 'Dismiss');
+          this.snackBar.open('Failed to delete notification', 'Dismiss', { panelClass: 'error-snackbar' });
         },
       });
     });
@@ -159,5 +160,14 @@ export class NotificationsTabComponent implements OnInit {
     if (event === 'FAILED') return '#f44336';
     if (event === 'PARTIAL') return '#ff9800';
     return '#9e9e9e'; // CANCELLED
+  }
+
+  typeToLabel(type: string): string {
+    const labels: Record<string, string> = {
+      EMAIL: 'Email',
+      SLACK_WEBHOOK: 'Slack Webhook',
+      GENERIC_WEBHOOK: 'Generic Webhook',
+    };
+    return labels[type] ?? type;
   }
 }
