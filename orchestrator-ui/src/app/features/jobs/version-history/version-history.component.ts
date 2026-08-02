@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, Output, EventEmitter, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,7 +6,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { FormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { JobService } from '@app/core/services/job.service';
 import { JsonDiffService } from '@app/core/services/json-diff.service';
@@ -19,7 +18,7 @@ import { RollbackConfirmDialogComponent, RollbackDialogData } from './rollback-c
   standalone: true,
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatSelectModule,
-    MatFormFieldModule, MatProgressSpinnerModule, MatDialogModule, FormsModule,
+    MatFormFieldModule, MatProgressSpinnerModule, MatDialogModule,
   ],
   templateUrl: './version-history.component.html',
   styleUrl: './version-history.component.scss',
@@ -32,6 +31,7 @@ export class VersionHistoryComponent implements OnInit {
   private jsonDiffService = inject(JsonDiffService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
 
   versions: JobVersionSummary[] = [];
   isLoading = true;
@@ -49,15 +49,22 @@ export class VersionHistoryComponent implements OnInit {
 
   loadVersions(): void {
     this.isLoading = true;
+    this.cd.markForCheck();
     this.jobService.listVersions(this.jobId).subscribe({
       next: (res) => {
-        if (res.status === 'SUCCESS') {
+        if (res.status === 'SUCCESS' && Array.isArray(res.data)) {
           this.versions = res.data.sort((a, b) => b.versionNumber - a.versionNumber);
+        } else {
+          console.error('[VersionHistory] Unexpected response:', res);
+          this.versions = [];
         }
         this.isLoading = false;
+        this.cd.markForCheck();
       },
-      error: () => {
+      error: (err) => {
+        console.error('[VersionHistory] Error loading versions:', err);
         this.isLoading = false;
+        this.cd.markForCheck();
       },
     });
   }
@@ -88,10 +95,12 @@ export class VersionHistoryComponent implements OnInit {
         }
         this.showDiff = true;
         this.isComparing = false;
+        this.cd.markForCheck();
       },
       error: () => {
         this.snackBar.open('Failed to compare versions', 'Dismiss', { duration: 3000 });
         this.isComparing = false;
+        this.cd.markForCheck();
       },
     });
   }
@@ -119,10 +128,12 @@ export class VersionHistoryComponent implements OnInit {
             this.snackBar.open(`Rolled back to v${version.versionNumber}`, 'Dismiss', { duration: 3000 });
             this.loadVersions();
             this.versionLoaded.emit();
+            this.cd.markForCheck();
           }
         },
         error: () => {
           this.snackBar.open('Rollback failed', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+          this.cd.markForCheck();
         },
       });
     });

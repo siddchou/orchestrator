@@ -101,6 +101,7 @@ export class JobDetailComponent implements OnInit, OnDestroy {
 
   selectTab(tab: 'general' | 'steps' | 'environment' | 'schedule' | 'versions'): void {
     this.selectedTab = tab;
+    this.cd.markForCheck();
   }
 
   loadJob() {
