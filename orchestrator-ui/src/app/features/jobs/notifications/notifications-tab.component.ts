@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,6 +29,7 @@ export class NotificationsTabComponent implements OnInit {
   private notificationService = inject(NotificationService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
 
   @Input() jobId!: number;
 
@@ -45,16 +46,19 @@ export class NotificationsTabComponent implements OnInit {
 
   load(): void {
     this.loading = true;
+    this.cd.markForCheck();
     this.notificationService.getSubscriptionsForJob(this.jobId).subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') {
           this.subscriptions = res.data;
         }
         this.loading = false;
+        this.cd.markForCheck();
       },
       error: () => {
         this.loading = false;
         this.snackBar.open('Failed to load notifications', 'Dismiss', { panelClass: 'error-snackbar' });
+        this.cd.markForCheck();
       },
     });
 
@@ -63,6 +67,7 @@ export class NotificationsTabComponent implements OnInit {
         if (res.status === 'SUCCESS') {
           this.channelSchemas = res.data;
         }
+        this.cd.markForCheck();
       },
       error: () => {
         this.snackBar.open('Failed to load channel schemas', 'Dismiss', { panelClass: 'error-snackbar' });
@@ -112,6 +117,7 @@ export class NotificationsTabComponent implements OnInit {
               newActive ? 'Notification enabled' : 'Notification disabled',
               'Dismiss', { duration: 2000 }
             );
+            this.cd.markForCheck();
           }
         },
         error: () => {
@@ -138,6 +144,7 @@ export class NotificationsTabComponent implements OnInit {
               this.expandedSubscriptionId = null;
             }
             this.snackBar.open('Notification deleted', 'Dismiss', { duration: 2000 });
+            this.cd.markForCheck();
           }
         },
         error: () => {
