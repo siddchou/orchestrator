@@ -74,6 +74,7 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   stepsViewMode: 'list' | 'canvas' = 'list';
   stepsWithDeps: JobStepWithDependencies[] = [];
   exporting = false;
+  selectedTab: 'general' | 'steps' | 'environment' | 'schedule' | 'versions' = 'general';
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
@@ -96,6 +97,10 @@ export class JobDetailComponent implements OnInit, OnDestroy {
       this.loading = false;
       this.cd.detectChanges();
     }
+  }
+
+  selectTab(tab: 'general' | 'steps' | 'environment' | 'schedule' | 'versions'): void {
+    this.selectedTab = tab;
   }
 
   loadJob() {
