@@ -55,6 +55,11 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus-simpleclient</artifactId>
         </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
+        </dependency>
 
         <!-- Mail (Phase 5) -->
         <dependency>

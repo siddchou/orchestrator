@@ -25,11 +25,30 @@
         </encoder>
     </appender>
 
+    <!-- JSON file appender for structured log ingestion -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_FILE}.json.%d{yyyy-MM-dd}.%i</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>runId</includeMdcKeyName>
+            <includeMdcKeyName>jobId</includeMdcKeyName>
+            <includeMdcKeyName>stepId</includeMdcKeyName>
+            <includeMdcKeyName>stepType</includeMdcKeyName>
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+        </encoder>
+    </appender>
+
     <!-- Default profile: web application -->
     <springProfile name="default,web">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
+            <appender-ref ref="JSON_FILE"/>
         </root>
         <logger name="com.novakai.orchestrator.engine" level="DEBUG"/>
         <logger name="org.springframework.security" level="WARN"/>
