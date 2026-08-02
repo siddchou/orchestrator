@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { DynamicConfigFormComponent } from '@app/shared/components/dynamic-config-form/dynamic-config-form';
+import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { NotificationService } from '@app/core/services/notification.service';
 import { CredentialService } from '@app/core/services/credential.service';
 import { ChannelConfigSchema, NotificationEventName, NotificationSubscription, NotificationSubscriptionRequest } from '@app/core/models/notification.model';
@@ -28,7 +30,7 @@ export interface SubscriptionFormDialogData {
   imports: [
     CommonModule, ReactiveFormsModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatButtonModule, MatIconModule,
-    DynamicConfigFormComponent,
+    MatProgressSpinnerModule, DynamicConfigFormComponent,
   ],
   templateUrl: './notification-subscription-form.component.html',
   styleUrl: './notification-subscription-form.component.scss',
@@ -39,6 +41,7 @@ export class NotificationSubscriptionFormComponent implements OnInit {
   private credentialService = inject(CredentialService);
   private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<NotificationSubscription>);
+  private dialog = inject(MatDialog);
   private cd = inject(ChangeDetectorRef);
   data = inject<SubscriptionFormDialogData>(MAT_DIALOG_DATA);
 
@@ -46,6 +49,13 @@ export class NotificationSubscriptionFormComponent implements OnInit {
 
   channelSchemas: ChannelConfigSchema[] = this.data.channelSchemas;
   credentials: Credential[] = [];
+
+  // Fix 2: saving state
+  saving = false;
+  // Fix 4: dynamic header icon
+  headerIcon = 'notifications_active';
+  // Fix 5: dirty check - snapshot of initial events
+  private initialEventsSnapshot = new Set<string>();
 
   static typeToLabel(type: string): string {
     const labels: Record<string, string> = {
@@ -72,6 +82,8 @@ export class NotificationSubscriptionFormComponent implements OnInit {
 
     this.form.get('channelType')!.valueChanges.subscribe(type => {
       this.selectedChannelSchema = this.channelSchemas.find(s => s.type === type) ?? null;
+      // Fix 4: update header icon reactively
+      this.headerIcon = this.typeToIcon(type);
     });
 
     if (this.data.mode === 'edit' && this.data.subscription) {
@@ -80,9 +92,16 @@ export class NotificationSubscriptionFormComponent implements OnInit {
       this.selectedEvents = events;
       this.form.patchValue({ channelType: sub.channelType });
       this.selectedChannelSchema = this.channelSchemas.find(s => s.type === sub.channelType) ?? null;
+      // Fix 4: set icon for edit mode too
+      this.headerIcon = this.typeToIcon(sub.channelType);
     } else if (this.channelSchemas.length > 0) {
       this.form.patchValue({ channelType: this.channelSchemas[0].type });
+      // Fix 4: set icon for default channel
+      this.headerIcon = this.typeToIcon(this.channelSchemas[0].type);
     }
+
+    // Fix 5: capture initial events snapshot after form is populated
+    this.initialEventsSnapshot = new Set(this.selectedEvents);
 
     // Load credentials for SECRET_REF fields
     this.credentialService.listCredentials().subscribe({
@@ -146,7 +165,18 @@ export class NotificationSubscriptionFormComponent implements OnInit {
       SLACK_WEBHOOK: 'chat',
       GENERIC_WEBHOOK: 'link',
     };
-    return icons[type] ?? 'settings';
+    return icons[type] ?? 'notifications_active';
+  }
+
+  // Fix 5: check if form has dirty changes
+  isDirty(): boolean {
+    if (this.form.dirty) return true;
+    // Compare current events set with initial snapshot
+    if (this.selectedEvents.size !== this.initialEventsSnapshot.size) return true;
+    for (const evt of this.selectedEvents) {
+      if (!this.initialEventsSnapshot.has(evt)) return true;
+    }
+    return false;
   }
 
   save(): void {
@@ -157,6 +187,10 @@ export class NotificationSubscriptionFormComponent implements OnInit {
       this.configForm.validate();
       return;
     }
+
+    // Fix 2: set saving state
+    this.saving = true;
+    this.cd.markForCheck();
 
     const request: NotificationSubscriptionRequest = {
       jobId: this.data.jobId,
@@ -180,12 +214,30 @@ export class NotificationSubscriptionFormComponent implements OnInit {
           this.data.mode === 'edit' ? 'Failed to update notification' : 'Failed to create notification',
           'Dismiss', { panelClass: 'error-snackbar' }
         );
+        // Fix 2: reset saving state on error
+        this.saving = false;
         this.cd.markForCheck();
       },
     });
   }
 
   cancel(): void {
-    this.dialogRef.close();
+    // Fix 5: dirty check before closing
+    if (this.isDirty()) {
+      this.dialog.open(ConfirmDialog, {
+        data: {
+          title: 'Discard Changes',
+          message: 'You have unsaved changes. Discard them?',
+          confirmButton: 'Discard',
+        },
+        disableClose: false,
+      }).afterClosed().subscribe(confirmed => {
+        if (confirmed) {
+          this.dialogRef.close();
+        }
+      });
+    } else {
+      this.dialogRef.close();
+    }
   }
 }

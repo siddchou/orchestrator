@@ -177,8 +177,8 @@ describe('JobService - Version History', () => {
   describe('listVersions', () => {
     it('returns version summaries for a job', () => {
       const versions: JobVersionSummary[] = [
-        { versionId: 1, versionNumber: 1, createdAt: '2026-07-30T10:00:00Z', createdBy: 'admin', message: 'initial' },
-        { versionId: 2, versionNumber: 2, createdAt: '2026-07-31T14:00:00Z', createdBy: 'admin', message: null },
+        { versionId: 1, versionNumber: 1, versionLabel: 'v1', createdAt: '2026-07-30T10:00:00Z', createdBy: 'admin' },
+        { versionId: 2, versionNumber: 2, versionLabel: 'v2', createdAt: '2026-07-31T14:00:00Z', createdBy: 'admin' },
       ];
       const response: ApiResponse<JobVersionSummary[]> = { status: 'SUCCESS', data: versions, error: null, timestamp: '' };
 

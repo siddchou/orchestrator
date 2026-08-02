@@ -81,7 +81,7 @@ export class NotificationsTabComponent implements OnInit {
       mode: 'create',
       channelSchemas: this.channelSchemas,
     };
-    this.dialog.open(NotificationSubscriptionFormComponent, { data, width: '520px' }).afterClosed().subscribe(result => {
+    this.dialog.open(NotificationSubscriptionFormComponent, { data, width: '520px', maxWidth: '95vw' }).afterClosed().subscribe(result => {
       if (result) this.load();
     });
   }
@@ -93,7 +93,7 @@ export class NotificationsTabComponent implements OnInit {
       subscription,
       channelSchemas: this.channelSchemas,
     };
-    this.dialog.open(NotificationSubscriptionFormComponent, { data, width: '520px' }).afterClosed().subscribe(result => {
+    this.dialog.open(NotificationSubscriptionFormComponent, { data, width: '520px', maxWidth: '95vw' }).afterClosed().subscribe(result => {
       if (result) this.load();
     });
   }
