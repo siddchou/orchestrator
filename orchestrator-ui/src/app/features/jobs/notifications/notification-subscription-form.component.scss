@@ -1,57 +1,163 @@
-.dialog-header h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
-  font-weight: 500;
+.dialog-container {
+  min-width: 480px;
+  max-width: 560px;
 }
 
+// ── Header ───────────────────────────────────────────
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+
+  .header-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    flex: 1;
+  }
+
+  .header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: rgba(37, 99, 235, 0.08);
+
+    mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      color: var(--accent-primary);
+    }
+  }
+
+  .header-content h2 {
+    margin: 0;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    margin: 2px 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  .close-btn {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+// ── Form ─────────────────────────────────────────────
 .notification-form {
-  width: 400px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--spacing-lg);
 }
 
 mat-form-field {
   width: 100%;
 }
 
-.events-section {
-  .section-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mat-sys-on-surface-variant);
-    margin-bottom: 8px;
-  }
-
-  .event-checkboxes {
+// ── Sections ─────────────────────────────────────────
+.form-section {
+  .section-header {
     display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mat-sys-on-surface-variant);
+
+    mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+      opacity: 0.7;
+    }
   }
 }
 
-.config-fields {
-  .section-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--mat-sys-on-surface-variant);
-    margin-bottom: 8px;
+// ── Event Chips ──────────────────────────────────────
+.event-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.event-chip-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  height: 36px !important;
+  line-height: 1 !important;
+  border-radius: var(--radius-full) !important;
+  font-size: var(--font-size-sm) !important;
+  font-weight: var(--font-weight-medium) !important;
+  padding: 0 12px 0 8px !important;
+  transition: all var(--transition-fast) !important;
+
+  mat-icon {
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 2px !important;
   }
 
-  .field-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  // Default unselected state
+  border-color: var(--color-border) !important;
+  color: var(--mat-sys-on-surface-variant) !important;
+
+  &:hover {
+    border-color: var(--accent-primary) !important;
+    background: rgba(37, 99, 235, 0.04) !important;
+  }
+
+  &.selected {
+    border-color: var(--accent-primary) !important;
+    background: rgba(37, 99, 235, 0.08) !important;
+    color: var(--accent-primary) !important;
+
+    mat-icon {
+      color: var(--accent-primary) !important;
+    }
   }
 }
 
+// ── Warning ──────────────────────────────────────────
+.selection-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  background: rgba(234, 88, 12, 0.06);
+  color: #c2410c;
+  font-size: var(--font-size-sm);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+// ── Actions ──────────────────────────────────────────
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 12px;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
   border-top: 1px solid var(--color-border);
 }

@@ -1,13 +1,13 @@
 import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatIconModule } from '@angular/material/icon';
 import { DynamicConfigFormComponent } from '@app/shared/components/dynamic-config-form/dynamic-config-form';
 import { NotificationService } from '@app/core/services/notification.service';
 import { CredentialService } from '@app/core/services/credential.service';
@@ -26,8 +26,8 @@ export interface SubscriptionFormDialogData {
 @Component({
   selector: 'app-notification-subscription-form',
   imports: [
-    CommonModule, ReactiveFormsModule, MatDialogModule, MatFormFieldModule,
-    MatInputModule, MatSelectModule, MatButtonModule, MatCheckboxModule, MatSnackBarModule,
+    CommonModule, ReactiveFormsModule, MatFormFieldModule,
+    MatInputModule, MatSelectModule, MatButtonModule, MatIconModule,
     DynamicConfigFormComponent,
   ],
   templateUrl: './notification-subscription-form.component.html',
@@ -100,6 +100,53 @@ export class NotificationSubscriptionFormComponent implements OnInit {
     } else {
       this.selectedEvents.delete(event);
     }
+  }
+
+  toggleEvent(event: string): void {
+    if (this.selectedEvents.has(event)) {
+      this.selectedEvents.delete(event);
+    } else {
+      this.selectedEvents.add(event);
+    }
+  }
+
+  eventToLabel(event: string): string {
+    const labels: Record<string, string> = {
+      SUCCESS: 'Success',
+      FAILED: 'Failed',
+      PARTIAL: 'Partial',
+      CANCELLED: 'Cancelled',
+    };
+    return labels[event] ?? event;
+  }
+
+  getEventIcon(event: string): string {
+    const icons: Record<string, string> = {
+      SUCCESS: 'check_circle',
+      FAILED: 'error',
+      PARTIAL: 'remove_circle',
+      CANCELLED: 'cancel',
+    };
+    return icons[event] ?? 'event';
+  }
+
+  getEventAccentColor(event: string): string {
+    const colors: Record<string, string> = {
+      SUCCESS: '#16a34a',
+      FAILED: '#dc2626',
+      PARTIAL: '#ea580c',
+      CANCELLED: '#6b7280',
+    };
+    return colors[event] ?? '';
+  }
+
+  typeToIcon(type: string): string {
+    const icons: Record<string, string> = {
+      EMAIL: 'mail',
+      SLACK_WEBHOOK: 'chat',
+      GENERIC_WEBHOOK: 'link',
+    };
+    return icons[type] ?? 'settings';
   }
 
   save(): void {
