@@ -122,7 +122,7 @@ export class VersionHistoryComponent implements OnInit {
     this.dialog.open(RollbackConfirmDialogComponent, { data }).afterClosed().subscribe((confirmed) => {
       if (!confirmed) return;
 
-      this.jobService.rollbackToVersion(this.jobId, version.versionId).subscribe({
+      this.jobService.rollbackToVersion(this.jobId, version.versionNumber).subscribe({
         next: (res) => {
           if (res.status === 'SUCCESS') {
             this.snackBar.open(`Rolled back to v${version.versionNumber}`, 'Dismiss', { duration: 3000 });
@@ -139,8 +139,8 @@ export class VersionHistoryComponent implements OnInit {
     });
   }
 
-  getLabel(versionId: number): string {
-    const v = this.versions.find((x) => x.versionId === versionId);
+  getLabel(versionNumber: number): string {
+    const v = this.versions.find((x) => x.versionNumber === versionNumber);
     return v ? String(v.versionNumber) : '?';
   }
 
