@@ -26,6 +26,7 @@ import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -89,25 +90,33 @@ public class DagExecutionEngine {
 
     public void execute(ExecutionContext ctx, JobDefinition job, JobRun run) {
         observabilityService.incrementActiveRuns();
-        List<JobStep> enabledSteps = getEnabledSteps(job);
-        if (enabledSteps.isEmpty()) {
-            log.info("Run {}: no enabled steps — marking success", ctx.getRunId());
-            run.setStatus(RunStatus.SUCCESS);
-            run.setStartedAt(LocalDateTime.now());
-            run.setEndedAt(LocalDateTime.now());
-            runRepo.save(run);
-            observabilityService.recordRunDuration(Duration.ZERO, job.getJobName(), RunStatus.SUCCESS);
-            observabilityService.incrementRunCount(RunStatus.SUCCESS);
-            observabilityService.decrementActiveRuns();
-            return;
+        MDC.put("runId", String.valueOf(ctx.getRunId()));
+        MDC.put("jobId", String.valueOf(ctx.getJobId()));
+
+        try {
+            List<JobStep> enabledSteps = getEnabledSteps(job);
+            if (enabledSteps.isEmpty()) {
+                log.info("Run {}: no enabled steps — marking success", ctx.getRunId());
+                run.setStatus(RunStatus.SUCCESS);
+                run.setStartedAt(LocalDateTime.now());
+                run.setEndedAt(LocalDateTime.now());
+                runRepo.save(run);
+                observabilityService.recordRunDuration(Duration.ZERO, job.getJobName(), RunStatus.SUCCESS);
+                observabilityService.incrementRunCount(RunStatus.SUCCESS);
+                observabilityService.decrementActiveRuns();
+                return;
+            }
+
+            List<JobStepDependency> allDeps = loadDependencies(enabledSteps);
+            DagGraph graph = buildDag(enabledSteps, allDeps);
+            validateAcyclic(graph, enabledSteps.size());
+
+            int maxConcurrency = Math.min(5, enabledSteps.size());
+            executeConcurrent(ctx, job, run, graph, maxConcurrency);
+        } finally {
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
-
-        List<JobStepDependency> allDeps = loadDependencies(enabledSteps);
-        DagGraph graph = buildDag(enabledSteps, allDeps);
-        validateAcyclic(graph, enabledSteps.size());
-
-        int maxConcurrency = Math.min(5, enabledSteps.size());
-        executeConcurrent(ctx, job, run, graph, maxConcurrency);
     }
 
     @Transactional
@@ -291,35 +300,44 @@ public class DagExecutionEngine {
                     return;
                 }
 
-                // Resolve templates in step config
-                Map<String, Object> resolvedConfig = resolveConfig(step.getStepConfig(), resCtx);
+                // Set step-level MDC for structured logging
+                MDC.put("stepId", String.valueOf(step.getStepId()));
+                MDC.put("stepType", step.getStepType());
 
-                // Collect upstream step results for cross-step template resolution
-                Map<String, StepResult> upstreamOutputs = new HashMap<>();
-                for (JobStep upstream : graph.upstreams.getOrDefault(stepId, List.of())) {
-                    StepResult r = stepResults.get(upstream.getStepId());
-                    if (r != null) {
-                        upstreamOutputs.put(String.valueOf(upstream.getStepId()), r);
+                try {
+                    // Resolve templates in step config
+                    Map<String, Object> resolvedConfig = resolveConfig(step.getStepConfig(), resCtx);
+
+                    // Collect upstream step results for cross-step template resolution
+                    Map<String, StepResult> upstreamOutputs = new HashMap<>();
+                    for (JobStep upstream : graph.upstreams.getOrDefault(stepId, List.of())) {
+                        StepResult r = stepResults.get(upstream.getStepId());
+                        if (r != null) {
+                            upstreamOutputs.put(String.valueOf(upstream.getStepId()), r);
+                        }
                     }
+
+                    LocalDateTime startedAt = LocalDateTime.now();
+                    StepResult result = executeStepWithRetry(ctx, step, resolvedConfig, logQueue, upstreamOutputs);
+                    LocalDateTime endedAt = LocalDateTime.now();
+
+                    runSteps.put(stepId, createRunStepEntity(run, step, result, startedAt, endedAt));
+                    startTimes.put(stepId, startedAt);
+                    stepResults.put(stepId, result);
+
+                    observabilityService.recordStepDuration(result.executionTime(), step.getStepType(), result.status());
+                    observabilityService.incrementStepCount(step.getStepType(), result.status());
+
+                    if (!result.isSuccess()) {
+                        anyFailed.set(true);
+                    }
+
+                    // Update resolution context with this step's outputs for downstream steps
+                    updateResolutionContext(resCtx, stepId, result);
+                } finally {
+                    MDC.remove("stepId");
+                    MDC.remove("stepType");
                 }
-
-                LocalDateTime startedAt = LocalDateTime.now();
-                StepResult result = executeStepWithRetry(ctx, step, resolvedConfig, logQueue, upstreamOutputs);
-                LocalDateTime endedAt = LocalDateTime.now();
-
-                runSteps.put(stepId, createRunStepEntity(run, step, result, startedAt, endedAt));
-                startTimes.put(stepId, startedAt);
-                stepResults.put(stepId, result);
-
-                observabilityService.recordStepDuration(result.executionTime(), step.getStepType(), result.status());
-                observabilityService.incrementStepCount(step.getStepType(), result.status());
-
-                if (!result.isSuccess()) {
-                    anyFailed.set(true);
-                }
-
-                // Update resolution context with this step's outputs for downstream steps
-                updateResolutionContext(resCtx, stepId, result);
 
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
