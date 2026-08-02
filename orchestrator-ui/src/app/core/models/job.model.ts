@@ -126,9 +126,9 @@ export interface ArchiveConfig {
 export interface JobVersionSummary {
   versionId: number;
   versionNumber: number;
+  versionLabel: string;
   createdAt: string;
   createdBy: string;
-  message: string | null;
 }
 
 /** Request body for importing a job definition */

@@ -60,7 +60,7 @@
         <th>Version</th>
         <th>Created</th>
         <th>Author</th>
-        <th>Message</th>
+        <th>Label</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -77,7 +77,7 @@
           </td>
           <td>{{ formatDate(v.createdAt) }}</td>
           <td>{{ v.createdBy }}</td>
-          <td class="message-cell">{{ v.message || '—' }}</td>
+          <td class="message-cell">{{ v.versionLabel || '—' }}</td>
           <td>
             <button mat-icon-button (click)="rollback(v)"
                     [disabled]="v.versionId === currentVersionId"
