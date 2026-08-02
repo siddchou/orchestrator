@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -39,6 +39,7 @@ export class NotificationSubscriptionFormComponent implements OnInit {
   private credentialService = inject(CredentialService);
   private snackBar = inject(MatSnackBar);
   private dialogRef = inject(MatDialogRef<NotificationSubscription>);
+  private cd = inject(ChangeDetectorRef);
   data = inject<SubscriptionFormDialogData>(MAT_DIALOG_DATA);
 
   @ViewChild(DynamicConfigFormComponent) configForm?: DynamicConfigFormComponent;
@@ -87,6 +88,7 @@ export class NotificationSubscriptionFormComponent implements OnInit {
     this.credentialService.listCredentials().subscribe({
       next: (res) => {
         if (res.status === 'SUCCESS') this.credentials = res.data;
+        this.cd.markForCheck();
       },
       error: () => { /* non-critical — SECRET_REF fields will fall back to text input */ },
     });
@@ -131,6 +133,7 @@ export class NotificationSubscriptionFormComponent implements OnInit {
           this.data.mode === 'edit' ? 'Failed to update notification' : 'Failed to create notification',
           'Dismiss', { panelClass: 'error-snackbar' }
         );
+        this.cd.markForCheck();
       },
     });
   }

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,6 +20,7 @@ import { NotificationDeliveryLog } from '@app/core/models/notification.model';
 export class DeliveryLogComponent implements OnInit {
   private notificationService = inject(NotificationService);
   private snackBar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
 
   @Input() subscriptionId: number | null = null;
   @Input() runId: number | null = null;
@@ -37,6 +38,7 @@ export class DeliveryLogComponent implements OnInit {
 
   load(): void {
     this.loading = true;
+    this.cd.markForCheck();
     const runIdFilter = this.filterRunId ? Number(this.filterRunId) : (this.runId ?? undefined);
     this.notificationService.getDeliveryLog(this.subscriptionId ?? undefined, runIdFilter).subscribe({
       next: (res) => {
@@ -45,10 +47,12 @@ export class DeliveryLogComponent implements OnInit {
           this.logs = res.data.slice(0, 20); // show last 20
         }
         this.loading = false;
+        this.cd.markForCheck();
       },
       error: () => {
         this.loading = false;
         this.snackBar.open('Failed to load delivery log', 'Dismiss', { panelClass: 'error-snackbar' });
+        this.cd.markForCheck();
       },
     });
   }

@@ -38,6 +38,9 @@
     <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'schedule'" (click)="selectTab('schedule')">
       Schedule
     </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'notifications'" (click)="selectTab('notifications')">
+      Notifications
+    </button>
     <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'versions'" (click)="selectTab('versions')">
       Versions
     </button>
@@ -258,6 +261,10 @@
           }
         </div>
       </div>
+    }
+
+    @if (selectedTab === 'notifications' && job) {
+      <app-notifications-tab [jobId]="jobId!"></app-notifications-tab>
     }
 
     @if (selectedTab === 'versions' && job) {

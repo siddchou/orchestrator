@@ -27,6 +27,7 @@ import { forkJoin, take } from 'rxjs';
 import { FormGuardService } from '@app/core/services/form-guard.service';
 import { downloadFile } from '@app/core/utils/file-utils';
 import { VersionHistoryComponent } from '../version-history/version-history.component';
+import { NotificationsTabComponent } from '../notifications/notifications-tab.component';
 
 @Component({
   selector: 'app-job-detail',
@@ -35,7 +36,7 @@ import { VersionHistoryComponent } from '../version-history/version-history.comp
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
     CdkDrag, CdkDropList, CdkDragHandle, MatTooltipModule,
-    DagCanvasComponent, VersionHistoryComponent,
+DagCanvasComponent, VersionHistoryComponent, NotificationsTabComponent,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
@@ -74,7 +75,7 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   stepsViewMode: 'list' | 'canvas' = 'list';
   stepsWithDeps: JobStepWithDependencies[] = [];
   exporting = false;
-  selectedTab: 'general' | 'steps' | 'environment' | 'schedule' | 'versions' = 'general';
+selectedTab: 'general' | 'steps' | 'environment' | 'schedule' | 'notifications' | 'versions' = 'general';
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
@@ -99,7 +100,7 @@ export class JobDetailComponent implements OnInit, OnDestroy {
     }
   }
 
-  selectTab(tab: 'general' | 'steps' | 'environment' | 'schedule' | 'versions'): void {
+selectTab(tab: 'general' | 'steps' | 'environment' | 'schedule' | 'notifications' | 'versions'): void {
     this.selectedTab = tab;
     this.cd.markForCheck();
   }
