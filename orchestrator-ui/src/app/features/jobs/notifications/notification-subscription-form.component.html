@@ -1,49 +1,91 @@
-<div class="dialog-header">
-  <h2>{{ data.mode === 'create' ? 'Add Notification' : 'Edit Notification' }}</h2>
-</div>
+<div class="dialog-container">
+  <div class="dialog-header">
+    <div class="header-main">
+      <div class="header-icon">
+        <mat-icon>{{ headerIcon }}</mat-icon>
+      </div>
+      <div class="header-content">
+        <h2>{{ data.mode === 'create' ? 'Add Notification' : 'Edit Notification' }}</h2>
+        <p class="subtitle">
+          {{ data.mode === 'create' ? 'Get alerted when your job reaches a specific state' : 'Update notification settings' }}
+        </p>
+      </div>
+    </div>
+    <button mat-icon-button class="close-btn" (click)="cancel()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
 
-<form [formGroup]="form" class="notification-form">
-  <mat-form-field appearance="outline">
-    <mat-label>Channel Type</mat-label>
-    <mat-select formControlName="channelType">
-      @for (schema of channelSchemas; track schema.type) {
-        <mat-option [value]="schema.type">{{ typeToLabel(schema.type) }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
+  <form [formGroup]="form" class="notification-form">
+    <!-- Channel Selection -->
+    <div class="form-section">
+      <div class="section-header">
+        <mat-icon>account_tree</mat-icon>
+        <span>Channel</span>
+      </div>
+      <mat-form-field appearance="outline">
+        <mat-label>Channel Type</mat-label>
+        <mat-select formControlName="channelType">
+          @for (schema of channelSchemas; track schema.type) {
+            <mat-option [value]="schema.type">{{ typeToLabel(schema.type) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    </div>
 
-  <div class="events-section">
-    <label class="section-label">Trigger On</label>
-    <div class="event-checkboxes">
-      @for (evt of eventOptions; track evt) {
-        <div class="checkbox-row">
-          <mat-checkbox
-            [color]="evt === 'SUCCESS' ? 'primary' : evt === 'FAILED' ? 'warn' : ''"
-            [checked]="selectedEvents.has(evt)"
-            (change)="onEventCheckboxChange(evt, $event.checked)">
-            {{ evt }}
-          </mat-checkbox>
+    <!-- Trigger Events -->
+    <div class="form-section">
+      <div class="section-header">
+        <mat-icon>bolt</mat-icon>
+        <span>Trigger On</span>
+      </div>
+      <div class="event-chips">
+        @for (evt of eventOptions; track evt) {
+          <button
+            type="button"
+            mat-stroked-button
+            class="event-chip-btn"
+            [class.selected]="selectedEvents.has(evt)"
+            (click)="toggleEvent(evt)"
+            [style.--chip-accent]="getEventAccentColor(evt)"
+          >
+            <mat-icon>{{ getEventIcon(evt) }}</mat-icon>
+            {{ eventToLabel(evt) }}
+          </button>
+        }
+      </div>
+      @if (selectedEvents.size === 0) {
+        <div class="selection-warning" role="status" aria-live="polite">
+          <mat-icon>warning_amber</mat-icon>
+          <span>Select at least one event to trigger notifications</span>
         </div>
       }
     </div>
-  </div>
 
-  @if (selectedChannelSchema) {
-    <div class="config-fields">
-      <label class="section-label">Channel Configuration</label>
-      <app-dynamic-config-form
-        #configForm
-        [fields]="selectedChannelSchema.fields"
-        [existingConfig]="data.subscription?.config ?? null"
-        [credentials]="credentials">
-      </app-dynamic-config-form>
-    </div>
-  }
+    <!-- Channel Configuration -->
+    @if (selectedChannelSchema) {
+      <div class="form-section config-section">
+        <div class="section-header">
+          <mat-icon>tune</mat-icon>
+          <span>{{ typeToLabel(form.get('channelType')!.value) }} Settings</span>
+        </div>
+        <app-dynamic-config-form
+          #configForm
+          [fields]="selectedChannelSchema.fields"
+          [existingConfig]="data.subscription?.config ?? null"
+          [credentials]="credentials">
+        </app-dynamic-config-form>
+      </div>
+    }
+  </form>
 
   <div class="dialog-actions">
-    <button mat-stroked-button (click)="cancel()">Cancel</button>
-    <button mat-flat-button color="primary" (click)="save()" [disabled]="form.invalid || selectedEvents.size === 0">
+    <button mat-stroked-button (click)="cancel()" [disabled]="saving">Cancel</button>
+    <button mat-flat-button color="primary" (click)="save()" [disabled]="form.invalid || selectedEvents.size === 0 || saving">
+      @if (saving) {
+        <mat-progress-spinner diameter="18" mode="indeterminate"></mat-progress-spinner>
+      }
       {{ data.mode === 'create' ? 'Create' : 'Save Changes' }}
     </button>
   </div>
-</form>
+</div>
