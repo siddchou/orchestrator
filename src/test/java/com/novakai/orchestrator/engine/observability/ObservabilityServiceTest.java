@@ -21,7 +21,8 @@ class ObservabilityServiceTest {
     @BeforeEach
     void setUp() {
         registry = new SimpleMeterRegistry();
-        service = new ObservabilityService(registry);
+        // Default cap of 50 for most tests
+        service = new ObservabilityService(registry, 50);
     }
 
     @Test
@@ -82,5 +83,38 @@ class ObservabilityServiceTest {
 
         service.decrementActiveRuns();
         assertEquals(1, gauge.value());
+    }
+
+    @Test
+    void cardinalityCap_collapses_excess_step_types() {
+        // Cap at 3 — types beyond that should be tagged as __other__
+        service = new ObservabilityService(registry, 3);
+
+        service.incrementStepCount("type_a", StepStatus.SUCCESS);
+        service.incrementStepCount("type_b", StepStatus.SUCCESS);
+        service.incrementStepCount("type_c", StepStatus.SUCCESS);
+        // type_d exceeds cap of 3 → should be __other__
+        service.incrementStepCount("type_d", StepStatus.SUCCESS);
+        service.incrementStepCount("type_e", StepStatus.SUCCESS);
+
+        // First three types should have their own counters
+        assertNotNull(registry.get("orchestrator.step.count")
+                .tag("step_type", "type_a").counter());
+        assertNotNull(registry.get("orchestrator.step.count")
+                .tag("step_type", "type_b").counter());
+        assertNotNull(registry.get("orchestrator.step.count")
+                .tag("step_type", "type_c").counter());
+
+        // Excess types should be collapsed to __other__
+        var otherCounter = registry.get("orchestrator.step.count")
+                .tag("step_type", "__other__")
+                .counter();
+        assertNotNull(otherCounter);
+        assertEquals(2, otherCounter.count(), "type_d and type_e both collapsed");
+
+        // No counters for the excess types individually — verify they don't exist
+        assertThrows(io.micrometer.core.instrument.search.MeterNotFoundException.class, () ->
+                registry.get("orchestrator.step.count")
+                        .tag("step_type", "type_d").counter());
     }
 }

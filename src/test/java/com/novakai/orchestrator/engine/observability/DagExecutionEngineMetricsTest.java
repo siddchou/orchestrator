@@ -29,7 +29,7 @@ class DagExecutionEngineMetricsTest {
     void stepDuration_recorded_after_run() {
         assertNotNull(meterRegistry);
 
-        var service = new ObservabilityService(meterRegistry);
+        var service = new ObservabilityService(meterRegistry, 50);
         service.recordStepDuration(Duration.ofSeconds(1), "SLEEP", com.novakai.orchestrator.engine.spi.StepStatus.SUCCESS);
         service.incrementStepCount("SLEEP", com.novakai.orchestrator.engine.spi.StepStatus.SUCCESS);
 
