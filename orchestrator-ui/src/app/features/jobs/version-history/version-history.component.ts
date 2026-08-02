@@ -6,7 +6,6 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { FormsModule } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { JobService } from '@app/core/services/job.service';
 import { JsonDiffService } from '@app/core/services/json-diff.service';
@@ -19,7 +18,7 @@ import { RollbackConfirmDialogComponent, RollbackDialogData } from './rollback-c
   standalone: true,
   imports: [
     CommonModule, MatButtonModule, MatIconModule, MatSelectModule,
-    MatFormFieldModule, MatProgressSpinnerModule, MatDialogModule, FormsModule,
+    MatFormFieldModule, MatProgressSpinnerModule, MatDialogModule,
   ],
   templateUrl: './version-history.component.html',
   styleUrl: './version-history.component.scss',

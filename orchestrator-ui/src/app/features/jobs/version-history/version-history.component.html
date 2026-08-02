@@ -11,22 +11,22 @@
     <span class="compare-label">Compare versions:</span>
     <mat-form-field appearance="outline" class="compare-select">
       <mat-label>Version A</mat-label>
-      <select matNativeSelect [(ngModel)]="compareA">
-        <option [ngValue]="0">Select...</option>
+      <mat-select [(value)]="compareA">
+        <mat-option [value]="0">Select...</mat-option>
         @for (v of versions; track v.versionId) {
-          <option [ngValue]="v.versionId">v{{ v.versionNumber }}</option>
+          <mat-option [value]="v.versionId">v{{ v.versionNumber }}</mat-option>
         }
-      </select>
+      </mat-select>
     </mat-form-field>
     <span class="vs-label">vs</span>
     <mat-form-field appearance="outline" class="compare-select">
       <mat-label>Version B</mat-label>
-      <select matNativeSelect [(ngModel)]="compareB">
-        <option [ngValue]="0">Select...</option>
+      <mat-select [(value)]="compareB">
+        <mat-option [value]="0">Select...</mat-option>
         @for (v of versions; track v.versionId) {
-          <option [ngValue]="v.versionId">v{{ v.versionNumber }}</option>
+          <mat-option [value]="v.versionId">v{{ v.versionNumber }}</mat-option>
         }
-      </select>
+      </mat-select>
     </mat-form-field>
     <button mat-stroked-button (click)="compareVersions()"
             [disabled]="isComparing || compareA === 0 || compareB === 0 || compareA === compareB">
