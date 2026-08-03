@@ -9,8 +9,8 @@ public class PrometheusScrapeEndpoint {
 
     private final PrometheusMeterRegistry prometheusRegistry;
 
-    public PrometheusScrapeEndpoint(PrometheusMeterRegistry prometheusRegistry) {
-        this.prometheusRegistry = prometheusRegistry;
+    public PrometheusScrapeEndpoint(io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        this.prometheusRegistry = (PrometheusMeterRegistry) meterRegistry;
     }
 
     @GetMapping("/actuator/prometheus")

@@ -27,10 +27,11 @@ public class ObservabilityService {
     // Track which collapsed types we've already warned about
     private final ConcurrentHashMap<String, Boolean> warnedCollapsedTypes = new ConcurrentHashMap<>();
 
-    public ObservabilityService(MeterRegistry registry,
+    public ObservabilityService(MeterRegistry meterRegistry,
                                 @Value("${orchestrator.metrics.max-step-type-cardinality:50}") int maxStepTypeCardinality) {
-        this.registry = registry;
+        this.registry = meterRegistry;
         this.maxStepTypeCardinality = maxStepTypeCardinality;
+
         Gauge.builder("orchestrator.run.active", activeRuns, AtomicInteger::get)
                 .register(registry);
     }

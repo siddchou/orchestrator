@@ -1,11 +1,5 @@
 package com.novakai.orchestrator.engine.observability;
 
-import com.novakai.orchestrator.domain.entity.JobDefinition;
-import com.novakai.orchestrator.domain.entity.JobRun;
-import com.novakai.orchestrator.domain.entity.JobStep;
-import com.novakai.orchestrator.domain.enums.RunStatus;
-import com.novakai.orchestrator.engine.ExecutionContext;
-import com.novakai.orchestrator.engine.spi.StepResult;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

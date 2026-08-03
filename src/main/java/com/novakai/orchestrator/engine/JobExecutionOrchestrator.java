@@ -18,6 +18,7 @@ import com.novakai.orchestrator.repository.JobCredentialRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +60,9 @@ public class JobExecutionOrchestrator {
     }
 
     public void execute(ExecutionContext oldCtx, JobDefinition job, JobRun run) {
+        MDC.put("runId", String.valueOf(oldCtx.getRunId()));
+        MDC.put("jobId", String.valueOf(job.getJobId()));
+
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(LocalDateTime.now());
         runRepo.save(run);
@@ -114,10 +118,16 @@ public class JobExecutionOrchestrator {
                     log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
                 }
             }
+
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
     }
 
     public void executeSingleStep(ExecutionContext oldCtx, JobDefinition job, JobRun run, JobStep targetStep) {
+        MDC.put("runId", String.valueOf(oldCtx.getRunId()));
+        MDC.put("jobId", String.valueOf(job.getJobId()));
+
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(LocalDateTime.now());
         runRepo.save(run);
@@ -153,10 +163,25 @@ public class JobExecutionOrchestrator {
                     log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
                 }
             }
+
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
     }
 
     boolean executeStep(ExecutionContext oldCtx, JobRun run, JobRunStep runStep, JobStep step) {
+        MDC.put("stepId", String.valueOf(step.getStepId()));
+        MDC.put("stepType", step.getStepType());
+
+        try {
+            return executeStepInternal(oldCtx, run, runStep, step);
+        } finally {
+            MDC.remove("stepId");
+            MDC.remove("stepType");
+        }
+    }
+
+    private boolean executeStepInternal(ExecutionContext oldCtx, JobRun run, JobRunStep runStep, JobStep step) {
         String stepType = step.getStepType();
         StepExecutor executor = registry.get(stepType)
             .orElse(null);

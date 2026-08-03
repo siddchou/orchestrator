@@ -2,9 +2,6 @@ package com.novakai.orchestrator.engine.observability;
 
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.spi.StepStatus;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ObservabilityServiceTest {
 
-    private MeterRegistry registry;
+    private SimpleMeterRegistry registry;
     private ObservabilityService service;
 
     @BeforeEach
@@ -88,6 +85,7 @@ class ObservabilityServiceTest {
     @Test
     void cardinalityCap_collapses_excess_step_types() {
         // Cap at 3 — types beyond that should be tagged as __other__
+        registry = new SimpleMeterRegistry();
         service = new ObservabilityService(registry, 3);
 
         service.incrementStepCount("type_a", StepStatus.SUCCESS);
