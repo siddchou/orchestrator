@@ -48,6 +48,8 @@ class SwaggerUiIntegrationTest {
         var fieldsIterator = paths.fields();
         while (fieldsIterator.hasNext()) {
             var pathEntry = fieldsIterator.next();
+            // Skip actuator endpoints - they're auto-exposed by Spring Boot Actuator
+            if (pathEntry.getKey().startsWith("/actuator")) continue;
             JsonNode pathItem = pathEntry.getValue();
             String[] methods = {"get", "post", "put", "delete", "patch"};
             for (String method : methods) {
