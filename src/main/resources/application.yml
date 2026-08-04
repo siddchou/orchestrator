@@ -13,7 +13,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.OracleDialect
+  autoconfigure:
+    exclude: org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration,org.springframework.boot.mail.autoconfigure.MailHealthContributorAutoConfiguration
   mail:
+    enabled: ${MAIL_ENABLED:false}
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
