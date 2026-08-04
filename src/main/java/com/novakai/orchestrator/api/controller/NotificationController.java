@@ -14,6 +14,9 @@ import com.novakai.orchestrator.notification.entity.NotificationSubscription;
 import com.novakai.orchestrator.notification.repository.NotificationDeliveryLogRepository;
 import com.novakai.orchestrator.notification.spi.ChannelConfigSchema;
 import com.novakai.orchestrator.notification.spi.NotificationChannelRegistry;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/notifications")
+@Tag(name = "Notifications", description = "Notification subscriptions, channels, and delivery logs (ADMIN only)")
 @PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class NotificationController {
@@ -38,6 +42,7 @@ public class NotificationController {
     // Subscriptions CRUD
     // ------------------------------------------------------------------
 
+    @Operation(summary = "List all notification subscriptions")
     @GetMapping("/subscriptions")
     public ApiResponse<List<NotificationSubscriptionResponse>> listSubscriptions() {
         return ApiResponse.success(notificationService.listAll().stream()
@@ -45,6 +50,7 @@ public class NotificationController {
             .toList());
     }
 
+    @Operation(summary = "Get a single subscription by ID")
     @GetMapping("/subscriptions/{id}")
     public ApiResponse<NotificationSubscriptionResponse> getSubscription(@PathVariable Long id) {
         NotificationSubscription sub = notificationService.getById(id);
@@ -52,6 +58,7 @@ public class NotificationController {
         return ApiResponse.success(toResponse(sub));
     }
 
+    @Operation(summary = "List subscriptions for a specific job")
     @GetMapping("/subscriptions/job/{jobId}")
     public ApiResponse<List<NotificationSubscriptionResponse>> getSubscriptionsForJob(@PathVariable Long jobId) {
         return ApiResponse.success(notificationService.getByJobId(jobId).stream()
@@ -59,6 +66,7 @@ public class NotificationController {
             .toList());
     }
 
+    @Operation(summary = "Create a notification subscription")
     @PostMapping("/subscriptions")
     public ResponseEntity<ApiResponse<NotificationSubscriptionResponse>> createSubscription(
             @Valid @RequestBody NotificationSubscriptionRequest request) {
@@ -72,6 +80,7 @@ public class NotificationController {
         }
     }
 
+    @Operation(summary = "Update a notification subscription")
     @PutMapping("/subscriptions/{id}")
     public ResponseEntity<ApiResponse<NotificationSubscriptionResponse>> updateSubscription(
             @PathVariable Long id,
@@ -87,6 +96,7 @@ public class NotificationController {
         }
     }
 
+    @Operation(summary = "Delete a notification subscription")
     @DeleteMapping("/subscriptions/{id}")
     public ApiResponse<Void> deleteSubscription(@PathVariable Long id) {
         try {
@@ -97,6 +107,7 @@ public class NotificationController {
         }
     }
 
+    @Operation(summary = "Toggle subscription active/inactive state")
     @PatchMapping("/subscriptions/{id}/toggle")
     public ApiResponse<NotificationSubscriptionResponse> toggleSubscription(@PathVariable Long id) {
         NotificationSubscription sub = notificationService.toggle(id);
@@ -108,6 +119,7 @@ public class NotificationController {
     // Channel schemas (for dynamic form rendering in UI)
     // ------------------------------------------------------------------
 
+    @Operation(summary = "List registered channel schemas for dynamic UI forms")
     @GetMapping("/channels")
     public ApiResponse<List<ChannelConfigSchema>> listChannelSchemas() {
         return ApiResponse.success(channelRegistry.listAll());
@@ -117,6 +129,9 @@ public class NotificationController {
     // Delivery log
     // ------------------------------------------------------------------
 
+    @Operation(summary = "Get notification delivery log with optional filters")
+    @Parameter(name = "runId", description = "Filter by run ID")
+    @Parameter(name = "subscriptionId", description = "Filter by subscription ID")
     @GetMapping("/delivery-log")
     public ApiResponse<List<NotificationDeliveryLogResponse>> getDeliveryLog(
             @RequestParam(required = false) Long runId,

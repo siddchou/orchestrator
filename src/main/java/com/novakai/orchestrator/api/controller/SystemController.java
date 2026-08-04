@@ -13,6 +13,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.scheduling.support.CronExpression;
@@ -26,6 +29,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "System", description = "Global env vars, health check, validation")
 @RequiredArgsConstructor
 @Slf4j
 public class SystemController {
@@ -33,12 +37,14 @@ public class SystemController {
     private final JobEnvVarRepository envVarRepo;
     private final JobDefinitionMapper mapper;
 
+    @Operation(summary = "List global environment variables")
     @GetMapping("/env-vars/global")
     public ApiResponse<List<EnvVarResponse>> listGlobal() {
         return ApiResponse.success(envVarRepo.findByIsGlobal("Y").stream()
                 .map(mapper::toEnvVarResponse).toList());
     }
 
+    @Operation(summary = "Add a global environment variable")
     @PostMapping("/env-vars/global")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EnvVarResponse> addGlobal(@Valid @RequestBody EnvVarRequest req) {
@@ -51,6 +57,7 @@ public class SystemController {
         return ApiResponse.success(mapper.toEnvVarResponse(envVar));
     }
 
+    @Operation(summary = "Delete a global environment variable")
     @DeleteMapping("/env-vars/global/{envId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteGlobal(@PathVariable Long envId) {
@@ -59,6 +66,7 @@ public class SystemController {
         envVarRepo.delete(envVar);
     }
 
+    @Operation(summary = "System health check")
     @GetMapping("/system/health")
     public ApiResponse<Map<String, Object>> health() {
         Map<String, Object> status = new LinkedHashMap<>();
@@ -69,6 +77,9 @@ public class SystemController {
         return ApiResponse.success(status);
     }
 
+    @Operation(summary = "Validate Java home and working directory paths")
+    @Parameter(name = "javaHome", description = "Path to JDK installation")
+    @Parameter(name = "workingDir", description = "Working directory path")
     @GetMapping("/system/env-validate")
     public ApiResponse<Map<String, String>> validateEnv(
             @RequestParam String javaHome,
@@ -81,6 +92,8 @@ public class SystemController {
         return ApiResponse.success(results);
     }
 
+    @Operation(summary = "Validate a cron expression and show next fire times")
+    @Parameter(name = "expression", description = "Cron expression to validate")
     @GetMapping("/system/cron-validate")
     public ApiResponse<Map<String, String>> validateCron(@RequestParam String expression) {
         try {

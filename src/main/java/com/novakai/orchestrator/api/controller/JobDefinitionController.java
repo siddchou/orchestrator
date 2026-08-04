@@ -22,6 +22,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +33,7 @@ import java.util.Map;
 @RequestMapping("/api/jobs")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Jobs", description = "Job definitions, steps, env vars, schedules, versions")
 public class JobDefinitionController {
 
     private final JobDefinitionService jobService;
@@ -37,10 +42,14 @@ public class JobDefinitionController {
     private final TeamService teamService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Operation(summary = "List jobs with pagination and search")
     @GetMapping
     public ApiResponse<Page<JobDefinitionResponse>> list(
+            @Parameter(name = "page", description = "Page number (0-based)")
             @RequestParam(defaultValue = "0") int page,
+            @Parameter(name = "size", description = "Page size")
             @RequestParam(defaultValue = "20") int size,
+            @Parameter(name = "search", description = "Filter by job name substring")
             @RequestParam(required = false) String search,
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestHeader(value = "X-Team-Id", required = false) Long teamId) {
@@ -60,6 +69,7 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.listJobs(search, PageRequest.of(page, size), effectiveTeamId));
     }
 
+    @Operation(summary = "Create a new job definition")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobDefinitionResponse> create(
@@ -100,11 +110,13 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.createJob(request, username, effectiveTeamId));
     }
 
+    @Operation(summary = "Get job detail by ID")
     @GetMapping("/{id}")
     public ApiResponse<JobDefinitionResponse> get(@PathVariable Long id) {
         return ApiResponse.success(jobService.getJob(id));
     }
 
+    @Operation(summary = "Update job definition")
     @PutMapping("/{id}")
     public ApiResponse<JobDefinitionResponse> update(
             @PathVariable Long id,
@@ -112,12 +124,14 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.updateJob(id, request));
     }
 
+    @Operation(summary = "Delete job definition")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         jobService.deleteJob(id);
     }
 
+    @Operation(summary = "Toggle job enabled/disabled state")
     @PostMapping("/{id}/enable")
     public ApiResponse<JobDefinitionResponse> toggleEnabled(@PathVariable Long id) {
         return ApiResponse.success(jobService.toggleEnabled(id));
@@ -125,9 +139,13 @@ public class JobDefinitionController {
 
     // --- Export / Import ---
 
+    @Operation(summary = "Export job definition as JSON or YAML")
     @GetMapping("/{id}/export")
-    public ResponseEntity<String> exportJob(@PathVariable Long id,
-                                            @RequestParam(defaultValue = "json") String format) {
+    public ResponseEntity<String> exportJob(
+            @Parameter(name = "id", description = "Job ID")
+            @PathVariable Long id,
+            @Parameter(name = "format", description = "Export format: json or yaml")
+            @RequestParam(defaultValue = "json") String format) {
         String content;
         MediaType mediaType;
         String extension;
@@ -149,6 +167,7 @@ public class JobDefinitionController {
                 .body(content);
     }
 
+    @Operation(summary = "Import job definition from JSON or YAML")
     @PostMapping("/import")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobDefinitionResponse> importJob(
@@ -205,6 +224,7 @@ public class JobDefinitionController {
 
     // --- Steps ---
 
+    @Operation(summary = "Add a step to a job")
     @PostMapping("/{id}/steps")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobStepResponse> addStep(
@@ -213,6 +233,7 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.addStep(id, request));
     }
 
+    @Operation(summary = "Update an existing step")
     @PutMapping("/{id}/steps/{stepId}")
     public ApiResponse<JobStepResponse> updateStep(
             @PathVariable Long id,
@@ -221,12 +242,14 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.updateStep(id, stepId, request));
     }
 
+    @Operation(summary = "Delete a step from a job")
     @DeleteMapping("/{id}/steps/{stepId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteStep(@PathVariable Long id, @PathVariable Long stepId) {
         jobService.deleteStep(id, stepId);
     }
 
+    @Operation(summary = "Reorder steps within a job")
     @PutMapping("/{id}/steps/reorder")
     public ApiResponse<List<JobStepResponse>> reorderSteps(
             @PathVariable Long id,
@@ -236,6 +259,7 @@ public class JobDefinitionController {
 
     // --- Dependencies ---
 
+    @Operation(summary = "Get dependencies for a step")
     @GetMapping("/{id}/steps/{stepId}/dependencies")
     public ApiResponse<List<StepDependencyResponse>> getDependencies(
             @PathVariable Long id,
@@ -243,6 +267,7 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.getDependencies(id, stepId));
     }
 
+    @Operation(summary = "Set dependencies for a step")
     @PutMapping("/{id}/steps/{stepId}/dependencies")
     public ApiResponse<Void> setDependencies(
             @PathVariable Long id,
@@ -254,11 +279,13 @@ public class JobDefinitionController {
 
     // --- Env Vars ---
 
+    @Operation(summary = "List environment variables for a job")
     @GetMapping("/{id}/env-vars")
     public ApiResponse<List<EnvVarResponse>> listEnvVars(@PathVariable Long id) {
         return ApiResponse.success(jobService.listEnvVars(id));
     }
 
+    @Operation(summary = "Add an environment variable to a job")
     @PostMapping("/{id}/env-vars")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<EnvVarResponse> addEnvVar(
@@ -267,6 +294,7 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.addEnvVar(id, request));
     }
 
+    @Operation(summary = "Delete an environment variable from a job")
     @DeleteMapping("/{id}/env-vars/{envId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEnvVar(@PathVariable Long id, @PathVariable Long envId) {
@@ -275,11 +303,13 @@ public class JobDefinitionController {
 
     // --- Schedule ---
 
+    @Operation(summary = "Get schedule for a job")
     @GetMapping("/{id}/schedule")
     public ApiResponse<JobScheduleResponse> getSchedule(@PathVariable Long id) {
         return ApiResponse.success(jobService.getSchedule(id));
     }
 
+    @Operation(summary = "Create a cron schedule for a job")
     @PostMapping("/{id}/schedule")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<JobScheduleResponse> createSchedule(
@@ -288,6 +318,7 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.createSchedule(id, request));
     }
 
+    @Operation(summary = "Update the cron schedule for a job")
     @PutMapping("/{id}/schedule")
     public ApiResponse<JobScheduleResponse> updateSchedule(
             @PathVariable Long id,
@@ -295,17 +326,20 @@ public class JobDefinitionController {
         return ApiResponse.success(jobService.updateSchedule(id, request));
     }
 
+    @Operation(summary = "Delete the schedule for a job")
     @DeleteMapping("/{id}/schedule")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSchedule(@PathVariable Long id) {
         jobService.deleteSchedule(id);
     }
 
+    @Operation(summary = "Enable the job schedule")
     @PostMapping("/{id}/schedule/enable")
     public ApiResponse<JobScheduleResponse> enableSchedule(@PathVariable Long id) {
         return ApiResponse.success(jobService.toggleSchedule(id, true));
     }
 
+    @Operation(summary = "Disable the job schedule")
     @PostMapping("/{id}/schedule/disable")
     public ApiResponse<JobScheduleResponse> disableSchedule(@PathVariable Long id) {
         return ApiResponse.success(jobService.toggleSchedule(id, false));
@@ -313,6 +347,7 @@ public class JobDefinitionController {
 
     // --- Versions ---
 
+    @Operation(summary = "List all versions of a job")
     @GetMapping("/{id}/versions")
     public ApiResponse<List<JobVersionSummary>> listVersions(@PathVariable Long id) {
         var versions = versionService.listVersions(id);
@@ -325,6 +360,7 @@ public class JobDefinitionController {
         )).toList());
     }
 
+    @Operation(summary = "Get version snapshot as JSON")
     @GetMapping("/{id}/versions/{versionNumber}")
     public ResponseEntity<String> getVersion(@PathVariable Long id, @PathVariable Integer versionNumber) {
         return ResponseEntity.ok()
@@ -332,6 +368,7 @@ public class JobDefinitionController {
                 .body(versionService.exportVersion(id, versionNumber));
     }
 
+    @Operation(summary = "Rollback job to a specific version")
     @PostMapping("/{id}/versions/{versionNumber}/rollback")
     public ApiResponse<JobDefinitionResponse> rollbackToVersion(
             @PathVariable Long id,

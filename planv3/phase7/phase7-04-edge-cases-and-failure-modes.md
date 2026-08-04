@@ -1,0 +1,39 @@
+<!-- FILE: phase7-04-edge-cases-and-failure-modes.md -->
+
+# Phase 7.4 — Edge Cases and Failure Modes
+
+## CLI
+
+| Scenario | Current Behavior Without Fix | Required Handling |
+|----------|------------------------------|-------------------|
+| **Token expired mid-command** (8-hour expiry hits during a long `--wait` poll) | Server returns 401 on the next poll request. CLI prints raw JSON error `{ "success": false, "error": "Full authentication is required" }` and exits with code 0 (success), misleading the user. | CLI detects HTTP 401 on any request. For `--wait`, interrupts poll loop, prints "Token expired. Re-authenticating...", re-invokes login flow (reads cached credentials or prompts). Resumes polling. Exit code reflects actual run status, not auth failure. |
+| **CLI run against a server with an unrecognized step type** (server has custom step types the CLI's local schema doesn't know) | If CLI hardcodes step type names for display, unknown types render as `null` or throw NPE during JSON deserialization. | CLI should NOT maintain a local step type registry. Use `/api/step-types` endpoint at startup to fetch available types dynamically. Cache in memory for the session. Display unknown config fields as raw JSON. |
+| **SSE connection dropped during `runs tail`** (network blip, server restart) | `RestTemplate` throws `ResourceAccessException`. CLI exits silently with no indication the stream was interrupted. | Catch connection exceptions. Print `[connection lost]` to stderr. If `--follow`, retry up to 3 times with exponential backoff (1s, 2s, 4s). After retries exhausted, exit code 3 (distinguishable from run failure). |
+| **CLI `jobs import` with circular dependency** | Server-side validation catches it and returns 400. CLI prints raw error body without formatting. | CLI should parse the error response and print a formatted message: "Import failed: step 'B' depends on 'A' which depends on 'B' (circular)". Exit code 1. |
+| **`ORCHESTRATOR_TOKEN` set but server rejects it** (wrong secret key rotated) | First API call fails with 401. CLI crashes with unhandled exception from `RestTemplate`. | On 401, print clear message: "Token rejected by server (HTTP 401). Token may be expired or issued by a different instance. Run 'orch login' to get a new token." Exit code 1. Never silently retry with stale token more than once. |
+| **CLI output truncation in narrow terminals** | Table columns overflow, wrapping mid-cell, making output unreadable at <80 chars width. | Detect terminal width (`System.console().width()` or `STTY` fallback). Truncate job names > 24 chars with ellipsis. Drop low-priority columns (schedule) below 100 chars. |
+
+## OpenAPI / Swagger UI
+
+| Scenario | Current Behavior Without Fix | Required Handling |
+|----------|------------------------------|-------------------|
+| **OpenAPI spec generation fails silently on a malformed `@Operation` annotation** | If a developer adds `@Operation(summary = "")` or references a non-existent `$ref` in `@Schema`, springdoc may skip that endpoint or produce an invalid spec. Swagger UI shows a blank operation or crashes the UI with no server-side error log. | Add a startup validation bean (`ApplicationListener<ContextRefreshedEvent>`) that fetches `/v3/api-docs` internally and asserts: (a) every `@RestController` method appears in the spec, (b) no operation has an empty summary. Log WARN on mismatch. CI integration test (Task 1) catches this before merge. |
+| **SSE endpoint (`/api/runs/{runId}/log-stream`) renders incorrectly in Swagger UI** | springdoc may not auto-detect `text/event-stream` as a valid response type, showing it as `application/json`. Try-it-out button hangs waiting for JSON that never comes. | Annotate with `@ApiResponse(responseCode = "200", content = @Content(mediaType = "text/event-stream"))`. Document in Swagger that SSE endpoints require an SSE-capable client. Consider hiding the Try-it-out for SSE endpoints via `springdoc.api-docs.paths.to-hide` if it causes UI confusion. |
+| **Swagger UI exposes sensitive endpoints without auth warning** | Admin-only endpoints (credentials, audit) appear in Swagger UI with a working "Try it out" button. Unauthenticated users get 403, but there's no visual indication these require ADMIN role. | Add `@SecurityRequirement(name = "bearerAuth")` on admin controllers. In Swagger UI config, add a server-side description: "ADMIN endpoints require ROLE_ADMIN". Use springdoc `securitySchemes` to make the auth header visible at page load. |
+| **DTO with circular reference causes stack overflow during spec generation** | If two DTOs reference each other (e.g., `JobDefinitionResponse` → `JobStepResponse` → back), Jackson's serializer may loop. springdoc uses reflection, not serialization, so this is less likely, but `@Schema(implementation = ...)` with cycles can still cause issues. | Ensure all DTOs are record-based or have `@JsonIdentityInfo` for bidirectional references. Verify spec generation completes within 5 seconds in the integration test. |
+
+## MkDocs Site
+
+| Scenario | Current Behavior Without Fix | Required Handling |
+|----------|------------------------------|-------------------|
+| **Stale cross-links after doc migration** | Original `README.md` is replaced with a redirect note. External links (GitHub README rendered by GitHub) still point to old anchor fragments that no longer exist in the new docs site. | Keep original `README.md` with substantive content (don't fully delete). Use it as a landing page that links to the full docs site. Only move the detailed operational content. |
+| **MkDocs search indexes plan/ files accidentally** | If `planv3/` is inside the docs source directory, MkDocs picks up internal planning docs and surfaces them in user-facing search results. | Ensure `docs-site/` is a separate directory from `planv3/`. MkDocs `nav` explicitly lists included pages; unlisted pages are excluded by default with Material theme. |
+
+## CI Pipeline
+
+| Scenario | Current Behavior Without Fix | Required Handling |
+|----------|------------------------------|-------------------|
+| **Flaky Angular test blocks unrelated backend-only PRs** | A single flaky Karma test (e.g., timing-dependent animation test) fails on CI. The `frontend-test` job marks the entire PR as failed. Developer spending time on backend work is blocked. | Run `ng test` with `--watch=false --browsers=ChromeHeadlessCI`. Mark the frontend-test job as `if: "contains(github.event.pull_request.changed_files['*.ts'], '') || contains(github.event.pull_request.changed_files['*.html'], '')"` — only run when frontend files change. Alternatively, use a path-based trigger in the workflow: `paths: ['orchestrator-ui/**']`. |
+| **CI Maven cache misses on every run** | Each CI run downloads all dependencies from central (~200 MB). Build takes 8+ minutes. | Configure `actions/cache` with `~/.m2/repository` keyed on `pom.xml` hash. Similarly cache `orchestrator-ui/node_modules` on `package-lock.json`. |
+| **CI passes but the app won't start in production** | Tests run against H2 (test profile). Oracle-specific SQL (sequence syntax, CLOB handling) only surfaces at deploy time. | CI should include a `verify` goal that runs the full test suite including integration tests. Consider adding an Oracle container (`gvenzl/oracle-xe`) to CI for quarterly regression, but keep it gated behind a manual workflow dispatch to avoid cost. |
+| **Frontend build fails silently in CI** | The `frontend-maven-plugin` has `<skip>true</skip>` by default. If CI runs `mvn clean verify` without overriding, the frontend is never built. The fat JAR ships with stale Angular assets. | CI workflow should run `mvn clean package -DskipTests=false` for the full build. For PR checks, use a profile that sets `<skip>false</skip>` on the frontend plugin. |

@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.MediaType;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Streaming", description = "SSE log streaming")
 @RequiredArgsConstructor
 @Slf4j
 public class LogStreamController {
@@ -27,6 +31,8 @@ public class LogStreamController {
     private final JobLaunchService launchService;
     private final JobRunRepository runRepo;
 
+    @Operation(summary = "Stream live logs for a running job (SSE)")
+    @Parameter(name = "runId", description = "Run ID to stream")
     @GetMapping(value = "/runs/{runId}/log-stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamLog(@PathVariable Long runId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);

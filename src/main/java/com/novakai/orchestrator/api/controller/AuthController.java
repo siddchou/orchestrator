@@ -11,6 +11,9 @@ import com.novakai.orchestrator.domain.entity.AppUser;
 import com.novakai.orchestrator.repository.AppUserRepository;
 import com.novakai.orchestrator.security.CustomUserDetailsService;
 import com.novakai.orchestrator.security.JwtService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/auth")
 @Slf4j
+@Tag(name = "Auth", description = "Authentication, login, password management")
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
@@ -49,6 +53,7 @@ public class AuthController {
         this.teamService = teamService;
     }
 
+    @Operation(summary = "Login and get JWT token")
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         Authentication authenticated;
@@ -74,6 +79,7 @@ public class AuthController {
         return ApiResponse.success(new AuthResponse(token, role, passwordExpired));
     }
 
+    @Operation(summary = "Change current user's password")
     @PostMapping("/change-password")
     public ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request,
                                             @AuthenticationPrincipal UserDetails userDetails) {
@@ -96,6 +102,7 @@ public class AuthController {
         return ApiResponse.success(null);
     }
 
+    @Operation(summary = "Get current user info and refresh token")
     @GetMapping("/me")
     public ApiResponse<AuthResponse> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
         if (userDetails == null) {

@@ -8,6 +8,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.NoOpResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +30,55 @@ class SwaggerUiIntegrationTest {
     void setUp() {
         restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new NoOpResponseErrorHandler());
+    }
+
+    @Test
+    void operations_have_summaries() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                base() + "/v3/api-docs", String.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response.getBody());
+        JsonNode paths = root.path("paths");
+        assertTrue(paths.isObject(), "paths should be an object");
+
+        int totalOps = 0;
+        int withSummary = 0;
+        var fieldsIterator = paths.fields();
+        while (fieldsIterator.hasNext()) {
+            var pathEntry = fieldsIterator.next();
+            JsonNode pathItem = pathEntry.getValue();
+            String[] methods = {"get", "post", "put", "delete", "patch"};
+            for (String method : methods) {
+                JsonNode op = pathItem.path(method);
+                if (!op.isMissingNode()) {
+                    totalOps++;
+                    if (op.has("summary") && !op.get("summary").asText().isBlank()) {
+                        withSummary++;
+                    } else {
+                        fail("Operation " + method.toUpperCase() + " " + pathEntry.getKey() + " missing summary");
+                    }
+                }
+            }
+        }
+        assertTrue(totalOps > 0, "Should have found operations in the spec");
+        assertEquals(totalOps, withSummary, "All operations should have summaries");
+    }
+
+    @Test
+    void auth_security_scheme_present() throws Exception {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                base() + "/v3/api-docs", String.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(response.getBody());
+        JsonNode schemes = root.path("components").path("securitySchemes");
+        assertTrue(schemes.has("bearerAuth"), "Should have bearerAuth security scheme");
+        JsonNode bearer = schemes.get("bearerAuth");
+        assertEquals("http", bearer.get("type").asText());
+        assertEquals("bearer", bearer.get("scheme").asText());
     }
 
     @Test
