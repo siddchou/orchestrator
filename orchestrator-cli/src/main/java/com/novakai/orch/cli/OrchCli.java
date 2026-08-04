@@ -1,5 +1,6 @@
 package com.novakai.orch.cli;
 
+import com.novakai.orch.cli.auth.AuthCommand;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
@@ -11,6 +12,7 @@ import java.util.concurrent.Callable;
         version = {"orch 0.0.1-SNAPSHOT"},
         description = "CLI tool for Novakai Orchestrator",
         subcommands = {
+                AuthCommand.class,
                 CommandLine.HelpCommand.class
         }
 )
