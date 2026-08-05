@@ -1,6 +1,9 @@
 package com.novakai.orch.cli;
 
 import com.novakai.orch.cli.auth.AuthCommand;
+import com.novakai.orch.cli.jobs.JobsGroupCommand;
+import com.novakai.orch.cli.notifications.NotificationsGroupCommand;
+import com.novakai.orch.cli.runs.RunsGroupCommand;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
@@ -13,6 +16,9 @@ import java.util.concurrent.Callable;
         description = "CLI tool for Novakai Orchestrator",
         subcommands = {
                 AuthCommand.class,
+                JobsGroupCommand.class,
+                RunsGroupCommand.class,
+                NotificationsGroupCommand.class,
                 CommandLine.HelpCommand.class
         }
 )

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and test backend
+        run: mvn clean verify --batch-mode --update-snapshots
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    if: >-
+      false ||
+      contains(github.event.pull_request.changed_files, '*.ts') ||
+      contains(github.event.pull_request.changed_files, '*.html') ||
+      github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: orchestrator-ui/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: orchestrator-ui
+
+      - name: Run Angular tests
+        run: npx ng test --watch=false --browsers=ChromeHeadlessCI
+        working-directory: orchestrator-ui
+
+  cli-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build CLI module
+        run: mvn compile --batch-mode -f orchestrator-parent/pom.xml
