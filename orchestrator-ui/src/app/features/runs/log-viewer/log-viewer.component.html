@@ -3,6 +3,9 @@
     <mat-slide-toggle [(ngModel)]="autoScroll">
       <span class="toggle-label">Auto-scroll</span>
     </mat-slide-toggle>
+    <mat-slide-toggle [(ngModel)]="lineWrap">
+      <span class="toggle-label">Wrap lines</span>
+    </mat-slide-toggle>
     @if (running) {
       <span class="live-badge">
         <span class="live-dot"></span> Streaming
@@ -12,17 +15,21 @@
     }
   </div>
   <div class="toolbar-right">
-    <span class="log-count">{{ logLines.length }} lines</span>
+    <mat-form-field appearance="outline" class="search-field">
+      <input matInput type="text" placeholder="Search logs…" [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+    <span class="log-count">{{ filteredLines.length }} / {{ logLines.length }} lines</span>
     <button mat-stroked-button (click)="clearLog()" class="clear-btn">
       <mat-icon>clear_all</mat-icon> Clear
     </button>
   </div>
 </div>
-<div class="log-container" #logContainer>
-  @for (line of logLines; track $index) {
-    <div class="log-line">{{ line }}</div>
+<div class="log-container" #logContainer [class.wrap]="lineWrap">
+  @for (line of filteredLines; track $index) {
+    <div class="log-line" [class]="line.level" [innerHTML]="highlightMatch(line)"></div>
   }
-  @if (running) {
+  @if (running && !searchQuery.trim()) {
     <span class="cursor">▮</span>
   }
 </div>
