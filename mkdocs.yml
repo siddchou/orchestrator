@@ -1,0 +1,63 @@
+site_name: Novakai Orchestrator
+site_description: Job orchestration platform for multi-step workflows
+theme:
+  name: material
+  palette:
+    primary: blue grey
+    accent: indigo
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.highlight
+    - content.code.copy
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - Troubleshooting: getting-started/troubleshooting.md
+  - User Guide:
+      - Overview: user-guide/overview.md
+      - Jobs: user-guide/jobs.md
+      - Runs: user-guide/runs.md
+      - Scheduling: user-guide/scheduling.md
+      - Teams: user-guide/teams.md
+  - Administration:
+      - Roles & Permissions: admin/roles-permissions.md
+      - Credentials: admin/credentials.md
+      - Global Config: admin/global-config.md
+      - Audit Log: admin/audit-log.md
+  - Features:
+      - Step Types: features/step-types.md
+      - Import / Export: features/import-export.md
+      - Notifications: features/notifications.md
+      - Observability: features/observability.md
+      - Versions: features/versions.md
+  - Developer:
+      - API Reference: developer/api-reference.md
+      - CLI Reference: developer/cli-reference.md
+      - Plugin Development: developer/plugin-development.md
+      - Architecture: developer/architecture.md
+  - Deployment:
+      - Packaging: deployment/packaging.md
+      - Systemd: deployment/systemd.md
+      - Upgrade Procedure: deployment/upgrade-procedure.md
+  - Contributing: contribution/contributing.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true

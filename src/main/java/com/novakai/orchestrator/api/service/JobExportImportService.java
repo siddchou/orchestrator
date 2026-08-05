@@ -11,6 +11,8 @@ import com.novakai.orchestrator.engine.spi.FieldType;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
 import com.novakai.orchestrator.engine.spi.StepExecutor;
 import com.novakai.orchestrator.engine.spi.StepExecutorRegistry;
+import com.novakai.orchestrator.notification.entity.NotificationSubscription;
+import com.novakai.orchestrator.notification.repository.NotificationSubscriptionRepository;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import com.novakai.orchestrator.repository.JobCredentialRepository;
@@ -38,6 +40,7 @@ public class JobExportImportService {
     private final JobCredentialRepository credRepo;
     private final TeamRepository teamRepo;
     private final StepExecutorRegistry registry;
+    private final NotificationSubscriptionRepository subscriptionRepo;
     private final ObjectMapper jsonMapper;
     private final YAMLMapper yamlMapper;
 
@@ -45,12 +48,14 @@ public class JobExportImportService {
                                    JobStepDependencyRepository depRepo,
                                    JobCredentialRepository credRepo,
                                    TeamRepository teamRepo,
-                                   StepExecutorRegistry registry) {
+                                   StepExecutorRegistry registry,
+                                   NotificationSubscriptionRepository subscriptionRepo) {
         this.jobRepo = jobRepo;
         this.depRepo = depRepo;
         this.credRepo = credRepo;
         this.teamRepo = teamRepo;
         this.registry = registry;
+        this.subscriptionRepo = subscriptionRepo;
 
         this.jsonMapper = new ObjectMapper();
         this.jsonMapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -91,7 +96,7 @@ public class JobExportImportService {
         try {
             Map<String, Object> map = jsonMapper.readValue(exportedJson, Map.class);
             if (formatVersionOverride != null) {
-                map.put("format_version", formatVersionOverride);
+                map.put("formatVersion", formatVersionOverride);
             }
             map.put("re_exported_at", OffsetDateTime.now(ZoneOffset.UTC).toString());
             return jsonMapper.writeValueAsString(map);
@@ -132,6 +137,20 @@ public class JobExportImportService {
                 .map(ev -> new ExportEnvVar(ev.getVarName(), ev.getVarValue(), "Y".equals(ev.getIsGlobal())))
                 .collect(Collectors.toList());
 
+        List<ExportNotificationSubscription> subscriptions = subscriptionRepo.findByJobId(jobId).stream()
+                .map(sub -> {
+                    List<String> eventsList = sub.getEvents() != null && !sub.getEvents().isBlank()
+                            ? Arrays.asList(sub.getEvents().split(",")) : Collections.emptyList();
+                    Map<String, Object> configMap = parseConfigJson(sub.getConfigJson());
+                    return new ExportNotificationSubscription(
+                            sub.getChannelType(),
+                            eventsList,
+                            configMap,
+                            sub.isActive()
+                    );
+                })
+                .collect(Collectors.toList());
+
         ExportSchedule schedule = null;
         if (job.getSchedule() != null) {
             JobSchedule js = job.getSchedule();
@@ -153,6 +172,7 @@ public class JobExportImportService {
                 steps,
                 dependencies,
                 envVars,
+                subscriptions,
                 schedule,
                 null // metadata reserved for future use
         );
@@ -185,6 +205,17 @@ public class JobExportImportService {
 
     /** Validate an import request. Returns list of error messages (empty = valid). */
     public List<String> validateImport(JobImportRequest request, boolean jobExists) {
+        return validateImport(request, jobExists, false);
+    }
+
+    /**
+     * Validate an import request with optional step-type bypass.
+     * @param request the import request to validate
+     * @param jobExists whether a job with the same name already exists
+     * @param skipStepTypeValidation when true, skips validation against registered step types
+     *   (used for rollback — stored versions may reference step types no longer registered)
+     */
+    public List<String> validateImport(JobImportRequest request, boolean jobExists, boolean skipStepTypeValidation) {
         List<String> errors = new ArrayList<>();
 
         if (request.steps() == null || request.steps().isEmpty()) {
@@ -192,7 +223,11 @@ public class JobExportImportService {
             return errors; // can't validate further without steps
         }
 
-        Set<String> registeredTypes = registry.registeredTypes();
+        // Validate format version — reject unknown future versions
+        String fv = request.formatVersion();
+        if (fv == null || !fv.equals(FORMAT_VERSION)) {
+            errors.add("Unsupported format version '" + fv + "'; expected '" + FORMAT_VERSION + "'");
+        }
 
         // Build name set for duplicate and dependency checks
         Set<String> stepNames = new HashSet<>();
@@ -209,14 +244,17 @@ public class JobExportImportService {
                 errors.add(path + ": duplicate step name '" + step.stepName() + "'");
             }
 
-            // Validate step type against registered types
+            // Validate step type against registered types (unless skipped for rollback)
             if (step.stepType() != null && !step.stepType().isBlank()) {
-                if (!registeredTypes.contains(step.stepType())) {
-                    errors.add(path + ": unknown step type '" + step.stepType() +
-                            "'. Available: " + registeredTypes);
-                } else {
-                    // Validate step config fields against schema
-                    validateStepConfigAgainstSchema(step, path, errors);
+                if (!skipStepTypeValidation) {
+                    Set<String> registeredTypes = registry.registeredTypes();
+                    if (!registeredTypes.contains(step.stepType())) {
+                        errors.add(path + ": unknown step type '" + step.stepType() +
+                                "'. Available: " + registeredTypes);
+                    } else {
+                        // Validate step config fields against schema
+                        validateStepConfigAgainstSchema(step, path, errors);
+                    }
                 }
             } else {
                 errors.add(path + ": stepType is required");
@@ -405,8 +443,11 @@ public class JobExportImportService {
                     existing.setClasspath(serializeClasspath(request.classpathEntries()));
                     existing.setEnabled(request.enabled() != null && request.enabled() ? "Y" : "N");
 
-                    // Replace steps (cascade=ALL clears old deps too)
+                    // Replace steps — flush deletions before inserts to avoid unique constraint
+                    // violation with IDENTITY columns (INSERT needs PK first, but old row blocks)
                     existing.getSteps().clear();
+                    jobRepo.saveAndFlush(existing);
+
                     for (ImportStepDefinition stepDef : request.steps()) {
                         JobStep step = new JobStep();
                         step.setStepName(stepDef.stepName());
@@ -419,8 +460,10 @@ public class JobExportImportService {
                         existing.getSteps().add(step);
                     }
 
-                    // Replace env vars
+                    // Replace env vars — same two-phase flush pattern
                     existing.getEnvVars().clear();
+                    jobRepo.saveAndFlush(existing);
+
                     if (request.envVars() != null) {
                         for (ImportEnvVarDefinition evDef : request.envVars()) {
                             JobEnvVar ev = new JobEnvVar();
@@ -465,6 +508,24 @@ public class JobExportImportService {
                             sched.setEnabled(request.schedule().enabled() != null && request.schedule().enabled() ? "Y" : "N");
                             sched.setJobDefinition(existing);
                             existing.setSchedule(sched);
+                        }
+                    }
+
+                    // Replace subscriptions
+                    subscriptionRepo.findByJobId(existing.getJobId()).forEach(sub -> {
+                        sub.setActive(false);
+                    });
+                    subscriptionRepo.flush();
+
+                    if (request.subscriptions() != null) {
+                        for (ImportNotificationSubscriptionDefinition subDef : request.subscriptions()) {
+                            NotificationSubscription sub = new NotificationSubscription();
+                            sub.setJobId(existing.getJobId());
+                            sub.setChannelType(subDef.channelType());
+                            sub.setEvents(subDef.events() != null ? String.join(",", subDef.events()) : null);
+                            sub.setConfigJson(serializeMap(subDef.config()));
+                            sub.setActive(subDef.active() != null && subDef.active());
+                            subscriptionRepo.save(sub);
                         }
                     }
 
@@ -559,6 +620,19 @@ public class JobExportImportService {
             }
         }
 
+        // --- Create notification subscriptions ---
+        if (request.subscriptions() != null) {
+            for (ImportNotificationSubscriptionDefinition subDef : request.subscriptions()) {
+                NotificationSubscription sub = new NotificationSubscription();
+                sub.setJobId(job.getJobId());
+                sub.setChannelType(subDef.channelType());
+                sub.setEvents(subDef.events() != null ? String.join(",", subDef.events()) : null);
+                sub.setConfigJson(serializeMap(subDef.config()));
+                sub.setActive(subDef.active() != null && subDef.active());
+                subscriptionRepo.save(sub);
+            }
+        }
+
         return jobRepo.save(job);
     }
 
@@ -585,6 +659,26 @@ public class JobExportImportService {
             return jsonMapper.writeValueAsString(entries);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize classpath", e);
+        }
+    }
+
+    /** Parse config JSON string from subscription entity to Map */
+    private Map<String, Object> parseConfigJson(String configJson) {
+        if (configJson == null || configJson.isBlank()) return Collections.emptyMap();
+        try {
+            return jsonMapper.readValue(configJson, Map.class);
+        } catch (JsonProcessingException e) {
+            return Collections.emptyMap();
+        }
+    }
+
+    /** Serialize a Map to JSON string for subscription config */
+    private String serializeMap(Map<String, Object> map) {
+        if (map == null || map.isEmpty()) return null;
+        try {
+            return jsonMapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize subscription config", e);
         }
     }
 }

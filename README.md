@@ -2,6 +2,8 @@
 
 A configurable, UI-driven job orchestration system built with Spring Boot and Angular. Designed to replace Windows batch scripts with a Linux-compatible platform.
 
+> **Documentation:** A new MkDocs documentation site is being set up at [docs-site/](docs-site/index.md). Once content migration is complete, this README will be shortened to point there.
+
 ## Overview
 
 This platform provides:

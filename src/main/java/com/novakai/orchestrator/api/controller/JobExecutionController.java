@@ -11,6 +11,9 @@ import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.domain.enums.TriggerType;
 import com.novakai.orchestrator.engine.JobLaunchService;
 import com.novakai.orchestrator.security.Auditable;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,11 +30,13 @@ import java.util.Map;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Execution", description = "Job runs, step logs, cancel operations")
 public class JobExecutionController {
 
     private final JobLaunchService launchService;
     private final JobRunQueryService runQueryService;
 
+    @Operation(summary = "Trigger a job run by ID")
     @PostMapping("/jobs/{id}/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
@@ -47,6 +52,7 @@ public class JobExecutionController {
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 
+    @Operation(summary = "Trigger a job run by name")
     @PostMapping("/jobs/name/{name}/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Auditable(action = "TRIGGER_RUN", entityType = "JOB_RUN")
@@ -62,23 +68,26 @@ public class JobExecutionController {
         return ApiResponse.success(runQueryService.toRunSummary(run));
     }
 
+    @Operation(summary = "List job runs with filters and pagination")
     @GetMapping("/runs")
     public ApiResponse<Page<JobRunSummary>> listRuns(
-            @RequestParam(required = false) Long jobId,
-            @RequestParam(required = false) RunStatus status,
-            @RequestParam(required = false) LocalDate from,
-            @RequestParam(required = false) LocalDate to,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @Parameter(description = "Filter by job ID") @RequestParam(required = false) Long jobId,
+            @Parameter(description = "Filter by run status: SUCCESS, FAILED, PARTIAL, CANCELLED") @RequestParam(required = false) RunStatus status,
+            @Parameter(description = "Start date filter (YYYY-MM-DD)") @RequestParam(required = false) LocalDate from,
+            @Parameter(description = "End date filter (YYYY-MM-DD)") @RequestParam(required = false) LocalDate to,
+            @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
         return ApiResponse.success(runQueryService.listRuns(jobId, status, from, to,
                 PageRequest.of(page, size, Sort.by("createdAt").descending())));
     }
 
+    @Operation(summary = "Get detailed run info with step results")
     @GetMapping("/runs/{runId}")
     public ApiResponse<JobRunDetail> getRun(@PathVariable Long runId) {
         return ApiResponse.success(runQueryService.getRunDetail(runId));
     }
 
+    @Operation(summary = "Get log output for a specific step in a run")
     @GetMapping("/runs/{runId}/steps/{stepId}/log")
     public ApiResponse<String> getStepLog(
             @PathVariable Long runId,
@@ -86,6 +95,7 @@ public class JobExecutionController {
         return ApiResponse.success(runQueryService.getStepLog(runId, stepId));
     }
 
+    @Operation(summary = "Cancel a running job execution")
     @PostMapping("/runs/{runId}/cancel")
     @Auditable(action = "CANCEL_RUN", entityType = "JOB_RUN")
     public ApiResponse<Void> cancel(@PathVariable Long runId) {

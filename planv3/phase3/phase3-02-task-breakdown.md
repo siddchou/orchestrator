@@ -1,273 +1,165 @@
-<!-- FILE: phase3-02-task-breakdown.md -->
-# Phase 3.2 — Task Breakdown
+# Phase 3.2 — Task Breakdown (Fix & Improve)
 
-Each task is PR-sized (1-3 days for a senior developer). Tasks marked with ⚡ can be worked in parallel.
+Phase 3 is ~90% implemented. These tasks address the remaining gaps identified in the code review. Each task is PR-sized.
 
 ---
 
-### Task 1: JOB_STEP_DEPENDENCY table + entity
+### Task 1: Fix BUG-1 — Wire upstreamOutputs to StepContext
 
-**Files Touched:** `src/main/resources/db/migration/V8__add_step_dependencies.sql`, new `domain/entity/JobStepDependency.java`, new `repository/JobStepDependencyRepository.java`
+**Files Touched:** `engine/DagExecutionEngine.java` (line 626 area)
+
+**Current Code:**
+```java
+.upstreamOutputs(Map.of())  // hardcoded empty map
+```
+
+**Fix:** Build `stepOutputs` from `completedResults` ConcurrentHashMap. For the current step's upstream dependencies, extract each completed StepResult's outputs map and populate the resolution context.
 
 **Definition of Done:**
-- Flyway migration V8 creates the table with FKs, unique constraint, indexes (see phase3-01-dag-engine-design.md schema)
-- JPA entity maps correctly; repository exposes `findByStepId(Long)` and `findDependenciesForStep(Long dependsOnStepId)`
-- Migration runs cleanly on a fresh database
-
-**Test to Add:** `JobStepDependencyRepositoryTest` — create dependency, query by both FK directions, verify unique constraint rejection
+- `${step.<id>.output.X}` templates resolve to actual upstream output values
+- Only upstream dependency outputs are exposed (not all completed steps)
+- Unit test: create a 2-step job where step B has a parameter referencing step A's output; verify the executor receives the resolved value
 
 **Depends On:** Nothing
 
 ---
 
-### Task 2: Backfill migration — convert stepOrder chains to dependencies
+### Task 2: Fix BUG-2 — Use SKIPPED status for skipped steps
 
-**Files Touched:** `src/main/resources/db/migration/V9__backfill_step_dependencies.sql`
+**Files Touched:** `engine/DagExecutionEngine.java` (line 378 area), possibly `engine/spi/StepResult.java`
+
+**Current Code:**
+```java
+StepResult.failure("Skipped - upstream condition not met")  // sets FAILED status
+```
+
+**Fix:** Add `StepResult.skipped(String message)` factory method if it doesn't exist. Use `StepStatus.SKIPPED` in the skip path of `signalDependents()`.
 
 **Definition of Done:**
-- SQL PL/SQL block iterates each job's steps ordered by stepOrder
-- For each adjacent pair (step N, step N+1), inserts a JOB_STEP_DEPENDENCY row with ON_SUCCESS condition
-- Step 1 (lowest stepOrder) gets no dependencies (it's a root step)
-- Existing `continueOnFailure=N` behavior preserved: all edges are ON_SUCCESS
+- Skipped steps persist with SKIPPED status in JOB_RUN_STEP
+- Run detail UI displays SKIPPED correctly (already styled — see dark mode DAG canvas work)
+- ON_FAILURE edges do NOT fire for a skipped upstream step
+- Unit test: step A fails → step B (ON_SUCCESS dep on A) is SKIPPED, not FAILED
 
-**Test to Add:** Integration test that creates a job with 4 steps, runs the backfill logic programmatically, verifies 3 dependency rows exist forming a chain
-
-**Depends On:** Task 1
+**Depends On:** Nothing
 
 ---
 
-### Task 3: ParamResolver class
+### Task 3: Fix BUG-3 — Narrow timing window
 
-**Files Touched:** new `engine/template/ParamResolver.java`, new `engine/template/ResolutionContext.java`
+**Files Touched:** `engine/DagExecutionEngine.java` (lines 286-287 area)
+
+**Fix:** Move `startTime = System.currentTimeMillis()` to immediately before the executor's `execute()` call. Move end-time capture to immediately after. Exclude template resolution and dependency signaling from the measured window.
 
 **Definition of Done:**
-- Regex-based resolver handles `${job.param.X}`, `${step.<id>.output.X}`, `${env.X}` patterns
-- Unresolved references left as-is with warning log
-- Recursive resolution (up to 3 passes)
-- Handles null template, empty template, no-template-string gracefully
+- Step execution time in JOB_RUN_STEP reflects actual executor runtime
+- Difference from current measurement is <50ms for steps that take >1s (acceptable)
+- No functional change — metric accuracy only
 
-**Test to Add:** `ParamResolverTest` — unit tests for each reference type, unresolved references, nested resolution, edge cases (null values, special characters in replacement)
-
-**Depends On:** Nothing ⚡
+**Depends On:** Nothing
 
 ---
 
-### Task 4: API changes — run endpoint accepts parameters
+### Task 4: Fix BUG-4 — Add CANCELLED status handling
 
-**Files Touched:** `api/controller/JobExecutionController.java`, new `api/dto/JobRunRequest.java`, `engine/JobLaunchService.java`
+**Files Touched:** `engine/spi/StepStatus.java` (add enum value), `engine/DagExecutionEngine.java` (cancel check path)
+
+**Fix:**
+1. Add `CANCELLED` to `StepStatus` enum
+2. In the step task, check `cancelRequested` before executing; if true, mark CANCELLED and exit
+3. In the cancel handler, mark pending steps as CANCELLED instead of FAILED
 
 **Definition of Done:**
-- `POST /api/jobs/{id}/run` accepts optional request body: `{ "parameters": { "env": "staging", "date": "2026-07-25" } }`
-- Backward compatible: body is optional; omitting it works as before
-- Parameters passed through to ExecutionContext (new field) and ultimately to DagExecutionEngine
-- Name-based variant (`/jobs/name/{name}/run`) also updated
+- Cancelled runs show CANCELLED status on pending steps (not FAILED)
+- Completed steps retain their original result (SUCCESS/FAILED) when run is cancelled mid-execution
+- Run-level status reflects cancellation appropriately
+- Unit test: cancel a 3-step run after step 1 completes; verify step 1 = SUCCESS, steps 2-3 = CANCELLED
 
-**Test to Add:** `JobExecutionControllerTest` — POST with parameters, POST without body, verify parameters reach launch service
-
-**Depends On:** Nothing ⚡
+**Depends On:** Nothing
 
 ---
 
-### Task 5: ExecutionContext / StepContext parameter threading
+### Task 5: Verify envVars thread safety under concurrency
 
-**Files Touched:** `engine/ExecutionContext.java`, `engine/spi/StepContext.java`, `engine/JobLaunchService.java`
+**Files Touched:** `engine/DagExecutionEngine.java` (StepContext builder), possibly `engine/spi/StepContext.java`
+
+**Concern:** `StepContext.envVars` is a mutable HashMap. If two concurrent steps share the same ExecutionContext, ENV_SETUP mutations in one step could be visible to the other.
+
+**Fix:** Ensure each step gets its own copy of envVars when building StepContext. The base copy comes from ExecutionContext (immutable snapshot at run start). Propagate ENV_SETUP changes via StepResult.outputs → upstreamOutputs, not through shared mutable state.
 
 **Definition of Done:**
-- ExecutionContext gains `Map<String, Object> runParameters` field
-- JobLaunchService.buildContext() populates this from the launch method parameter
-- StepContext builder receives resolved parameters and makes them available to ParamResolver
-- Thread-safety: maps are immutable copies (Map.copyOf / Collections.unmodifiableMap)
+- Code review confirms no shared mutable HashMap between concurrent steps
+- Test: two concurrent ENV_SETUP steps set different env vars; verify no cross-contamination
+- Document the data flow: ExecutionContext.envVars → per-step copy → StepResult.outputs → downstream upstreamOutputs
 
-**Test to Add:** Verify parameters flow from controller → launch service → ExecutionContext → StepContext via integration test
-
-**Depends On:** Task 4
+**Depends On:** Task 1 (related data flow)
 
 ---
 
-### Task 6: DagExecutionEngine — DAG building + cycle detection
+### Task 6: Verify CredentialResolver thread safety
 
-**Files Touched:** new `engine/DagExecutionEngine.java`, new `engine/exception/CircularDependencyException.java`
+**Files Touched:** `engine/CredentialDecryptionService.java` (verify), possibly no changes needed
+
+**Concern:** `javax.crypto.Cipher` is not thread-safe. If the decryption service reuses a Cipher instance across calls, concurrent credential resolution could corrupt cipher state.
 
 **Definition of Done:**
-- `buildDag(JobDefinition)` constructs an in-memory graph from JobStep + JobStepDependency entities
-- Cycle detection throws `CircularDependencyException` with the cycle path described
-- Orphan steps (no deps, no dependents, and not the only step) logged as warnings but allowed
-- Single-step jobs work correctly (one root, no edges)
+- Read CredentialDecryptionService source code
+- If Cipher is created per call: document and move on
+- If Cipher is reused: wrap in `ThreadLocal<Cipher>` or create fresh per call
+- No functional change if already safe — this is an audit task
 
-**Test to Add:** `DagExecutionEngineBuildTest` — build DAG from test fixtures: linear chain, diamond, circular (expect exception), single step, orphan
-
-**Depends On:** Task 1
+**Depends On:** Nothing
 
 ---
 
-### Task 7: DagExecutionEngine — concurrent execution with semaphore bounding
+### Task 7: Add e2e concurrency test — diamond DAG timing proof
 
-**Files Touched:** `engine/DagExecutionEngine.java`
+**Files Touched:** New `engine/DagExecutionConcurrencyTest.java` or add to existing test file
+
+**Test Design:**
+```
+Step A (SleepExecutor, 100ms) → root
+Step B (SleepExecutor, 300ms) → depends on A
+Step C (SleepExecutor, 300ms) → depends on A
+Step D (SleepExecutor, 100ms) → depends on B + C
+```
+
+**Assertions:**
+1. All 4 steps complete SUCCESS
+2. `B.startTime ≈ C.startTime` (within 100ms — proves concurrency)
+3. `D.startTime > B.endTime AND D.startTime > C.endTime` (D waited for both)
+4. Total run time < 700ms (A + max(B,C) + D = 100 + 300 + 100 = 500ms expected; sequential would be 800ms)
 
 **Definition of Done:**
-- Steps with satisfied dependencies execute concurrently up to `maxConcurrentSteps` (Semaphore-bounded)
-- Uses the existing `jobTaskExecutor` pool (not a new ExecutorService)
-- Each step's task waits on its dependency latch before acquiring the semaphore
-- `CountDownLatch` per run ensures all steps complete before the run status is set
+- Test passes consistently on local machine
+- Uses SleepStepExecutor or mock executors with configurable delay
+- Timing tolerance accounts for CI scheduling jitter (100ms window)
 
-**Test to Add:** `DagExecutionEngineConcurrencyTest` — mock executors with measurable delay, verify independent branches run concurrently (start times overlap)
-
-**Depends On:** Task 6
+**Depends On:** Task 1 (upstreamOutputs must work for D to reference B+C outputs)
 
 ---
 
-### Task 8: Edge condition evaluation + SKIPPED propagation
+### Task 8: Clean up legacy comments and stale references
 
-**Files Touched:** `engine/DagExecutionEngine.java`, `domain/enums/RunStatus.java` (add SKIPPED if not present)
+**Files Touched:** `engine/DagExecutionEngine.java`, any files with "Phase 2" or "TODO: Phase 3" comments
 
 **Definition of Done:**
-- ON_SUCCESS edge: downstream runs only if upstream StepResult status is SUCCESS
-- ON_FAILURE edge: downstream runs only if upstream status is FAILED
-- ALWAYS edge: downstream runs regardless
-- When condition not met, step marked SKIPPED (StepStatus.SKIPPED already exists)
-- SKIPPED propagates: a step with ON_SUCCESS dep on a SKIPPED step is also SKIPPED
+- Remove comments that reference unimplemented features as if they're future work
+- Update comments that describe the sequential model to reflect DAG execution
+- Remove unused imports, dead code paths
 
-**Test to Add:** `EdgeConditionEvaluationTest` — test each condition type, mixed conditions on same step, SKIPPED propagation chain
-
-**Depends On:** Task 7
+**Depends On:** Tasks 1-4 (fix bugs first, then clean up)
 
 ---
 
-### Task 9: ParamResolver wiring into execution pipeline
+## Effort Summary
 
-**Files Touched:** `engine/DagExecutionEngine.java`, `engine/JobExecutionOrchestrator.java` (or replace orchestrator call site)
-
-**Definition of Done:**
-- Before each step's executor.execute(), the step's config JSON string values are resolved through ParamResolver
-- ResolutionContext built from: job parameters, completed upstream results, env vars
-- Only string values in the config map are resolved (numbers, booleans left as-is)
-- Resolved config passed to StepContext; original config logged for debugging
-
-**Test to Add:** Integration test with a job that has `${job.param.X}` and `${step.<id>.output.X}` templates, verify executor receives resolved values
-
-**Depends On:** Task 3, Task 7
-
----
-
-### Task 10: Thread safety — StepContext per-step isolation
-
-**Files Touched:** `engine/spi/StepContext.java`, `engine/DagExecutionEngine.java`
-
-**Definition of Done:**
-- Each concurrent step gets its own StepContext instance (no shared mutable state)
-- envVars map: each step gets a copy; ENV_SETUP mutations don't leak to siblings
-- cancelRequested flag: uses volatile (already is in StepContext) or AtomicBoolean
-- logSink: the BlockingQueue is shared per run but `queue.add()` is thread-safe for LinkedBlockingQueue — verify and document
-
-**Test to Add:** Concurrent step test where two ENV_SETUP steps set different env vars; verify no cross-contamination
-
-**Depends On:** Task 7
-
----
-
-### Task 11: Cancellation semantics for concurrent DAG
-
-**Files Touched:** `engine/DagExecutionEngine.java`, `engine/JobLaunchService.java`
-
-**Definition of Done:**
-- Cancel request interrupts all running step futures
-- Pending steps (waiting on dependency latch) check cancel flag and exit without executing
-- `markRemainingStepsCancelled` updated to mark incomplete steps by runId (logic already works by runId, no change needed for the DB part, but the in-flight future cancellation is new)
-- Run status set to CANCELLED in finally block
-
-**Test to Add:** Cancel mid-run with concurrent steps; verify running step interrupted, pending steps never start, completed steps retain their result
-
-**Depends On:** Task 7
-
----
-
-### Task 12: Replace orchestrator's sequential loop with DAG engine
-
-**Files Touched:** `engine/JobLaunchService.java`, `engine/JobExecutionOrchestrator.java` (deprecated or adapted)
-
-**Definition of Done:**
-- JobLaunchService.launch() calls DagExecutionEngine.execute() instead of JobExecutionOrchestrator.execute()
-- JobExecutionOrchestrator retained for single-step re-execution (backdoor debugging feature) but not used for full job runs
-- Run status determination updated: SUCCESS if all non-skipped steps succeeded, PARTIAL if any failed, FAILED if root step failed
-
-**Test to Add:** Regression test — run a backfilled linear job, verify identical step execution order and final status as pre-migration
-
-**Depends On:** Tasks 8, 9, 10, 11
-
----
-
-### Task 13: Run status computation for DAG
-
-**Files Touched:** `engine/DagExecutionEngine.java`
-
-**Definition of Done:**
-- After all steps complete, compute run status from step results:
-  - All steps SUCCESS or SKIPPED → SUCCESS
-  - Any step FAILED and no root step failed → PARTIAL
-  - Root step (no dependencies) failed → FAILED
-  - Cancelled during execution → CANCELLED
-- SKIPPED steps don't count as failures for status computation
-
-**Test to Add:** Status computation unit test with various combinations of SUCCESS/FAILED/SKIPPED across root and non-root steps
-
-**Depends On:** Task 8
-
----
-
-### Task 14: Job definition API — dependency CRUD
-
-**Files Touched:** `api/controller/JobStepController.java` (or new controller), `api/dto/StepDependencyDto.java`, service layer
-
-**Definition of Done:**
-- `PUT /api/jobs/{id}/steps/{stepId}/dependencies` — set dependencies for a step (array of `{dependsOnStepId, edgeCondition}`)
-- `GET /api/jobs/{id}/steps/{stepId}/dependencies` — list current dependencies
-- Validation: reject circular dependency creation, reject self-reference
-- Cycle check on write prevents saving an invalid job definition
-
-**Test to Add:** Controller test for CRUD operations, cycle rejection on PUT
-
-**Depends On:** Task 1
-
----
-
-### Task 15: Remove SftpStepExecutor inline templating
-
-**Files Touched:** `engine/executors/SftpStepExecutor.java`
-
-**Definition of Done:**
-- Replace the hardcoded `${fileName}`, `${fileExtension}`, `${timestamp}` replacement with generic ParamResolver usage
-- Field definition for `remoteFileName` still accepts template strings; resolution happens at engine level now
-- Existing behavior preserved: if user uses the old template syntax, it still works (same pattern)
-
-**Test to Add:** `SftpStepExecutorTest` — verify remote file naming still works with templated values
-
-**Depends On:** Task 9
-
----
-
-### Task 16: Integration test suite — DAG scenarios
-
-**Files Touched:** new `engine/DagExecutionIntegrationTest.java`
-
-**Definition of Done:**
-- Diamond DAG test (A→B, A→C, B+C→D): B and C start concurrently, D waits for both
-- Linear chain regression test: 4-step job executes in order
-- ON_FAILURE edge test: cleanup step runs only when upstream fails
-- ALWAYS edge test: notification step runs regardless of upstream result
-- Parameter templating end-to-end: POST with parameters, verify resolved values reach executor
-
-**Test to Add:** All scenarios listed above as @TestMethodOrder integration tests with an in-memory H2 database (or Oracle test container)
-
-**Depends On:** Task 12
-
----
-
-### Effort Summary
-
-| Parallel Track | Tasks | Estimated Days |
+| Parallel Track | Tasks | Estimated Time |
 |----------------|-------|---------------|
-| Database + API (Track A) | 1, 2, 4, 5, 14 | 5-6 days |
-| Engine Core (Track B) | 3, 6, 7, 8, 9, 10, 11, 13 | 8-10 days |
-| Integration + Cleanup (Track C) | 12, 15, 16 | 4-5 days |
+| Bug fixes (Track A) | 1, 2, 3, 4 | ~5.5 hours |
+| Thread safety audit (Track B) | 5, 6 | ~1.5 hours |
+| Testing + cleanup (Track C) | 7, 8 | ~3.5 hours |
 
-**Critical path:** Track B → Task 12 → Track C = ~14-16 calendar days with parallel developers.
+**Critical path:** Track A → Task 7 = ~8-10 calendar hours with one developer.
+
+**Total: ~2 story points** (down from ~30 for greenfield implementation).

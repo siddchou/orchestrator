@@ -9,6 +9,10 @@
       <input matInput #searchInput (input)="onSearchInput(searchInput.value)" />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
+    <button mat-stroked-button (click)="openImportDialog()">
+      <mat-icon>upload_file</mat-icon>
+      <span>Import</span>
+    </button>
     <button mat-flat-button color="primary" routerLink="/jobs/new" class="new-job-btn">
       <mat-icon>add</mat-icon>
       <span>New Job</span>
@@ -80,6 +84,9 @@
           </button>
           <button mat-icon-button (click)="toggleEnabled(job)" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
             <mat-icon>{{ job.enabled ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+          </button>
+          <button mat-icon-button (click)="exportJob(job)" aria-label="Export {{ job.jobName }}">
+            <mat-icon>download</mat-icon>
           </button>
           <button mat-icon-button (click)="deleteJob(job)" color="warn" aria-label="Delete {{ job.jobName }}">
             <mat-icon>delete</mat-icon>

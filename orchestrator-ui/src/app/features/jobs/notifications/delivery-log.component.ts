@@ -1,0 +1,74 @@
+import { ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatTableModule } from '@angular/material/table';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { NotificationService } from '@app/core/services/notification.service';
+import { NotificationDeliveryLog } from '@app/core/models/notification.model';
+
+@Component({
+  selector: 'app-delivery-log',
+  imports: [CommonModule, MatTableModule, MatIconModule, MatChipsModule, MatProgressSpinnerModule, MatSnackBarModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  templateUrl: './delivery-log.component.html',
+  styleUrl: './delivery-log.component.scss',
+})
+export class DeliveryLogComponent implements OnInit {
+  private notificationService = inject(NotificationService);
+  private snackBar = inject(MatSnackBar);
+  private cd = inject(ChangeDetectorRef);
+
+  @Input() subscriptionId: number | null = null;
+  @Input() runId: number | null = null;
+
+  logs: NotificationDeliveryLog[] = [];
+  totalLogs = 0;
+  loading = true;
+  filterRunId = '';
+
+  displayedColumns = ['status', 'channelType', 'runId', 'attempts', 'error', 'sentAt'];
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  load(): void {
+    this.loading = true;
+    this.cd.markForCheck();
+    const runIdFilter = this.filterRunId ? Number(this.filterRunId) : (this.runId ?? undefined);
+    this.notificationService.getDeliveryLog(this.subscriptionId ?? undefined, runIdFilter).subscribe({
+      next: (res) => {
+        if (res.status === 'SUCCESS') {
+          this.totalLogs = res.data.length;
+          this.logs = res.data.slice(0, 20); // show last 20
+        }
+        this.loading = false;
+        this.cd.markForCheck();
+      },
+      error: () => {
+        this.loading = false;
+        this.snackBar.open('Failed to load delivery log', 'Dismiss', { panelClass: 'error-snackbar' });
+        this.cd.markForCheck();
+      },
+    });
+  }
+
+  onFilterSubmit(): void {
+    this.load();
+  }
+
+  clearFilter(): void {
+    this.filterRunId = '';
+    this.load();
+  }
+
+  getStatusColor(status: string): string {
+    if (status === 'SENT') return '#4caf50';
+    if (status === 'FAILED') return '#f44336';
+    return '#ff9800'; // PENDING or unknown
+  }
+}

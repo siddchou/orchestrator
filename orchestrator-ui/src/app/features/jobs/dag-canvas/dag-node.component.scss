@@ -1,0 +1,138 @@
+.dag-node {
+  position: absolute;
+  width: 160px;
+  height: 72px;
+  border-radius: 8px;
+  background: var(--dag-node-bg, #ffffff);
+  border: 1px solid var(--dag-node-border, #bdbdbd);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow 0.15s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  }
+
+  &.read-only {
+    cursor: default;
+  }
+}
+
+.status-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.running .status-ring {
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.node-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  height: 100%;
+  box-sizing: border-box;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--on-surface-variant, #616161);
+  }
+}
+
+.node-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.step-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--on-surface, #1c1b1f);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.step-type {
+  font-size: 10px;
+  color: var(--on-surface-variant, #616161);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.port {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dag-port-color, #6750a4);
+  border: 2px solid var(--dag-node-bg, #ffffff);
+  cursor: crosshair;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+
+  &:hover {
+    transform: scale(1.3);
+  }
+}
+
+.dag-node:hover .port {
+  opacity: 1;
+}
+
+.port-output {
+  top: -6px;
+  right: -6px;
+}
+
+.port-input {
+  bottom: -6px;
+  left: -6px;
+}
+
+.delete-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--accent-danger, #b91a1a);
+  background: var(--dag-node-bg, #ffffff);
+  border: 1px solid var(--outline, #bdbdbd);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 3;
+
+  &:hover {
+    background: var(--accent-danger, #b91a1a);
+    color: #ffffff;
+  }
+}
+
+.dag-node:hover .delete-btn {
+  opacity: 1;
+}

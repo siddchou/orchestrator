@@ -49,6 +49,13 @@
     <app-run-timeline [run]="run" />
   }
 
+  <!-- DAG Canvas Visualization -->
+  @if (run.steps.length > 1) {
+    <div class="dag-canvas-section">
+      <app-run-dag-canvas [run]="run" [stepDependencies]="stepDependencies" />
+    </div>
+  }
+
   <!-- Step Timeline -->
   <div class="section-card">
     <div class="section-header">

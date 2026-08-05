@@ -13,6 +13,17 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.OracleDialect
+  autoconfigure:
+    exclude: org.springframework.boot.mail.autoconfigure.MailSenderAutoConfiguration,org.springframework.boot.mail.autoconfigure.MailHealthContributorAutoConfiguration
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -29,6 +40,8 @@ orchestrator:
     base-dir: ${ORCH_HOME:/opt/orchestrator}/archives
   plugins:
     dir: ${ORCH_HOME:/opt/orchestrator}/plugins
+  metrics:
+    max-step-type-cardinality: 50
   security:
     jwt-secret: ${JWT_SECRET:default-secret-key-must-be-at-least-32-changes!!}
     jwt-expiry-hours: 8

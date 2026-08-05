@@ -12,10 +12,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Steps", description = "Individual step execution")
 @RequiredArgsConstructor
 @Slf4j
 public class StepExecutionController {
@@ -23,6 +26,7 @@ public class StepExecutionController {
     private final JobLaunchService launchService;
     private final JobRunQueryService runQueryService;
 
+    @Operation(summary = "Run a single step by name")
     @PostMapping("/steps/name/{stepName}/run")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Auditable(action = "TRIGGER_STEP", entityType = "JOB_RUN")

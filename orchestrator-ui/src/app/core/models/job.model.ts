@@ -48,6 +48,22 @@ export interface JobStep {
   enabled: boolean;
 }
 
+/** Edge condition for DAG step dependencies */
+export type EdgeCondition = 'ON_SUCCESS' | 'ON_FAILURE' | 'ALWAYS';
+
+/** A dependency from one step to another in the DAG */
+export interface StepDependency {
+  stepDependencyId?: number;
+  dependsOnStepId: number;
+  dependsOnStepName: string;
+  edgeCondition: EdgeCondition;
+}
+
+/** JobStep with its outgoing dependencies loaded */
+export interface JobStepWithDependencies extends JobStep {
+  dependencies: StepDependency[];
+}
+
 export interface EnvVar {
   envVarId: number;
   key: string;
@@ -103,3 +119,23 @@ export interface ArchiveConfig {
   archiveFormat: 'ZIP' | 'TAR_GZ';
   deleteOriginal?: boolean;
 }
+
+// --- Export / Import / Version models ---
+
+/** Summary of a job version snapshot */
+export interface JobVersionSummary {
+  versionId: number;
+  versionNumber: number;
+  versionLabel: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+/** Request body for importing a job definition */
+export interface JobImportRequest {
+  format: 'json' | 'yaml';
+  content: string;
+}
+
+/** Conflict resolution mode when importing a job that already exists */
+export type ImportConflictMode = 'ERROR' | 'UPDATE' | 'SKIP';

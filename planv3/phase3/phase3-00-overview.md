@@ -1,49 +1,64 @@
-<!-- FILE: phase3-00-overview.md -->
 # Phase 3 — Workflow Flexibility (DAG, Branching, Templating)
 
 ## Scope
 
-Replace the linear step-execution model with a dependency-graph engine supporting concurrent execution of independent branches, conditional edges (ON_SUCCESS/ON_FAILURE/ALWAYS), and parameter templating resolved before each step executes.
+Phase 3's core features are **already implemented**: DAG-based concurrent execution, conditional edges (ON_SUCCESS/ON_FAILURE/ALWAYS), and parameter templating (`${job.param.X}`, `${step.<id>.output.X}`, `${env.X}`).
+
+This phase now focuses on **auditing correctness**, fixing 4 identified bugs, verifying thread safety under concurrent execution, and adding e2e test coverage.
 
 **Grounded in code review findings:**
-- Current loop: sequential `for` over steps sorted by `stepOrder` ([JobExecutionOrchestrator.java:70](src/main/java/com/novakai/orchestrator/engine/JobExecutionOrchestrator.java:70))
-- Thread pool already exists (core=10, max=20) but is used one-Future-per-run — Phase 3 repurposes it for intra-run concurrency
-- `StepResult.outputs` map and `StepContext.upstreamOutputs` are wired but empty — Phase 3 populates them
-- Run endpoint accepts no body — Phase 3 adds a request body for runtime parameters
+- `DagExecutionEngine.java` (672 lines) exists with Kahn's cycle detection, semaphore-bounded concurrency, CountDownLatch sync
+- `ParamResolver.java` handles all three template reference types plus default value syntax
+- `JOB_STEP_DEPENDENCY` table created via V8 migration, backfilled via V9
+- `JobStepDependency` entity + repository complete with edge condition enum
+- UI DAG canvas (`RunDagCanvasComponent`) integrated into run detail page
 
-## Assumptions ([ASSUMED] markers)
+## Remaining Scope
 
-1. **[ASSUMED]** Diamond-shaped DAGs (A→B, A→C, B+C→D) are a real requirement — the join table dependency model is chosen because multiple upstream dependencies with per-edge conditions are needed.
-2. **[ASSUMED]** Oracle remains the primary database; all SQL uses Oracle dialect (`NUMBER`, `VARCHAR2`, `CLOB`).
-3. **[ASSUMED]** The Angular frontend for DAG visualization (Phase 2b canvas) is deferred — Phase 3 focuses on backend engine + API only. Frontend dependency editing can use a simple JSON editor initially.
-4. **[ASSUMED]** Existing jobs must continue working identically after migration; the backfill converts `stepOrder` chains into dependency chains automatically.
-5. **[ASSUMED]** The `continueOnFailure=N/Y` column on JOB_STEP will be deprecated in favor of edge conditions, with a data migration that maps `continueOnFailure=Y` to default ON_SUCCESS edges (behavior-preserving).
+| Area | Status | Action |
+|------|--------|--------|
+| DAG engine core | Implemented | Fix BUG-1 (empty upstreamOutputs), BUG-2 (SKIPPED as FAILED) |
+| Parameter resolver | Implemented | Verify wiring is correct end-to-end |
+| Dependency model | Implemented | No changes needed — join table approach working |
+| Migrations V8/V9 | Deployed | Verify backfill data integrity |
+| Thread safety | Partial concern | Audit envVars sharing, CredentialResolver cipher reuse |
+| Cancellation under DAG | Partial | Fix BUG-4 (CANCELLED status) |
+| E2E concurrency test | Missing | Add diamond DAG timing test to prove parallelism |
+| UI DAG visualization | Implemented | 18/20 tasks complete per IMPLEMENTATION_STATUS.md |
+
+## Assumptions
+
+1. **[CONFIRMED]** Diamond-shaped DAGs are a real requirement — the join table dependency model is chosen and implemented because multiple upstream dependencies with per-edge conditions are needed.
+2. **[CONFIRMED]** Oracle remains the primary database; all SQL uses Oracle dialect (`NUMBER`, `VARCHAR2`, `CLOB`).
+3. **[CONFIRMED]** The Angular frontend for DAG visualization exists — `RunDagCanvasComponent` renders read-only DAG for run details.
+4. **[CONFIRMED]** Existing jobs continue working after migration; V9 backfill converts `stepOrder` chains into dependency chains automatically.
+5. **[CONFIRMED]** The `continueOnFailure=N/Y` column maps to edge conditions: V9 respects `continueOnFailure=Y` → `ALWAYS` condition.
 
 ## Table of Contents
 
-1. [phase3-code-review-findings.md](phase3-code-review-findings.md) — Codebase state before Phase 3
+1. [phase3-code-review-findings.md](phase3-code-review-findings.md) — Codebase state + bugs found
 2. [phase3-00-overview.md](phase3-00-overview.md) — This file: scope, assumptions, effort
-3. [phase3-01-dag-engine-design.md](phase3-01-dag-engine-design.md) — DAG engine + ParamResolver architecture
-4. [phase3-02-task-breakdown.md](phase3-02-task-breakdown.md) — PR-sized tasks with DoD
-5. [phase3-03-migration-strategy.md](phase3-03-migration-strategy.md) — Flyway SQL + backfill
-6. [phase3-04-concurrency-and-thread-safety.md](phase3-04-concurrency-and-thread-safety.md) — Thread safety analysis
-7. [phase3-05-edge-cases-and-failure-modes.md](phase3-05-edge-cases-and-failure-modes.md) — Edge cases table
-8. [phase3-06-testing-plan.md](phase3-06-testing-plan.md) — Unit + integration tests
+3. [phase3-01-dag-engine-design.md](phase3-01-dag-engine-design.md) — Existing architecture audit + bug fixes
+4. [phase3-02-task-breakdown.md](phase3-02-task-breakdown.md) — Fix/improve tasks with DoD
+5. [phase3-03-migration-strategy.md](phase3-03-migration-strategy.md) — V8/V9 verification
+6. [phase3-04-concurrency-and-thread-safety.md](phase3-04-concurrency-and-thread-safety.md) — Thread safety audit
+7. [phase3-05-edge-cases-and-failure-modes.md](phase3-05-edge-cases-and-failure-modes.md) — Edge cases in implemented code
+8. [phase3-06-testing-plan.md](phase3-06-testing-plan.md) — Test gaps + e2e plan
 
 ## Effort Estimate
 
 | Task Area | Complexity | Story Points | Notes |
 |-----------|------------|--------------|-------|
-| DB migration (V8, V9 backfill) | Low | 2 | Straightforward DDL + data migration |
-| JOB_STEP_DEPENDENCY entity + repository | Low | 2 | New JPA entity, simple FKs |
-| DagExecutionEngine (topological sort, concurrency) | High | 8 | Core new component |
-| Edge condition evaluation | Medium | 3 | ON_SUCCESS/ON_FAILURE/ALWAYS logic |
-| ParamResolver (regex-based templating) | Medium | 5 | Resolution order, error handling |
-| API changes (run body with parameters) | Low | 2 | Controller + DTO update |
-| Thread safety fixes (StepContext, log queue) | Medium | 3 | Concurrency primitives |
-| Integration tests (diamond DAG, regression) | Medium | 5 | Test infrastructure for concurrency |
-| **Total** | | **~30** | ~12-15 PRs |
+| Fix BUG-1 (upstreamOutputs) | Medium | 2 | Core fix — upstream data flow |
+| Fix BUG-2 (SKIPPED status) | Low | 1 | Status enum correction |
+| Fix BUG-3 (timing) | Low | 0.5 | Metric accuracy |
+| Fix BUG-4 (CANCELLED) | Medium | 2 | New enum value + cancel path |
+| Thread safety audit | Medium | 2 | envVars isolation, cipher verification |
+| E2E concurrency test | Medium | 3 | Diamond DAG timing proof |
+| Legacy cleanup | Low | 0.5 | Stale comments |
+| **Total** | | **~10** | Down from ~30 (work already done) |
 
 ## Future Work (Out of Scope)
 
-- **Sub-workflow composition (`SUB_JOB` step type):** A step that triggers a nested job run and blocks on completion. This reuses Phase 1's SPI cleanly but adds recursive DAG execution, nested parameter scoping, and cross-run output propagation. Deferred to a stretch phase after core DAG is stable. Mention only: the `StepExecutor` interface can express this as one class; no engine changes are needed beyond allowing an executor to spawn child runs.
+- **Sub-workflow composition (`SUB_JOB` step type):** A step that triggers a nested job run and blocks on completion. Deferred to a stretch phase after core DAG is stable.
+- **Dependency CRUD API:** Dedicated endpoint for editing dependencies from the UI graph editor. Optional — current UI uses bulk step update.

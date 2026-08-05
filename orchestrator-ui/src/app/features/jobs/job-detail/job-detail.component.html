@@ -11,11 +11,43 @@
         }
       </div>
     </div>
+    @if (job) {
+      <div class="header-right">
+        <button mat-icon-button (click)="exportJob('json')" [disabled]="exporting"
+                matTooltip="Export as JSON" aria-label="Export job as JSON">
+          <mat-icon>download</mat-icon>
+        </button>
+        <button mat-icon-button (click)="exportJob('yaml')" [disabled]="exporting"
+                matTooltip="Export as YAML" aria-label="Export job as YAML">
+          <mat-icon>file_download</mat-icon>
+        </button>
+      </div>
+    }
   </div>
 
-  <mat-tab-group>
-    <!-- Tab 1: General -->
-    <mat-tab label="General">
+  <div class="job-detail-tabs" role="tablist" aria-label="Job detail sections">
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'general'" (click)="selectTab('general')">
+      General
+    </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'steps'" (click)="selectTab('steps')">
+      Steps @if (job) { ({{ job.steps.length }}) }
+    </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'environment'" (click)="selectTab('environment')">
+      Environment
+    </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'schedule'" (click)="selectTab('schedule')">
+      Schedule
+    </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'notifications'" (click)="selectTab('notifications')">
+      Notifications
+    </button>
+    <button type="button" class="job-detail-tab" role="tab" [class.active]="selectedTab === 'versions'" (click)="selectTab('versions')">
+      Versions
+    </button>
+  </div>
+
+  <div class="tab-panel">
+    @if (selectedTab === 'general') {
       <form [formGroup]="generalForm" class="tab-form">
         <div class="form-grid">
           <mat-form-field appearance="outline">
@@ -78,18 +110,26 @@
           }
         </div>
       </form>
-    </mat-tab>
+    }
 
-    <!-- Tab 2: Steps -->
-    @if (job) {
-      <mat-tab [label]="'Steps (' + job.steps.length + ')'">
-        <div class="tab-form">
-          <div class="steps-header">
-            <button mat-stroked-button (click)="openStepForm()">
-              <mat-icon>add</mat-icon> Add Step
+    @if (selectedTab === 'steps' && job) {
+      <div class="tab-form">
+        <div class="steps-header">
+          <button mat-stroked-button (click)="openStepForm()">
+            <mat-icon>add</mat-icon> Add Step
+          </button>
+          <span class="spacer"></span>
+          <div class="view-toggle">
+            <button mat-icon-button [class.active]="stepsViewMode === 'list'" (click)="stepsViewMode = 'list'" title="List view">
+              <mat-icon>list</mat-icon>
+            </button>
+            <button mat-icon-button [class.active]="stepsViewMode === 'canvas'" (click)="onSwitchToCanvas()" title="Canvas view">
+              <mat-icon>account_tree</mat-icon>
             </button>
           </div>
+        </div>
 
+        @if (stepsViewMode === 'list') {
           <div cdkDropList class="step-list" (cdkDropListDropped)="onStepDropped($event)">
             @for (step of job.steps; track step.stepId) {
               <div cdkDrag class="step-row">
@@ -117,109 +157,120 @@
               </div>
             }
           </div>
-        </div>
-      </mat-tab>
+        } @else if (stepsViewMode === 'canvas') {
+          <app-dag-canvas
+            [jobId]="jobId!"
+            [steps]="stepsWithDeps"
+            (stepSelected)="onCanvasStepSelected($event)"
+            (stepDeleted)="onCanvasStepDeleted($event)"
+            (addStepRequested)="openStepForm()"
+            (saveRequested)="onSaveDependencies($event)"
+          ></app-dag-canvas>
+        }
+      </div>
     }
 
-    <!-- Tab 3: Environment Variables -->
-    @if (job) {
-      <mat-tab label="Environment">
-        <div class="tab-form">
-          <div class="add-env-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Variable Name</mat-label>
-              <input matInput [(ngModel)]="newEnvKey" placeholder="MY_VAR" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Value</mat-label>
-              <input matInput [(ngModel)]="newEnvValue" placeholder="/some/path" />
-            </mat-form-field>
-            <button mat-flat-button color="primary" (click)="addEnvVar()">
-              <mat-icon>add</mat-icon> Add
-            </button>
-          </div>
-
-          @if (job.envVars.length > 0) {
-            <table mat-table [dataSource]="job.envVars">
-              <ng-container matColumnDef="key">
-                <th mat-header-cell *matHeaderCellDef>Variable</th>
-                <td mat-cell *matCellDef="let env">
-                  <span class="env-key">{{ env.key }}</span>
-                </td>
-              </ng-container>
-
-              <ng-container matColumnDef="value">
-                <th mat-header-cell *matHeaderCellDef>Value</th>
-                <td mat-cell *matCellDef="let env">{{ env.value }}</td>
-              </ng-container>
-
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let env">
-                  <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" aria-label="Remove this environment variable" color="warn">
-                    <mat-icon>delete</mat-icon>
-                  </button>
-                </td>
-              </ng-container>
-
-              <tr mat-header-row *matHeaderRowDef="displayedEnvCols"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedEnvCols;"></tr>
-            </table>
-          } @else {
-            <div class="empty-state">
-              <mat-icon>settings</mat-icon>
-              <p>No environment variables defined.</p>
-            </div>
-          }
-        </div>
-      </mat-tab>
-    }
-
-    <!-- Tab 4: Schedule -->
-    @if (job) {
-      <mat-tab label="Schedule">
-        <div class="tab-form">
+    @if (selectedTab === 'environment' && job) {
+      <div class="tab-form">
+        <div class="add-env-row">
           <mat-form-field appearance="outline">
-            <mat-label>Cron Expression</mat-label>
-            <input matInput [(ngModel)]="scheduleCron" (input)="onCronInput()" placeholder="0 0 2 * * *" />
-            <button mat-icon-button matSuffix (click)="validateCron()" aria-label="Validate cron expression">
-              <mat-icon>fact_check</mat-icon>
-            </button>
+            <mat-label>Variable Name</mat-label>
+            <input matInput [(ngModel)]="newEnvKey" placeholder="MY_VAR" />
           </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Value</mat-label>
+            <input matInput [(ngModel)]="newEnvValue" placeholder="/some/path" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" (click)="addEnvVar()">
+            <mat-icon>add</mat-icon> Add
+          </button>
+        </div>
 
-          @if (scheduleNextFires.length > 0) {
-            <div class="next-fires-card">
-              <div class="next-fires-header">
-                <mat-icon>calendar_month</mat-icon>
-                <strong>Next fire times</strong>
-              </div>
-              @for (t of scheduleNextFires; track $index) {
-                <div class="fire-time">{{ t }}</div>
-              }
+        @if (job.envVars.length > 0) {
+          <table mat-table [dataSource]="job.envVars">
+            <ng-container matColumnDef="key">
+              <th mat-header-cell *matHeaderCellDef>Variable</th>
+              <td mat-cell *matCellDef="let env">
+                <span class="env-key">{{ env.key }}</span>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="value">
+              <th mat-header-cell *matHeaderCellDef>Value</th>
+              <td mat-cell *matCellDef="let env">{{ env.value }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let env">
+                <button mat-icon-button (click)="deleteEnvVar(env.envVarId)" aria-label="Remove this environment variable" color="warn">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedEnvCols"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedEnvCols;"></tr>
+          </table>
+        } @else {
+          <div class="empty-state">
+            <mat-icon>settings</mat-icon>
+            <p>No environment variables defined.</p>
+          </div>
+        }
+      </div>
+    }
+
+    @if (selectedTab === 'schedule' && job) {
+      <div class="tab-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Cron Expression</mat-label>
+          <input matInput [(ngModel)]="scheduleCron" (input)="onCronInput()" placeholder="0 0 2 * * *" />
+          <button mat-icon-button matSuffix (click)="validateCron()" aria-label="Validate cron expression">
+            <mat-icon>fact_check</mat-icon>
+          </button>
+        </mat-form-field>
+
+        @if (scheduleNextFires.length > 0) {
+          <div class="next-fires-card">
+            <div class="next-fires-header">
+              <mat-icon>calendar_month</mat-icon>
+              <strong>Next fire times</strong>
             </div>
-          }
-
-          <div class="schedule-actions">
-            @if (!job.schedule) {
-              <button mat-flat-button color="primary" (click)="saveSchedule()">
-                <mat-icon>add</mat-icon> Create Schedule
-              </button>
-            } @else {
-              <button mat-flat-button color="primary" (click)="saveSchedule()">
-                <mat-icon>save</mat-icon> Update Schedule
-              </button>
-              <button mat-stroked-button (click)="toggleSchedule()">
-                {{ scheduleEnabled ? 'Disable' : 'Enable' }}
-              </button>
-              <button mat-stroked-button color="warn" (click)="deleteSchedule()">
-                <mat-icon>delete</mat-icon> Delete
-              </button>
+            @for (t of scheduleNextFires; track $index) {
+              <div class="fire-time">{{ t }}</div>
             }
           </div>
+        }
+
+        <div class="schedule-actions">
+          @if (!job.schedule) {
+            <button mat-flat-button color="primary" (click)="saveSchedule()">
+              <mat-icon>add</mat-icon> Create Schedule
+            </button>
+          } @else {
+            <button mat-flat-button color="primary" (click)="saveSchedule()">
+              <mat-icon>save</mat-icon> Update Schedule
+            </button>
+            <button mat-stroked-button (click)="toggleSchedule()">
+              {{ scheduleEnabled ? 'Disable' : 'Enable' }}
+            </button>
+            <button mat-stroked-button color="warn" (click)="deleteSchedule()">
+              <mat-icon>delete</mat-icon> Delete
+            </button>
+          }
         </div>
-      </mat-tab>
+      </div>
     }
-  </mat-tab-group>
+
+    @if (selectedTab === 'notifications' && job) {
+      <app-notifications-tab [jobId]="jobId!"></app-notifications-tab>
+    }
+
+    @if (selectedTab === 'versions' && job) {
+      <app-version-history [jobId]="jobId!" (versionLoaded)="onVersionLoaded()"></app-version-history>
+    }
+  </div>
 } @else {
   <div class="loading">
     <mat-spinner diameter="32"></mat-spinner>

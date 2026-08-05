@@ -24,6 +24,7 @@ public record JobExport(
         List<ExportStep> steps,
         List<ExportDependency> dependencies,
         List<ExportEnvVar> envVars,
+        List<ExportNotificationSubscription> subscriptions,
         ExportSchedule schedule,
         Map<String, Object> metadata
 ) {

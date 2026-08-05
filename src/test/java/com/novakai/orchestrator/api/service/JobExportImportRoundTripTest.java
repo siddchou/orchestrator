@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.novakai.orchestrator.api.dto.*;
 import com.novakai.orchestrator.domain.entity.JobDefinition;
+import com.novakai.orchestrator.notification.entity.NotificationSubscription;
+import com.novakai.orchestrator.notification.repository.NotificationSubscriptionRepository;
 import com.novakai.orchestrator.repository.JobDefinitionRepository;
 import com.novakai.orchestrator.repository.JobDefinitionVersionRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
@@ -48,6 +50,9 @@ class JobExportImportRoundTripTest {
     private JobDefinitionVersionRepository versionRepo;
 
     @Autowired
+    private NotificationSubscriptionRepository subscriptionRepo;
+
+    @Autowired
     private JwtService jwtService;
 
     @Autowired
@@ -61,6 +66,7 @@ class JobExportImportRoundTripTest {
         UserDetails adminUser = userDetailsService.loadUserByUsername("admin");
         adminToken = jwtService.generateToken(adminUser);
 
+        subscriptionRepo.deleteAll();
         depRepo.deleteAll();
         stepRepo.deleteAll();
         versionRepo.deleteAll();
@@ -115,6 +121,7 @@ class JobExportImportRoundTripTest {
                 parseStepsFromExport(exportedJson),
                 parseDepsFromExport(exportedJson),
                 parseEnvVarsFromExport(exportedJson),
+                parseSubscriptionsFromExport(exportedJson),
                 parseScheduleFromExport(exportedJson),
                 null
         );
@@ -180,7 +187,7 @@ class JobExportImportRoundTripTest {
         JobImportRequest updateReq = new JobImportRequest(
                 "1.0", "UPDATE", null, "update-job", "Updated desc", "/tmp/updated",
                 null, null, true, "test-team",
-                updatedSteps, null, null, null, null
+                updatedSteps, null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(updateReq, authHeaders());
@@ -213,7 +220,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "error-mode-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -301,7 +308,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "bad-type-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "NONEXISTENT_TYPE", "{}", false, true)),
-                null, null, null, null
+                null, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -331,7 +338,7 @@ class JobExportImportRoundTripTest {
         JobImportRequest req = new JobImportRequest(
                 "1.0", "ERROR", null, "cycle-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
-                steps, circularDeps, null, null, null
+                steps, circularDeps, null, null, null, null
         );
 
         HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
@@ -351,7 +358,7 @@ class JobExportImportRoundTripTest {
                 "1.0", "ERROR", null, "bad-cron-job", "desc", "/tmp/test",
                 null, null, true, "test-team",
                 List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
-                null, null,
+                null, null, null,
                 new ImportScheduleDefinition("not-a-valid-cron", true),
                 null
         );
@@ -361,6 +368,116 @@ class JobExportImportRoundTripTest {
                 base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
 
         assertNotEquals(HttpStatus.CREATED, resp.getStatusCode());
+    }
+
+    // =====================================================================
+    //  Test 10b: Import with mode=SKIP does not modify existing job
+    // =====================================================================
+
+    @Test
+    void importSkipMode_doesNotModifyExistingJob() {
+        Long jobId = createJobViaApi("skip-job", "Original desc", "/tmp/orig", null);
+        addStepViaApi(jobId, "original-step", 1, "SHELL_EXEC", "{\"command\":\"echo original\"}");
+
+        // Import with different content but mode=SKIP
+        JobImportRequest req = new JobImportRequest(
+                "1.0", "SKIP", null, "skip-job", "Modified desc", "/tmp/modified",
+                null, null, true, "test-team",
+                List.of(new ImportStepDefinition("new-step", 1, "SHELL_EXEC",
+                        "{\"command\":\"echo modified\"}", false, true)),
+                null, null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
+        ResponseEntity<String> resp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+        assertTrue(resp.getStatusCode().is2xxSuccessful(), "SKIP should succeed");
+
+        // Verify job was NOT modified
+        JobDefinition job = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Original desc", job.getDescription());
+        assertEquals("/tmp/orig", job.getWorkingDir());
+        assertEquals(1, job.getSteps().size());
+        assertEquals("original-step", job.getSteps().get(0).getStepName());
+    }
+
+    // =====================================================================
+    //  Test 10c: Export non-existent job returns 404
+    // =====================================================================
+
+    @Test
+    void exportNonExistentJob_returns404() {
+        ResponseEntity<String> resp = restTemplate.getForEntity(
+                base() + "/api/jobs/99999/export?format=json", String.class);
+        assertEquals(HttpStatus.NOT_FOUND, resp.getStatusCode());
+    }
+
+    // =====================================================================
+    //  Test 10d: Import rejects future/unrecognized format version
+    // =====================================================================
+
+    @Test
+    void importValidation_rejectsFutureFormatVersion() {
+        JobImportRequest req = new JobImportRequest(
+                "99.0", "ERROR", null, "future-format-job", "desc", "/tmp/test",
+                null, null, true, "test-team",
+                List.of(new ImportStepDefinition("step", 1, "SHELL_EXEC", "{}", false, true)),
+                null, null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(req, authHeaders());
+        ResponseEntity<String> resp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+
+        assertNotEquals(HttpStatus.CREATED, resp.getStatusCode());
+    }
+
+    // =====================================================================
+    //  Test 10e: Rollback verifies restored state matches original version
+    // =====================================================================
+
+    @Test
+    void rollbackToVersion_verifiesRestoredState() {
+        Long jobId = createJobViaApi("rollback-state-job", "Original desc", "/tmp/orig", null);
+        addStepViaApi(jobId, "step-a", 1, "SHELL_EXEC", "{\"command\":\"echo a\"}");
+
+        var versionsBefore = versionRepo.findByJobIdOrderByVersionNumberDesc(jobId);
+        int originalVersionNum = versionsBefore.get(0).getVersionNumber();
+
+        // Modify: change description and add a step
+        JobImportRequest updateReq = new JobImportRequest(
+                "1.0", "UPDATE", null, "rollback-state-job", "Modified desc", "/tmp/modified",
+                null, null, true, "test-team",
+                List.of(
+                        new ImportStepDefinition("step-a", 1, "SHELL_EXEC", "{\"command\":\"echo a-modified\"}", false, true),
+                        new ImportStepDefinition("step-b", 2, "SHELL_EXEC", "{\"command\":\"echo b\"}", false, true)
+                ),
+                null, null, null, null, null
+        );
+
+        HttpEntity<JobImportRequest> updateEntity = new HttpEntity<>(updateReq, authHeaders());
+        ResponseEntity<String> updateResp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, updateEntity, String.class);
+        assertEquals(HttpStatus.CREATED, updateResp.getStatusCode());
+
+        // Verify job is modified
+        JobDefinition modified = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Modified desc", modified.getDescription());
+        assertEquals("/tmp/modified", modified.getWorkingDir());
+        assertEquals(2, modified.getSteps().size());
+
+        // Rollback to original version
+        ResponseEntity<String> rollbackResp = restTemplate.postForEntity(
+                base() + "/api/jobs/" + jobId + "/versions/" + originalVersionNum + "/rollback",
+                new HttpEntity<>(authHeaders()), String.class);
+        assertEquals(HttpStatus.OK, rollbackResp.getStatusCode());
+
+        // Verify job state matches the rolled-back version
+        JobDefinition restored = jobRepo.findByIdWithSteps(jobId).orElseThrow();
+        assertEquals("Original desc", restored.getDescription(), "Description should be restored");
+        assertEquals("/tmp/orig", restored.getWorkingDir(), "Working dir should be restored");
+        assertEquals(1, restored.getSteps().size(), "Should have 1 step after rollback");
+        assertEquals("step-a", restored.getSteps().get(0).getStepName());
     }
 
     // =====================================================================
@@ -391,6 +508,7 @@ class JobExportImportRoundTripTest {
                 parseStepsFromExport(exportedJson),
                 parseDepsFromExport(exportedJson),
                 envVars,
+                null, // subscriptions
                 parseScheduleFromExport(exportedJson),
                 null
         );
@@ -408,6 +526,70 @@ class JobExportImportRoundTripTest {
                 base() + "/api/jobs/" + jobs.get(0).getJobId() + "/export?format=json", String.class).getBody());
         assertTrue(reExportedJson.contains("DATABASE_URL"), "Should preserve env var DATABASE_URL");
         assertTrue(reExportedJson.contains("APP_MODE"), "Should preserve env var APP_MODE");
+    }
+
+    // =====================================================================
+    //  Test 12: Export/Import preserves notification subscriptions
+    // =====================================================================
+
+    @Test
+    void exportImport_preservesNotificationSubscriptions() {
+        Long jobId = createJobViaApi("subscription-job", "desc", "/tmp/test", null);
+        addStepViaApi(jobId, "step-a", 1, "SHELL_EXEC", "{}");
+
+        // Create notification subscriptions directly
+        NotificationSubscription sub1 = new NotificationSubscription();
+        sub1.setJobId(jobId);
+        sub1.setChannelType("GENERIC_WEBHOOK");
+        sub1.setEvents("SUCCESS,FAILURE");
+        sub1.setConfigJson("{\"url\":\"https://example.com/hook\"}");
+        sub1.setActive(true);
+        subscriptionRepo.save(sub1);
+
+        NotificationSubscription sub2 = new NotificationSubscription();
+        sub2.setJobId(jobId);
+        sub2.setChannelType("GENERIC_WEBHOOK");
+        sub2.setEvents("SUCCESS");
+        sub2.setConfigJson("{\"url\":\"https://example.com/other\"}");
+        sub2.setActive(true);
+        subscriptionRepo.save(sub2);
+
+        // Export and verify subscriptions are in the payload
+        String exportedJson = extractData(restTemplate.getForEntity(
+                base() + "/api/jobs/" + jobId + "/export?format=json", String.class).getBody());
+        assertTrue(exportedJson.contains("GENERIC_WEBHOOK"), "Export should contain subscription channel type");
+        assertTrue(exportedJson.contains("https://example.com/hook"), "Export should contain subscription config");
+
+        // Delete the job (subscriptions should cascade delete, but we re-create on import)
+        restTemplate.delete(base() + "/api/jobs/" + jobId);
+
+        // Import back with subscriptions
+        JobImportRequest importReq = new JobImportRequest(
+                "1.0", "ERROR", null, "subscription-job", "desc", "/tmp/test",
+                null, null, true, "test-team",
+                parseStepsFromExport(exportedJson),
+                parseDepsFromExport(exportedJson),
+                parseEnvVarsFromExport(exportedJson),
+                parseSubscriptionsFromExport(exportedJson),
+                parseScheduleFromExport(exportedJson),
+                null
+        );
+
+        HttpEntity<JobImportRequest> entity = new HttpEntity<>(importReq, authHeaders());
+        ResponseEntity<String> importResp = restTemplate.exchange(
+                base() + "/api/jobs/import", HttpMethod.POST, entity, String.class);
+        assertEquals(HttpStatus.CREATED, importResp.getStatusCode());
+
+        // Verify re-imported job exists and has subscriptions
+        List<JobDefinition> jobs = jobRepo.findByJobNameContainingIgnoreCase(
+                "subscription-job", org.springframework.data.domain.PageRequest.of(0, 10)).getContent();
+        assertEquals(1, jobs.size());
+        Long newJobId = jobs.get(0).getJobId();
+
+        List<NotificationSubscription> importedSubs = subscriptionRepo.findByJobId(newJobId);
+        assertEquals(2, importedSubs.size(), "Should have 2 subscriptions after import");
+        assertEquals("GENERIC_WEBHOOK", importedSubs.get(0).getChannelType());
+        assertTrue(importedSubs.get(0).getConfigJson().contains("example.com"));
     }
 
     // =====================================================================
@@ -460,7 +642,12 @@ class JobExportImportRoundTripTest {
         try {
             ObjectMapper om = new ObjectMapper();
             var map = om.readValue(responseBody, new TypeReference<Map<String, Object>>() {});
-            return (String) map.get("data");
+            // Endpoints now return raw JSON directly (no ApiResponse envelope)
+            if (map.containsKey("data") && map.get("data") instanceof String) {
+                return (String) map.get("data");
+            }
+            // Raw JSON — re-serialize to a clean string
+            return om.writeValueAsString(map);
         } catch (Exception e) {
             return responseBody;
         }
@@ -542,6 +729,31 @@ class JobExportImportRoundTripTest {
             );
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ImportNotificationSubscriptionDefinition> parseSubscriptionsFromExport(String json) {
+        try {
+            ObjectMapper om = new ObjectMapper();
+            var map = om.readValue(json, Map.class);
+            List<Map<String, Object>> subs = (List<Map<String, Object>>) map.get("subscriptions");
+            if (subs == null) return List.of();
+            return subs.stream().map(s -> {
+                @SuppressWarnings("unchecked")
+                List<String> events = (List<String>) s.get("events");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> config = (Map<String, Object>) s.get("config");
+                Boolean active = s.get("active") != null ? (Boolean) s.get("active") : true;
+                return new ImportNotificationSubscriptionDefinition(
+                        (String) s.get("channelType"),
+                        events,
+                        config,
+                        active
+                );
+            }).toList();
+        } catch (Exception e) {
+            return List.of();
         }
     }
 }

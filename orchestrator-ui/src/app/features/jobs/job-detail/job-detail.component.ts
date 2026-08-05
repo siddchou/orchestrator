@@ -13,6 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CdkDrag, CdkDropList, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { JobService } from '@app/core/services/job.service';
@@ -20,8 +21,13 @@ import { SystemService } from '@app/core/services/system.service';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { StepFormDialog, StepFormData } from '../step-builder/step-form-dialog';
 import { StepPaletteComponent } from '../step-builder/step-palette';
-import { JobDefinition, JobStep, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { DagCanvasComponent } from '../dag-canvas/dag-canvas.component';
+import { JobDefinition, JobStep, JobStepWithDependencies, EnvVar, JobSchedule, StepType } from '@app/core/models/job.model';
+import { forkJoin, take } from 'rxjs';
 import { FormGuardService } from '@app/core/services/form-guard.service';
+import { downloadFile } from '@app/core/utils/file-utils';
+import { VersionHistoryComponent } from '../version-history/version-history.component';
+import { NotificationsTabComponent } from '../notifications/notifications-tab.component';
 
 @Component({
   selector: 'app-job-detail',
@@ -29,7 +35,8 @@ import { FormGuardService } from '@app/core/services/form-guard.service';
     CommonModule, ReactiveFormsModule, FormsModule, MatTabsModule, MatFormFieldModule,
     MatInputModule, MatButtonModule, MatIconModule, MatTableModule,
     MatCheckboxModule, MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatChipsModule,
-    CdkDrag, CdkDropList, CdkDragHandle,
+    CdkDrag, CdkDropList, CdkDragHandle, MatTooltipModule,
+DagCanvasComponent, VersionHistoryComponent, NotificationsTabComponent,
   ],
   templateUrl: './job-detail.component.html',
   styleUrl: './job-detail.component.scss',
@@ -65,6 +72,10 @@ export class JobDetailComponent implements OnInit, OnDestroy {
   scheduleCron = '';
   scheduleEnabled = false;
   pathValidation: Record<string, string> = {};
+  stepsViewMode: 'list' | 'canvas' = 'list';
+  stepsWithDeps: JobStepWithDependencies[] = [];
+  exporting = false;
+selectedTab: 'general' | 'steps' | 'environment' | 'schedule' | 'notifications' | 'versions' = 'general';
   private cronDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
@@ -87,6 +98,11 @@ export class JobDetailComponent implements OnInit, OnDestroy {
       this.loading = false;
       this.cd.detectChanges();
     }
+  }
+
+selectTab(tab: 'general' | 'steps' | 'environment' | 'schedule' | 'notifications' | 'versions'): void {
+    this.selectedTab = tab;
+    this.cd.markForCheck();
   }
 
   loadJob() {
@@ -308,6 +324,88 @@ export class JobDetailComponent implements OnInit, OnDestroy {
 
   goBack() {
     this.router.navigate(['/jobs']);
+  }
+
+  onSwitchToCanvas(): void {
+    if (this.jobId == null || !this.job) return;
+    const steps = this.job.steps;
+    if (steps.length === 0) {
+      this.stepsWithDeps = [];
+      this.stepsViewMode = 'canvas';
+      return;
+    }
+
+    forkJoin(
+      steps.map(step =>
+        this.jobService.getStepDependencies(this.jobId!, step.stepId).pipe(take(1))
+      )
+    ).subscribe({
+      next: (results) => {
+        this.stepsWithDeps = steps.map((step, i) => ({
+          ...step,
+          dependencies: results[i].status === 'SUCCESS' ? results[i].data : [],
+        }));
+        this.stepsViewMode = 'canvas';
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  onSwitchToList(): void {
+    this.stepsViewMode = 'list';
+  }
+
+  onCanvasStepSelected(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.openStepForm(step);
+    }
+  }
+
+  onCanvasStepDeleted(stepId: number): void {
+    const step = this.job?.steps.find(s => s.stepId === stepId);
+    if (step) {
+      this.deleteStep(step);
+    }
+  }
+
+  onSaveDependencies(updatedSteps: JobStepWithDependencies[]): void {
+    if (this.jobId == null) return;
+    forkJoin(
+      updatedSteps.map(step =>
+        this.jobService.setStepDependencies(this.jobId!, step.stepId, step.dependencies).pipe(take(1))
+      )
+    ).subscribe({
+      next: () => {
+        this.snackBar.open('Dependencies saved', 'Dismiss', { duration: 3000 });
+        this.loadJob();
+      },
+      error: () => {
+        this.snackBar.open('Failed to save dependencies', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+      },
+    });
+  }
+
+  exportJob(format: 'json' | 'yaml'): void {
+    if (this.jobId == null || this.exporting) return;
+    const ext = format === 'yaml' ? 'yaml' : 'json';
+    const mimeType = format === 'yaml' ? 'text/yaml' : 'application/json';
+    this.exporting = true;
+    this.jobService.exportJob(this.jobId, format).subscribe({
+      next: (blob) => {
+        downloadFile(blob, `${this.job!.jobName}.${ext}`);
+        this.snackBar.open(`Exported as ${ext.toUpperCase()}`, 'Dismiss', { duration: 3000 });
+        this.exporting = false;
+      },
+      error: () => {
+        this.snackBar.open('Export failed', 'Dismiss', { duration: 3000, panelClass: 'error-snackbar' });
+        this.exporting = false;
+      },
+    });
+  }
+
+  onVersionLoaded(): void {
+    this.loadJob();
   }
 
   ngOnDestroy(): void {

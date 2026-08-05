@@ -4,6 +4,8 @@ import com.novakai.orchestrator.api.dto.ActiveTeamResponse;
 import com.novakai.orchestrator.api.dto.ApiResponse;
 import com.novakai.orchestrator.api.dto.TeamSummary;
 import com.novakai.orchestrator.api.service.TeamService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +14,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/teams")
+@Tag(name = "Teams", description = "Team memberships and active team selection")
 public class TeamController {
 
     private final TeamService teamService;
@@ -20,7 +23,7 @@ public class TeamController {
         this.teamService = teamService;
     }
 
-    /** GET /api/teams/my-teams — list teams for current user */
+    @Operation(summary = "List current user's team memberships")
     @GetMapping("/my-teams")
     public ApiResponse<List<TeamSummary>> myTeams(@AuthenticationPrincipal UserDetails userDetails) {
         if (userDetails == null) {
@@ -29,7 +32,7 @@ public class TeamController {
         return ApiResponse.success(teamService.listUserTeams(userDetails.getUsername()));
     }
 
-    /** POST /api/teams/active/{teamId} — validate user belongs to team */
+    @Operation(summary = "Set active team for the current user")
     @PostMapping("/active/{teamId}")
     public ApiResponse<ActiveTeamResponse> setActiveTeam(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -40,7 +43,7 @@ public class TeamController {
         return ApiResponse.success(teamService.validateMembership(userDetails.getUsername(), teamId));
     }
 
-    /** GET /api/teams/active — returns the active team from request header */
+    @Operation(summary = "Get current active team")
     @GetMapping("/active")
     public ApiResponse<ActiveTeamResponse> getActiveTeam(
             @AuthenticationPrincipal UserDetails userDetails,

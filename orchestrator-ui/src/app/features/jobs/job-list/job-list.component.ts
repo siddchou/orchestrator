@@ -19,7 +19,9 @@ import { JobService } from '@app/core/services/job.service';
 import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
 import { ConfirmDialog } from '@app/shared/components/confirm-dialog/confirm-dialog';
 import { RunJobDialog } from '@app/shared/components/run-job-dialog/run-job-dialog';
+import { ImportDialogComponent } from '../job-import/import-dialog.component';
 import { JobDefinition } from '@app/core/models/job.model';
+import { downloadFile } from '@app/core/utils/file-utils';
 
 @Component({
   selector: 'app-job-list',
@@ -27,7 +29,7 @@ import { JobDefinition } from '@app/core/models/job.model';
     CommonModule, MatCardModule, MatTableModule, MatPaginatorModule, MatSortModule,
     MatInputModule, MatFormFieldModule, MatButtonModule, MatIconModule,
     MatChipsModule, MatSnackBarModule, MatDialogModule, MatProgressSpinnerModule,
-    RouterLink,
+    RouterLink, ImportDialogComponent,
   ],
   templateUrl: './job-list.component.html',
   styleUrl: './job-list.component.scss',
@@ -136,6 +138,31 @@ export class JobListComponent implements AfterViewInit, OnDestroy {
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.jobService.triggerRun(job.jobId).subscribe();
+    });
+  }
+
+  exportJob(job: JobDefinition): void {
+    const ext = 'json';
+    this.isLoading = true;
+    this.cd.markForCheck();
+    this.jobService.exportJob(job.jobId, ext).subscribe({
+      next: (blob) => {
+        downloadFile(blob, `${job.jobName}.${ext}`);
+        this.isLoading = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.cd.detectChanges();
+      },
+    });
+  }
+
+  openImportDialog(): void {
+    this.dialog.open(ImportDialogComponent).afterClosed().subscribe((result) => {
+      if (result) {
+        this.loadJobs();
+      }
     });
   }
 

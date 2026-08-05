@@ -16,6 +16,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/credentials")
+@Tag(name = "Credentials", description = "Encrypted credential management (ADMIN only)")
 @PreAuthorize("hasRole('ADMIN')")
 @Slf4j
 public class CredentialController {
@@ -40,6 +43,7 @@ public class CredentialController {
         this.keyGeneratorService = keyGeneratorService;
     }
 
+    @Operation(summary = "List credential summaries (no secrets)")
     @GetMapping
     public ApiResponse<List<CredentialSummary>> list() {
         return ApiResponse.success(credRepo.findAll().stream()
@@ -47,6 +51,7 @@ public class CredentialController {
                 .toList());
     }
 
+    @Operation(summary = "Create an encrypted credential")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CredentialSummary> create(@Valid @RequestBody CredentialRequest request) throws Exception {
@@ -70,6 +75,7 @@ public class CredentialController {
                 cred.getCredentialId(), cred.getCredentialRef(), cred.getCredType()));
     }
 
+    @Operation(summary = "Generate SSH key pair and store public key")
     @PostMapping("/generate-keys")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<KeyGenerationResponse> generateKeys(@Valid @RequestBody KeyGenerationRequest request) throws Exception {
@@ -93,6 +99,7 @@ public class CredentialController {
                 result.algorithm()));
     }
 
+    @Operation(summary = "Delete a credential by ID")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         JobCredential cred = credRepo.findById(id)

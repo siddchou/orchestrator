@@ -6,6 +6,7 @@ import com.novakai.orchestrator.domain.entity.JobRunStep;
 import com.novakai.orchestrator.domain.entity.JobStep;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
+import com.novakai.orchestrator.notification.service.RunCompletionPublisher;
 import com.novakai.orchestrator.engine.spi.FieldDefinition;
 import com.novakai.orchestrator.engine.spi.RetryPolicy;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
@@ -17,6 +18,7 @@ import com.novakai.orchestrator.repository.JobCredentialRepository;
 import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,22 +41,28 @@ public class JobExecutionOrchestrator {
     private final JobCredentialRepository credentialRepo;
     private final CredentialDecryptionService decryptionService;
     private final JsonParser jsonParser;
+    private final RunCompletionPublisher notificationPublisher;
 
     public JobExecutionOrchestrator(JobRunRepository runRepo,
                                     JobRunStepRepository runStepRepo,
                                     StepExecutorRegistry registry,
                                     JobCredentialRepository credentialRepo,
                                     CredentialDecryptionService decryptionService,
-                                    JsonParser jsonParser) {
+                                    JsonParser jsonParser,
+                                    RunCompletionPublisher notificationPublisher) {
         this.runRepo = runRepo;
         this.runStepRepo = runStepRepo;
         this.registry = registry;
         this.credentialRepo = credentialRepo;
         this.decryptionService = decryptionService;
         this.jsonParser = jsonParser;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public void execute(ExecutionContext oldCtx, JobDefinition job, JobRun run) {
+        MDC.put("runId", String.valueOf(oldCtx.getRunId()));
+        MDC.put("jobId", String.valueOf(job.getJobId()));
+
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(LocalDateTime.now());
         runRepo.save(run);
@@ -95,10 +103,31 @@ public class JobExecutionOrchestrator {
             }
             log.debug("Run {} completed with status {}", run.getRunId(), run.getStatus());
             runRepo.save(run);
+
+            if (notificationPublisher != null) {
+                try {
+                    notificationPublisher.publish(
+                        run.getRunId(),
+                        job.getJobId(),
+                        job.getJobName(),
+                        run.getStatus(),
+                        run.getEndedAt(),
+                        run.getTriggeredBy()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+                }
+            }
+
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
     }
 
     public void executeSingleStep(ExecutionContext oldCtx, JobDefinition job, JobRun run, JobStep targetStep) {
+        MDC.put("runId", String.valueOf(oldCtx.getRunId()));
+        MDC.put("jobId", String.valueOf(job.getJobId()));
+
         run.setStatus(RunStatus.RUNNING);
         run.setStartedAt(LocalDateTime.now());
         runRepo.save(run);
@@ -119,10 +148,40 @@ public class JobExecutionOrchestrator {
                 run.setStatus(stepFailed ? RunStatus.FAILED : RunStatus.SUCCESS);
             }
             runRepo.save(run);
+
+            if (notificationPublisher != null) {
+                try {
+                    notificationPublisher.publish(
+                        run.getRunId(),
+                        job.getJobId(),
+                        job.getJobName(),
+                        run.getStatus(),
+                        run.getEndedAt(),
+                        run.getTriggeredBy()
+                    );
+                } catch (Exception e) {
+                    log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+                }
+            }
+
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
     }
 
     boolean executeStep(ExecutionContext oldCtx, JobRun run, JobRunStep runStep, JobStep step) {
+        MDC.put("stepId", String.valueOf(step.getStepId()));
+        MDC.put("stepType", step.getStepType());
+
+        try {
+            return executeStepInternal(oldCtx, run, runStep, step);
+        } finally {
+            MDC.remove("stepId");
+            MDC.remove("stepType");
+        }
+    }
+
+    private boolean executeStepInternal(ExecutionContext oldCtx, JobRun run, JobRunStep runStep, JobStep step) {
         String stepType = step.getStepType();
         StepExecutor executor = registry.get(stepType)
             .orElse(null);
@@ -234,7 +293,7 @@ public class JobExecutionOrchestrator {
             .logSink(logSink)
             .credentials(credentialResolver)
             .workDir(oldCtx.getWorkingDir() != null ? Path.of(oldCtx.getWorkingDir()) : null)
-            .upstreamOutputs(Map.of()) // empty in Phase 1; populated starting Phase 3
+            .upstreamOutputs(Map.of()) // linear execution has no parallel upstreams
             .build();
     }
 

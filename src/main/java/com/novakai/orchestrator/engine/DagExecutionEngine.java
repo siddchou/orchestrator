@@ -9,12 +9,19 @@ import com.novakai.orchestrator.domain.entity.JobStepDependency.EdgeCondition;
 import com.novakai.orchestrator.domain.enums.RunStatus;
 import com.novakai.orchestrator.engine.exception.CircularDependencyException;
 import com.novakai.orchestrator.engine.service.CredentialDecryptionService;
+import com.novakai.orchestrator.notification.service.RunCompletionPublisher;
 import com.novakai.orchestrator.engine.spi.FieldDefinition;
 import com.novakai.orchestrator.engine.spi.RetryPolicy;
 import com.novakai.orchestrator.engine.spi.StepConfigSchema;
 import com.novakai.orchestrator.engine.spi.StepContext;
 import com.novakai.orchestrator.engine.spi.StepExecutor;
 import com.novakai.orchestrator.engine.spi.StepExecutorRegistry;
+import com.novakai.orchestrator.engine.observability.ObservabilityService;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import com.novakai.orchestrator.engine.spi.StepResult;
 import com.novakai.orchestrator.engine.spi.StepStatus;
 import com.novakai.orchestrator.engine.template.ParamResolver;
@@ -24,6 +31,8 @@ import com.novakai.orchestrator.repository.JobRunRepository;
 import com.novakai.orchestrator.repository.JobRunStepRepository;
 import com.novakai.orchestrator.repository.JobStepDependencyRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +66,9 @@ public class DagExecutionEngine {
     private final ParamResolver paramResolver;
     private final JobStepDependencyRepository dependencyRepo;
     private final ThreadPoolTaskExecutor taskExecutor;
+    private final RunCompletionPublisher notificationPublisher;
+    private final ObservabilityService observabilityService;
+    private final OpenTelemetry openTelemetry;
 
     public DagExecutionEngine(JobRunRepository runRepo,
                               JobRunStepRepository runStepRepo,
@@ -66,7 +78,10 @@ public class DagExecutionEngine {
                               JsonParser jsonParser,
                               ParamResolver paramResolver,
                               JobStepDependencyRepository dependencyRepo,
-                              ThreadPoolTaskExecutor taskExecutor) {
+                              @Qualifier("jobTaskExecutor") ThreadPoolTaskExecutor taskExecutor,
+                              RunCompletionPublisher notificationPublisher,
+                              ObservabilityService observabilityService,
+                              OpenTelemetry openTelemetry) {
         this.runRepo = runRepo;
         this.runStepRepo = runStepRepo;
         this.registry = registry;
@@ -76,25 +91,52 @@ public class DagExecutionEngine {
         this.paramResolver = paramResolver;
         this.dependencyRepo = dependencyRepo;
         this.taskExecutor = taskExecutor;
+        this.notificationPublisher = notificationPublisher;
+        this.observabilityService = observabilityService;
+        this.openTelemetry = openTelemetry;
     }
 
     public void execute(ExecutionContext ctx, JobDefinition job, JobRun run) {
-        List<JobStep> enabledSteps = getEnabledSteps(job);
-        if (enabledSteps.isEmpty()) {
-            log.info("Run {}: no enabled steps — marking success", ctx.getRunId());
-            run.setStatus(RunStatus.SUCCESS);
-            run.setStartedAt(LocalDateTime.now());
-            run.setEndedAt(LocalDateTime.now());
-            runRepo.save(run);
-            return;
+        observabilityService.incrementActiveRuns();
+        MDC.put("runId", String.valueOf(ctx.getRunId()));
+        MDC.put("jobId", String.valueOf(ctx.getJobId()));
+
+        Span runSpan = openTelemetry.getTracer("dag-execution-engine")
+                .spanBuilder("run.execute")
+                .setAttribute("run.id", String.valueOf(ctx.getRunId()))
+                .setAttribute("job.name", job.getJobName())
+                .setAttribute("job.id", String.valueOf(ctx.getJobId()))
+                .startSpan();
+
+        try (Scope scope = runSpan.makeCurrent()) {
+            List<JobStep> enabledSteps = getEnabledSteps(job);
+            if (enabledSteps.isEmpty()) {
+                log.info("Run {}: no enabled steps — marking success", ctx.getRunId());
+                run.setStatus(RunStatus.SUCCESS);
+                run.setStartedAt(LocalDateTime.now());
+                run.setEndedAt(LocalDateTime.now());
+                runRepo.save(run);
+                observabilityService.recordRunDuration(Duration.ZERO, job.getJobName(), RunStatus.SUCCESS);
+                observabilityService.incrementRunCount(RunStatus.SUCCESS);
+                observabilityService.decrementActiveRuns();
+                return;
+            }
+
+            List<JobStepDependency> allDeps = loadDependencies(enabledSteps);
+            DagGraph graph = buildDag(enabledSteps, allDeps);
+            validateAcyclic(graph, enabledSteps.size());
+
+            int maxConcurrency = Math.min(5, enabledSteps.size());
+            executeConcurrent(ctx, job, run, graph, maxConcurrency, runSpan);
+        } catch (Exception ex) {
+            runSpan.recordException(ex);
+            runSpan.setStatus(StatusCode.ERROR, ex.getMessage());
+            throw ex;
+        } finally {
+            runSpan.end();
+            MDC.remove("runId");
+            MDC.remove("jobId");
         }
-
-        List<JobStepDependency> allDeps = loadDependencies(enabledSteps);
-        DagGraph graph = buildDag(enabledSteps, allDeps);
-        validateAcyclic(graph, enabledSteps.size());
-
-        int maxConcurrency = Math.min(5, enabledSteps.size());
-        executeConcurrent(ctx, job, run, graph, maxConcurrency);
     }
 
     @Transactional
@@ -206,7 +248,7 @@ public class DagExecutionEngine {
     // ------------------------------------------------------------------
 
     private void executeConcurrent(ExecutionContext ctx, JobDefinition job, JobRun run,
-                                   DagGraph graph, int maxConcurrency) {
+                                   DagGraph graph, int maxConcurrency, Span parentSpan) {
         Map<Long, Integer> remaining = new ConcurrentHashMap<>();
         for (Long id : graph.upstreams.keySet()) {
             remaining.put(id, graph.upstreams.get(id).size());
@@ -230,10 +272,13 @@ public class DagExecutionEngine {
         Semaphore semaphore = new Semaphore(maxConcurrency);
         CountDownLatch latch = new CountDownLatch(graph.upstreams.size());
 
+        // Capture parent context for thread-pool span propagation
+        Context parentContext = Context.current().with(parentSpan);
+
         for (Long rootId : graph.roots) {
             submittedIds.add(rootId);
             submitStep(ctx, job, run, rootId, resolutionCtx, stepResults,
-                    runSteps, startTimes, submittedIds, semaphore, latch, anyFailed, graph, logQueue);
+                    runSteps, startTimes, submittedIds, semaphore, latch, anyFailed, graph, logQueue, parentContext);
         }
 
         try {
@@ -242,7 +287,7 @@ public class DagExecutionEngine {
             Thread.currentThread().interrupt();
         }
 
-        finalizeRun(ctx, run, stepResults, runSteps, startTimes, remaining, graph.roots);
+        finalizeRun(ctx, job, run, stepResults, runSteps, startTimes, remaining, graph.roots);
     }
 
     private void submitStep(ExecutionContext ctx, JobDefinition job, JobRun run,
@@ -253,7 +298,7 @@ public class DagExecutionEngine {
                             Set<Long> submittedIds,
                             Semaphore semaphore, CountDownLatch latch,
                             AtomicBoolean anyFailed, DagGraph graph,
-                            BlockingQueue<String> logQueue) {
+                            BlockingQueue<String> logQueue, Context parentContext) {
         taskExecutor.execute(() -> {
             boolean acquired = false;
             try {
@@ -278,24 +323,62 @@ public class DagExecutionEngine {
                     return;
                 }
 
-                // Resolve templates in step config
-                Map<String, Object> resolvedConfig = resolveConfig(step.getStepConfig(), resCtx);
+                // Set step-level MDC for structured logging
+                MDC.put("stepId", String.valueOf(step.getStepId()));
+                MDC.put("stepType", step.getStepType());
 
-                StepResult result = executeStepWithRetry(ctx, step, resolvedConfig, logQueue);
+                // Create OTel span with parent context propagation to thread-pool task
+                Span stepSpan = openTelemetry.getTracer("dag-execution-engine")
+                        .spanBuilder("step.execute")
+                        .setParent(parentContext)
+                        .setAttribute("step.type", step.getStepType())
+                        .setAttribute("step.id", String.valueOf(step.getStepId()))
+                        .setAttribute("step.name", step.getStepName())
+                        .setAttribute("run.id", String.valueOf(ctx.getRunId()))
+                        .startSpan();
 
-                LocalDateTime startedAt = LocalDateTime.now();
-                LocalDateTime endedAt = LocalDateTime.now();
+                try (Scope scope = stepSpan.makeCurrent()) {
+                    // Resolve templates in step config
+                    Map<String, Object> resolvedConfig = resolveConfig(step.getStepConfig(), resCtx);
 
-                runSteps.put(stepId, createRunStepEntity(run, step, result, startedAt, endedAt));
-                startTimes.put(stepId, startedAt);
-                stepResults.put(stepId, result);
+                    // Collect upstream step results for cross-step template resolution
+                    Map<String, StepResult> upstreamOutputs = new HashMap<>();
+                    for (JobStep upstream : graph.upstreams.getOrDefault(stepId, List.of())) {
+                        StepResult r = stepResults.get(upstream.getStepId());
+                        if (r != null) {
+                            upstreamOutputs.put(String.valueOf(upstream.getStepId()), r);
+                        }
+                    }
 
-                if (!result.isSuccess()) {
-                    anyFailed.set(true);
+                    LocalDateTime startedAt = LocalDateTime.now();
+                    StepResult result = executeStepWithRetry(ctx, step, resolvedConfig, logQueue, upstreamOutputs);
+                    LocalDateTime endedAt = LocalDateTime.now();
+
+                    runSteps.put(stepId, createRunStepEntity(run, step, result, startedAt, endedAt));
+                    startTimes.put(stepId, startedAt);
+                    stepResults.put(stepId, result);
+
+                    observabilityService.recordStepDuration(result.executionTime(), step.getStepType(), result.status());
+                    observabilityService.incrementStepCount(step.getStepType(), result.status());
+
+                    if (!result.isSuccess()) {
+                        anyFailed.set(true);
+                        stepSpan.setStatus(StatusCode.ERROR, result.message());
+                    } else {
+                        stepSpan.setStatus(StatusCode.OK);
+                    }
+
+                    // Update resolution context with this step's outputs for downstream steps
+                    updateResolutionContext(resCtx, stepId, result);
+                } catch (Exception ex) {
+                    stepSpan.recordException(ex);
+                    stepSpan.setStatus(StatusCode.ERROR, ex.getMessage());
+                    throw ex;
+                } finally {
+                    stepSpan.end();
+                    MDC.remove("stepId");
+                    MDC.remove("stepType");
                 }
-
-                // Update resolution context with this step's outputs for downstream steps
-                updateResolutionContext(resCtx, stepId, result);
 
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
@@ -318,7 +401,7 @@ public class DagExecutionEngine {
 
             // Signal dependents after this step is done
             signalDependents(ctx, job, run, stepId, resCtx, stepResults, runSteps, startTimes, submittedIds,
-                    semaphore, latch, anyFailed, graph, logQueue);
+                    semaphore, latch, anyFailed, graph, logQueue, parentContext);
         });
     }
 
@@ -329,23 +412,23 @@ public class DagExecutionEngine {
                                  CountDownLatch latch, Semaphore semaphore) {
         for (Long id : graph.upstreams.keySet()) {
             if (!stepResults.containsKey(id) && !runSteps.containsKey(id)) {
-                StepResult skipped = StepResult.failure("Skipped — cancellation requested", Duration.ZERO);
+                StepResult cancelled = StepResult.cancelled("Cancelled", Duration.ZERO);
                 JobStep step = findStep(job, id);
                 LocalDateTime now = LocalDateTime.now();
                 if (step != null) {
-                    runSteps.put(id, createRunStepEntity(run, step, skipped, now, now));
+                    runSteps.put(id, createRunStepEntity(run, step, cancelled, now, now));
                 } else {
                     runSteps.put(id, JobRunStep.builder()
                             .jobRun(run)
-                            .status(RunStatus.SKIPPED)
-                            .logOutput("Skipped — cancellation requested")
+                            .status(RunStatus.CANCELLED)
+                            .logOutput("Cancelled")
                             .exitCode(-1)
                             .startedAt(now)
                             .endedAt(now)
                             .build());
                 }
                 startTimes.put(id, now);
-                stepResults.put(id, skipped);
+                stepResults.put(id, cancelled);
                 latch.countDown();
             }
         }
@@ -359,7 +442,7 @@ public class DagExecutionEngine {
                                   Set<Long> submittedIds,
                                   Semaphore semaphore, CountDownLatch latch,
                                   AtomicBoolean anyFailed, DagGraph graph,
-                                  BlockingQueue<String> logQueue) {
+                                  BlockingQueue<String> logQueue, Context parentContext) {
         List<EdgeTarget> dependents = graph.downstreams.getOrDefault(finishedStepId, List.of());
 
         for (EdgeTarget edge : dependents) {
@@ -375,38 +458,47 @@ public class DagExecutionEngine {
                     waitForUpstreams(graph.upstreams.get(dependentId), stepResults);
 
                     if (!canStepProceed(dependentId, graph.upstreams.get(dependentId), stepResults, graph)) {
-                        StepResult skipped = StepResult.failure(
+                        StepResult skipped = StepResult.skipped(
                                 "Skipped — no edge condition satisfied", Duration.ZERO);
                         JobStep step = findStep(job, dependentId);
                         LocalDateTime now = LocalDateTime.now();
                         if (step != null) {
                             runSteps.put(dependentId, createRunStepEntity(run, step, skipped, now, now));
                             startTimes.put(dependentId, now);
+                        } else {
+                            runSteps.put(dependentId, JobRunStep.builder()
+                                    .jobRun(run)
+                                    .status(RunStatus.SKIPPED)
+                                    .logOutput("Skipped — no edge condition satisfied")
+                                    .exitCode(-1)
+                                    .startedAt(now)
+                                    .endedAt(now)
+                                    .build());
                         }
                         stepResults.put(dependentId, skipped);
                         latch.countDown();
                         // Signal downstream steps so they can evaluate their own edge conditions.
                         signalDependents(ctx, job, run, dependentId, resCtx, stepResults, runSteps, startTimes,
-                                submittedIds, semaphore, latch, anyFailed, graph, logQueue);
+                                submittedIds, semaphore, latch, anyFailed, graph, logQueue, parentContext);
                         return;
                     }
 
                     submitStep(ctx, job, run, dependentId, resCtx, stepResults,
-                            runSteps, startTimes, submittedIds, semaphore, latch, anyFailed, graph, logQueue);
+                            runSteps, startTimes, submittedIds, semaphore, latch, anyFailed, graph, logQueue, parentContext);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    StepResult skipped = StepResult.failure("Interrupted", Duration.ZERO);
+                    StepResult cancelled = StepResult.cancelled("Cancelled", Duration.ZERO);
                     JobStep step = findStep(job, dependentId);
                     if (step != null) {
                         LocalDateTime now = LocalDateTime.now();
-                        runSteps.put(dependentId, createRunStepEntity(run, step, skipped, now, now));
+                        runSteps.put(dependentId, createRunStepEntity(run, step, cancelled, now, now));
                         startTimes.put(dependentId, now);
                     }
-                    stepResults.put(dependentId, skipped);
+                    stepResults.put(dependentId, cancelled);
                     latch.countDown();
                     // Signal downstream steps so the chain can continue.
                     signalDependents(ctx, job, run, dependentId, resCtx, stepResults, runSteps, startTimes,
-                            submittedIds, semaphore, latch, anyFailed, graph, logQueue);
+                            submittedIds, semaphore, latch, anyFailed, graph, logQueue, parentContext);
                 }
             });
         }
@@ -458,7 +550,7 @@ public class DagExecutionEngine {
     // ------------------------------------------------------------------
 
     @Transactional
-    private void finalizeRun(ExecutionContext ctx, JobRun run,
+    private void finalizeRun(ExecutionContext ctx, JobDefinition job, JobRun run,
                              Map<Long, StepResult> stepResults,
                              Map<Long, JobRunStep> runSteps,
                              Map<Long, LocalDateTime> startTimes,
@@ -494,6 +586,28 @@ public class DagExecutionEngine {
 
         log.info("Run {} completed with status {}", run.getRunId(), run.getStatus());
         runRepo.save(run);
+
+        if (run.getStartedAt() != null && run.getEndedAt() != null) {
+            Duration runDuration = Duration.between(run.getStartedAt(), run.getEndedAt());
+            observabilityService.recordRunDuration(runDuration, job.getJobName(), run.getStatus());
+        }
+        observabilityService.incrementRunCount(run.getStatus());
+        observabilityService.decrementActiveRuns();
+
+        if (notificationPublisher != null) {
+            try {
+                notificationPublisher.publish(
+                    run.getRunId(),
+                    run.getJobDefinition().getJobId(),
+                    run.getJobDefinition().getJobName(),
+                    run.getStatus(),
+                    run.getEndedAt(),
+                    run.getTriggeredBy()
+                );
+            } catch (Exception e) {
+                log.error("Failed to publish notification event for run {}: {}", run.getRunId(), e.getMessage());
+            }
+        }
     }
 
     // ------------------------------------------------------------------
@@ -540,7 +654,8 @@ public class DagExecutionEngine {
 
     StepResult executeStepWithRetry(ExecutionContext ctx, JobStep step,
                                     Map<String, Object> resolvedConfig,
-                                    BlockingQueue<String> logQueue) {
+                                    BlockingQueue<String> logQueue,
+                                    Map<String, StepResult> upstreamOutputs) {
         String stepType = step.getStepType();
         StepExecutor executor = registry.get(stepType).orElse(null);
 
@@ -556,7 +671,7 @@ public class DagExecutionEngine {
             return StepResult.failure(validationError, Duration.ZERO);
         }
 
-        var stepCtx = buildStepContext(ctx, step, resolvedConfig, logQueue);
+        var stepCtx = buildStepContext(ctx, step, resolvedConfig, logQueue, upstreamOutputs);
 
         RetryPolicy policy = executor.defaultRetryPolicy();
         long startTime = System.nanoTime();
@@ -586,7 +701,7 @@ public class DagExecutionEngine {
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            result = StepResult.failure("Cancelled", Duration.ZERO);
+            result = StepResult.cancelled("Cancelled", Duration.ZERO);
         } catch (Exception ex) {
             log.error("Unexpected error in step {}: {}", step.getStepName(), ex.getMessage(), ex);
             result = StepResult.failure("EXCEPTION: " + ex.getMessage(), Duration.ZERO);
@@ -602,7 +717,8 @@ public class DagExecutionEngine {
 
     private StepContext buildStepContext(ExecutionContext ctx, JobStep step,
                                          Map<String, Object> resolvedConfig,
-                                         BlockingQueue<String> logQueue) {
+                                         BlockingQueue<String> logQueue,
+                                         Map<String, StepResult> upstreamOutputs) {
         var logSink = new StepContext.LogSink(logQueue);
         var credentialResolver = (StepContext.CredentialResolver) ref -> {
             var cred = credentialRepo.findByCredentialRef(ref)
@@ -623,7 +739,7 @@ public class DagExecutionEngine {
                 .logSink(logSink)
                 .credentials(credentialResolver)
                 .workDir(ctx.getWorkingDir() != null ? Path.of(ctx.getWorkingDir()) : null)
-                .upstreamOutputs(Map.of())
+                .upstreamOutputs(upstreamOutputs)
                 .build();
     }
 
@@ -652,9 +768,10 @@ public class DagExecutionEngine {
     private JobRunStep createRunStepEntity(JobRun run, JobStep step, StepResult result,
                                            LocalDateTime startedAt, LocalDateTime endedAt) {
         RunStatus status = switch (result.status()) {
-            case SUCCESS -> RunStatus.SUCCESS;
-            case FAILED -> RunStatus.FAILED;
-            case SKIPPED -> RunStatus.SKIPPED;
+            case SUCCESS   -> RunStatus.SUCCESS;
+            case FAILED    -> RunStatus.FAILED;
+            case SKIPPED   -> RunStatus.SKIPPED;
+            case CANCELLED -> RunStatus.CANCELLED;
         };
 
         return JobRunStep.builder()

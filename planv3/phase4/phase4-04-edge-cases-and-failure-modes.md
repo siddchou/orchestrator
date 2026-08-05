@@ -3,41 +3,79 @@
 
 ## Scenario Matrix
 
-| # | Scenario | Current Behavior Without Fix | Required Handling |
-|---|----------|------------------------------|-------------------|
-| 1 | **Unregistered step type on import** | Import creates a step with unknown `stepType` string. At runtime, the DAG engine fails to find an executor — job crashes with NPE or "no handler for type" error. | Validator checks each step's `stepType` against `StepExecutorRegistry.getTypes()`. Returns 400 with list of unknown types and their step names. **Rollback exception:** rollback skips this check since the type was valid when the version was saved; logs a warning if executor is missing. |
-| 2 | **Missing credential name** | Step config references `credentialRef: "prod_db"` but no credential named `prod_db` exists in the target instance. Job starts, hits SFTP step, credential resolver returns null — connection fails at runtime. | Validator resolves each `SECRET_REF` field against the CREDENTIAL table for the target team (or globally). Returns 400 listing unresolved credential names. **Workaround documented:** import with `mode=skip` to see warnings without failing, or create credentials first via a separate endpoint. |
-| 3 | **Duplicate job name with unspecified mode** | Import document has `jobName: "nightly_etl"` and a job with that name already exists. Default behavior is undefined — could silently overwrite, throw 500, or create a duplicate (violating unique constraint). | Default import mode is `ERROR`. If job name exists, return 409 Conflict with message "Job 'nightly_etl' already exists. Use mode=update to replace." Caller must explicitly choose UPDATE or SKIP. |
-| 4 | **Malformed JSON in export** | Step config CLOB contains a string that's not valid JSON (e.g., user pasted raw text). Export serializer tries `ObjectMapper.treeToValue()` and throws `JsonProcessingException` — entire export fails with 500. | Export treats `stepConfig` as an opaque string. It's serialized verbatim into the export document without re-parsing. If the field is null, it becomes `null` in JSON / `~` in YAML. No 500 risk. |
-| 5 | **Malformed import payload** | Client sends truncated JSON or YAML with syntax error. Jackson throws before reaching controller logic — Spring returns generic 400 with framework-level error body. | Controller method parameter is annotated `@Valid`. Jackson deserialization errors are caught by a global exception handler (if one exists) or handled by Spring's default `HttpMessageNotReadableException` → 400. **Stretch goal:** custom error body with pointer to the bad line/column. |
-| 6 | **Export mid-run** | Job is currently executing (RUNNING status in JOB_RUN table). Export reads definition while steps are being processed. If a step update happens concurrently, export could capture a partial state. | Export reads only from JOB_DEFINITION + children tables — it doesn't touch run state. No locking needed because the orchestrator doesn't mutate job definitions during execution. **Assumption:** job definitions are immutable during a run. If this assumption breaks in a future phase, add an optimistic lock or read-lock check. |
-| 7 | **Rollback to version with removed step type** | A step used `stepType: "custom_script"` which was registered when the version was saved. The executor is later unregistered from the registry. Rollback restores the step definition but execution fails because no handler exists. | Rollback skips step-type validation (the version was valid at save time). Logs a warning: "Step 'build' uses type 'custom_script' — no executor registered." Job can be manually edited to fix the type before running. Version history remains intact for audit purposes. |
-| 8 | **Import with cycle in dependencies** | Steps A→B→C→A form a cycle. Import creates all three steps and their dependency edges. DAG engine detects cycle at runtime — job never starts or hangs indefinitely. | Validator runs Kahn's algorithm on the import document's dependency graph before any DB writes. Returns 400 with "Cycle detected: A → B → C → A". No partial state written to DB because validation precedes execution. |
-| 9 | **Self-referential dependency** | Step config declares `dependsOnStepName: "self_step"` where the step depends on itself. Creates an infinite wait condition in DAG engine. | Validator checks that no edge has `stepName == dependsOnStepName`. Returns 400 with "Step 'X' cannot depend on itself." |
-| 10 | **Dependency references non-existent step** | Import document lists a dependency `{stepName: "build", dependsOnStepName: "compile"}` but no step named "compile" exists in the steps array. Import tries to resolve FK by name lookup, gets null, writes NULL as DEPENDS_ON_STEP_ID — silent data corruption. | Validator checks that every `dependsOnStepName` value matches a step name in the import document's steps array. Returns 400 with "Dependency references unknown step 'compile'." |
-| 11 | **Duplicate step names within job** | Import document has two steps named "build". Step creation succeeds (no uniqueness constraint on step_name per job). Dependency resolution becomes ambiguous — which "build" does the edge point to? | Validator checks for duplicate `stepName` values within the import document. Returns 400 with "Duplicate step name: 'build'." **Note:** this requires adding a unique constraint `(JOB_ID, STEP_NAME)` on JOB_STEP in V10 as well (see Task 8). |
-| 12 | **Import with empty steps array** | Import document has `steps: []`. Job definition created with no steps. DAG engine has nothing to execute — job completes instantly with "success" status vacuously. | Validator requires at least one step in the import document. Returns 400 with "Job must have at least one step." |
-| 13 | **Version number overflow** | Job is updated thousands of times, VERSION_NUMBER reaches NUMBER(10) max (~9.2 billion). Identity column overflows — ORA-01426 numeric overflow. | Not actionable in practice (would require ~25K updates/day for 100 years to hit the limit). Documented as a theoretical concern only. |
-| 14 | **Export of job with no schedule** | Job has never had a schedule set. Export includes `schedule: null`. Importer receives null and tries to create a NULL schedule entity — FK violation or NPE. | Export omits the schedule key entirely when null (Jackson `@JsonInclude(NON_NULL)`). Import treats missing schedule as "no schedule" — skips schedule creation silently. |
-| 15 | **Concurrent import of same job name** | Two clients import a document with the same `jobName` simultaneously, both in ERROR mode. Both pass the existence check before either commits. One gets unique constraint violation at commit time. | Import is wrapped in a single transaction. The unique constraint on `JOB_NAME` fires at commit time. The losing transaction rolls back with a JPA `DataIntegrityViolationException`. Controller catches this and returns 409 Conflict. |
-| 16 | **Global env var import by non-ADMIN user** | Import document contains `{name: "JAVA_OPTS", value: "-Xmx2g", isGlobal: true}`. Non-admin user sends the request. Without check, a global variable is created — affects all jobs in the system. | Import executor checks `isGlobal` flag on each env var. If true and user lacks ADMIN role, skips that variable and logs a warning in the response body. Warning format: `"warnings": ["Skipped global env var 'JAVA_OPTS' — requires ADMIN role"].` |
-| 17 | **YAML import with anchor/alias references** | YAML document uses `&anchor` / `*alias` syntax to share config between steps. Jackson YAML parser resolves aliases at parse time — the parsed object graph has shared references. Serialization back to entity may duplicate or lose data depending on how Jackson handles shared refs. | YAML parsing uses Jackson's `YamlFactory` which resolves anchors/aliases natively into a shared object graph. Since import DTOs are records (immutable, no circular refs), this works correctly — each step gets its own copy of the resolved config. No special handling needed. |
-| 18 | **Import document from future format version** | Import document has `format_version: "2.0"` but server only supports `"1.0"`. Server ignores unknown fields and imports what it understands — silent incompatibility. | Validator checks that `format_version` ≤ max supported version ("1.0"). Returns 400 with "Unsupported format version '2.0'. This server supports up to '1.0'." |
+| # | Scenario | Planned Handling | Actual Behavior | Status |
+|---|----------|------------------|-----------------|--------|
+| 1 | **Unregistered step type on import** | Validator checks each step's `stepType` against `StepExecutorRegistry.getTypes()`. Returns 400 with list of unknown types. | ✅ Implemented — `validateImport()` in `JobExportImportService` checks step types against registry. Test: `shouldRejectImportWithUnknownStepType` | HANDLED |
+| 2 | **Missing credential name** | Validator resolves each `SECRET_REF` field against the CREDENTIAL table. Returns 400 listing unresolved credential names. | ✅ Implemented — validator checks credential refs exist in target instance | HANDLED |
+| 3 | **Duplicate job name with unspecified mode** | Default import mode is `ERROR`. If job name exists, return 409 Conflict. | ✅ Implemented — controller checks for existing job before import; service uses ERROR as default mode. Test: `shouldRejectImportWithExistingJobNameInErrorMode` | HANDLED |
+| 4 | **Malformed JSON in stepConfig during export** | Export treats `stepConfig` as opaque string, serialized verbatim. No 500 risk. | ⚠️ **Deviation** — implementation parses stepConfig into a Jackson ObjectNode on export. Malformed JSON will cause export to throw. This is a behavior change from the plan. | **PARTIAL RISK** |
+| 5 | **Malformed import payload** | Controller method parameter annotated `@Valid`. Jackson deserialization errors caught by Spring's default handler → 400. | ✅ Implemented — `@Valid` on controller parameter. Relies on Spring Boot's default error handling. | HANDLED |
+| 6 | **Export mid-run** | Export reads only from JOB_DEFINITION + children tables — doesn't touch run state. No locking needed because orchestrator doesn't mutate job definitions during execution. | ✅ Works as designed — export is a read-only query on definition tables, independent of run state. | HANDLED |
+| 7 | **Rollback to version with removed step type** | Rollback skips step-type validation (version was valid at save time). Logs warning if executor missing. | ⚠️ **Deviation** — rollback reuses the import path (`importJob`), which validates step types against the registry. If a step type is unregistered, rollback will fail with "unknown step type" error rather than logging a warning and proceeding. | **NOT HANDLED AS PLANNED** |
+| 8 | **Import with cycle in dependencies** | Validator runs Kahn's algorithm on dependency graph before any DB writes. Returns 400. | ✅ Implemented — uses DFS-based cycle detection (not Kahn's, but same effect). Test: `shouldRejectImportWithCircularDependencies` | HANDLED |
+| 9 | **Self-referential dependency** | Validator checks that no edge has `stepName == dependsOnStepName`. Returns 400. | ✅ Implemented — validator rejects self-referential edges | HANDLED |
+| 10 | **Dependency references non-existent step** | Validator checks every `dependsOnStepName` matches a step name in the import document's steps array. Returns 400. | ✅ Implemented — name resolution fails with error if referenced step doesn't exist | HANDLED |
+| 11 | **Duplicate step names within job** | Validator checks for duplicate `stepName` values. Returns 400. UNIQUE(JOB_ID, STEP_NAME) constraint added in V10. | ✅ Implemented — validator rejects duplicates. Note: DB-level unique constraint on (JOB_ID, STEP_NAME) should be verified as present. | HANDLED |
+| 12 | **Import with empty steps array** | Validator requires at least one step. Returns 400. | ⚠️ Needs verification — check if `validateImport()` enforces non-empty steps array | NEEDS VERIFICATION |
+| 13 | **Version number overflow** | NUMBER(10) max ~9.2 billion. Not actionable in practice (~25K updates/day for 100 years). | ✅ Theoretical only — no action needed | HANDLED (N/A) |
+| 14 | **Export of job with no schedule** | Export omits the schedule key entirely when null (`@JsonInclude(NON_NULL)`). Import treats missing schedule as "no schedule". | ✅ Implemented — `JobExport` uses `@JsonInclude(NON_NULL)` at class level. Null schedule is omitted from output. | HANDLED |
+| 15 | **Concurrent import of same job name** | Import wrapped in single transaction. UNIQUE constraint on `JOB_NAME` fires at commit time. Losing transaction rolls back with `DataIntegrityViolationException`. Controller catches → 409 Conflict. | ⚠️ Relies on Spring `@Transactional` + DB unique constraint. Explicit exception handling for concurrent import should be verified in controller code. | NEEDS VERIFICATION |
+| 16 | **Global env var import by non-ADMIN user** | Import executor checks `isGlobal` flag. If true and user lacks ADMIN role, skips variable with warning. | ⚠️ Needs verification — check if `importJob()` has admin role check for global env vars | NEEDS VERIFICATION |
+| 17 | **YAML import with anchor/alias references** | Jackson's `YamlFactory` resolves anchors/aliases natively into shared object graph. Works correctly since DTOs are records (immutable, no circular refs). | ✅ Works as designed — YAML parsing is handled by Jackson. Note: the current import endpoint only accepts JSON (`POST /import`), so YAML import is not currently supported via the API. | HANDLED (N/A) |
+| 18 | **Import document from future format version** | Validator checks `format_version` ≤ max supported version ("1.0"). Returns 400. | ✅ Implemented — validator rejects unsupported format versions | HANDLED |
 
 ## Severity Classification
 
-| Severity | Scenarios |
-|----------|-----------|
-| **Critical** (data corruption / security) | 3, 8, 9, 10, 11, 15, 16 |
-| **High** (runtime failure) | 1, 2, 4, 7, 12 |
-| **Medium** (user experience) | 5, 6, 13, 14, 18 |
-| **Low** (theoretical / edge) | 17 |
+| Severity | Scenarios | Notes |
+|----------|-----------|-------|
+| **Critical (action needed)** | 7 | Rollback fails when step type is unregistered — should skip validation for rollback path |
+| **High (should fix)** | 4, 16 | Malformed stepConfig breaks export; global env var security check needs verification |
+| **Medium (verify and confirm)** | 12, 15 | Empty steps validation and concurrent import handling need code review confirmation |
+| **Low / N/A** | 13, 17 | Theoretical or not applicable to current implementation |
+
+## Recommended Follow-Up Actions
+
+### 1. Rollback step-type validation bypass (Scenario 7) — Critical
+
+The rollback path reuses `importJob()` which validates all step types against the registry. This means rolling back to a version that uses an unregistered step type will fail, even though the version was valid when saved.
+
+**Fix options:**
+- Add a `skipStepTypeValidation` flag to the import method, used only by rollback
+- Create a dedicated `restoreFromVersion()` method in `JobVersionService` that bypasses validation
+- Catch the validation error in rollback and log a warning instead of failing (less safe)
+
+### 2. Malformed stepConfig export safety (Scenario 4) — High
+
+Since `stepConfig` is parsed into an ObjectNode on export, malformed JSON in the CLOB will cause the entire export to fail with a Jackson exception.
+
+**Fix options:**
+- Wrap the parse in a try-catch; if parsing fails, store as a string with a `__parseError` marker
+- Fall back to string representation for that step's config and log a warning
+- Document this as a known limitation: "export requires well-formed stepConfig JSON"
+
+### 3. Global env var security (Scenario 16) — High
+
+Verify whether the import path checks user role before creating global environment variables. If not, any authenticated user could create system-wide env vars through the import endpoint.
+
+**Fix:** Add role check in `importJob()` for `isGlobal: true` env vars. Skip with warning if non-ADMIN.
+
+### 4. Empty steps validation (Scenario 12) — Medium
+
+Verify that `validateImport()` rejects imports with an empty or null steps array. A job with no steps is vacuously successful but meaningless.
+
+**Fix:** Add explicit check: `if (steps == null || steps.isEmpty()) errors.add("Job must have at least one step")`.
+
+### 5. Concurrent import handling (Scenario 15) — Medium
+
+Verify that the controller catches `DataIntegrityViolationException` from concurrent imports and returns a 409 response rather than a 500.
+
+**Fix:** Add explicit exception handler in controller or global `@ControllerAdvice`.
 
 ## Additional V10 constraint for scenario 11
 
 ```sql
--- Add to V10 migration if STEP_NAME column exists on JOB_STEP
+-- Verify this constraint exists on JOB_STEP (add if missing)
 ALTER TABLE JOB_STEP ADD CONSTRAINT JOB_STEP_JOB_NAME_UK UNIQUE (JOB_ID, STEP_NAME);
 ```
 
-**Note:** The current schema uses `STEP_NAME` as a VARCHAR2(200) on JOB_STEP. If it doesn't exist yet (Phase 3 may have added it), this constraint should be part of the phase that introduces step names. If step names are introduced in Phase 4, include this constraint in V10.
+**Note:** The current schema uses `STEP_NAME` as a VARCHAR2(200) on JOB_STEP. This constraint should be verified as present — the validator rejects duplicates at the application level, but the DB-level constraint provides defense in depth.

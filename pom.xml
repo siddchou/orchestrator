@@ -3,16 +3,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <groupId>com.novakai</groupId>
+        <artifactId>orchestrator-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>orchestrator-parent/pom.xml</relativePath>
     </parent>
-    <groupId>com.novakai</groupId>
     <artifactId>orchestrator</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>orchestrator</name>
-    <description>orchestrator</description>
+    <description>Novakai Orchestrator - Job orchestration platform</description>
     <url/>
     <licenses>
         <license/>
@@ -50,6 +48,36 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus-simpleclient</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>8.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <version>1.62.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <version>1.62.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+            <version>1.62.0</version>
+        </dependency>
+
+        <!-- Mail (Phase 5) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <!-- Database -->
@@ -133,6 +161,13 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>0.12.7</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- OpenAPI / Swagger UI (Phase 7) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.1.0</version>
         </dependency>
 
         <!-- Test -->

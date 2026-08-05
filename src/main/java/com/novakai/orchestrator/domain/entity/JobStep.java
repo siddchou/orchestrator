@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "JOB_STEP")
+@Table(name = "JOB_STEP", uniqueConstraints = @UniqueConstraint(columnNames = {"JOB_ID", "STEP_NAME"}))
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

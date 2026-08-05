@@ -9,34 +9,38 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
-import { Subscription } from 'rxjs';
+import { forkJoin, take } from 'rxjs';
 import { RunService } from '@app/core/services/run.service';
+import { JobService } from '@app/core/services/job.service';
 import { LogStreamService } from '@app/core/services/log-stream.service';
 import { StatusBadge } from '@app/shared/components/status-badge/status-badge';
 import { DurationPipe } from '@app/shared/pipes/duration.pipe';
 import { LogViewerComponent } from '../log-viewer/log-viewer.component';
 import { RunTimelineComponent } from '@app/shared/components/run-timeline/run-timeline';
+import { RunDagCanvasComponent } from '@features/jobs/dag-canvas/run-dag-canvas.component';
 import { JobRunDetail } from '@app/core/models/run.model';
-import { RunStatus } from '@app/core/models/job.model';
+import { RunStatus, StepDependency } from '@app/core/models/job.model';
 
 @Component({
   selector: 'app-run-detail',
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule,
     MatProgressSpinnerModule, MatSlideToggleModule, MatSnackBarModule, RouterLink,
-    StatusBadge, DurationPipe, LogViewerComponent, RunTimelineComponent,
+    StatusBadge, DurationPipe, LogViewerComponent, RunTimelineComponent, RunDagCanvasComponent,
   ],
   templateUrl: './run-detail.component.html',
   styleUrl: './run-detail.component.scss',
 })
 export class RunDetailComponent implements OnInit, OnDestroy {
   private runService = inject(RunService);
+  private jobService = inject(JobService);
   private snack = inject(MatSnackBar);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
 
   runId: number | null = null;
   run: JobRunDetail | null = null;
+  stepDependencies: Record<number, StepDependency[]> = {};
   loading = true;
 
   // Static log viewer for completed steps
@@ -69,6 +73,11 @@ export class RunDetailComponent implements OnInit, OnDestroy {
         }
         this.loading = false;
 
+        // Load step dependencies for DAG canvas
+        if (this.run?.jobId && this.run.steps.length > 1) {
+          this.loadStepDependencies(this.run.jobId);
+        }
+
         // Poll every 3s while the run is active
         if (this.run?.status === 'RUNNING' || this.run?.status === 'PENDING') {
           this.startPolling();
@@ -81,6 +90,50 @@ export class RunDetailComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.stopPolling();
         this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private loadStepDependencies(jobId: number): void {
+    this.jobService.getJob(jobId).pipe(take(1)).subscribe({
+      next: (jobRes) => {
+        if (jobRes.status !== 'SUCCESS' || !this.run) return;
+        const jobSteps = jobRes.data.steps;
+        if (!jobSteps.length) return;
+
+        // Build mapping from job stepId -> runStepId using stepOrder as bridge
+        const stepIdToRunStepId = new Map<number, number>();
+        for (const js of jobSteps) {
+          const rs = this.run!.steps.find(s => s.stepOrder === js.stepOrder);
+          if (rs) stepIdToRunStepId.set(js.stepId, rs.runStepId);
+        }
+
+        // Fetch dependencies for each step in parallel
+        const depObservables = jobSteps.map(step =>
+          this.jobService.getStepDependencies(jobId, step.stepId).pipe(take(1))
+        );
+
+        forkJoin(depObservables).subscribe({
+          next: (results) => {
+            const depsMap: Record<number, StepDependency[]> = {};
+            for (let i = 0; i < jobSteps.length; i++) {
+              const runStepId = stepIdToRunStepId.get(jobSteps[i].stepId);
+              if (runStepId == null) continue;
+
+              let deps: StepDependency[] = [];
+              if (results[i].status === 'SUCCESS' && results[i].data) {
+                // Transform dependsOnStepId from job stepId to runStepId
+                deps = results[i].data.map(d => ({
+                  ...d,
+                  dependsOnStepId: stepIdToRunStepId.get(d.dependsOnStepId) ?? d.dependsOnStepId,
+                }));
+              }
+              depsMap[runStepId] = deps;
+            }
+            this.stepDependencies = depsMap;
+            this.cdr.markForCheck();
+          },
+        });
       },
     });
   }
