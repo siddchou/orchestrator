@@ -5,13 +5,23 @@
   </div>
 </div>
 
-<!-- Loading Overlay -->
 @if (isLoading) {
-  <div class="loading-overlay">
-    <mat-spinner />
+  <!-- Skeleton: stat cards -->
+  <div class="cards-row">
+    @for (_ of [1,2,3,4]; track _) {
+      <div class="summary-card skeleton skeleton-card"></div>
+    }
   </div>
-}
-
+  <!-- Skeleton: recent runs table -->
+  <div class="section-card">
+    <div class="section-header">
+      <div class="skeleton skeleton-text" style="width: 120px;"></div>
+    </div>
+    @for (_ of [1,2,3,4,5]; track _) {
+      <div class="skeleton-row"></div>
+    }
+  </div>
+} @else {
 <!-- Stat Cards -->
 <div class="cards-row">
   @for (card of cardData; track card.key) {
@@ -31,68 +41,67 @@
 
 <!-- Recent Runs -->
 <div class="section-card">
-  @if (!isLoading) {
-    <div class="section-header">
-      <h3 class="section-title">
-        <mat-icon>history</mat-icon> Recent Runs
-      </h3>
-    </div>
+  <div class="section-header">
+    <h3 class="section-title">
+      <mat-icon>history</mat-icon> Recent Runs
+    </h3>
+  </div>
 
-    @if (recentRuns.length > 0) {
-    <table mat-table [dataSource]="recentRuns" class="runs-table">
-    <ng-container matColumnDef="jobName">
-      <th mat-header-cell *matHeaderCellDef>Job</th>
-      <td mat-cell *matCellDef="let run">
-        <a [routerLink]="'/runs/' + run.runId" class="job-link">{{ run.jobName }}</a>
-      </td>
-    </ng-container>
+  @if (recentRuns.length > 0) {
+  <table mat-table [dataSource]="recentRuns" class="runs-table">
+  <ng-container matColumnDef="jobName">
+    <th mat-header-cell *matHeaderCellDef>Job</th>
+    <td mat-cell *matCellDef="let run">
+      <a [routerLink]="'/runs/' + run.runId" class="job-link">{{ run.jobName }}</a>
+    </td>
+  </ng-container>
 
-    <ng-container matColumnDef="status">
-      <th mat-header-cell *matHeaderCellDef>Status</th>
-      <td mat-cell *matCellDef="let run">
-        <app-status-badge [status]="run.status" />
-      </td>
-    </ng-container>
+  <ng-container matColumnDef="status">
+    <th mat-header-cell *matHeaderCellDef>Status</th>
+    <td mat-cell *matCellDef="let run">
+      <app-status-badge [status]="run.status" />
+    </td>
+  </ng-container>
 
-    <ng-container matColumnDef="triggerType">
-      <th mat-header-cell *matHeaderCellDef>Trigger</th>
-      <td mat-cell *matCellDef="let run">
-        <span class="trigger-chip">{{ run.triggerType }}</span>
-      </td>
-    </ng-container>
+  <ng-container matColumnDef="triggerType">
+    <th mat-header-cell *matHeaderCellDef>Trigger</th>
+    <td mat-cell *matCellDef="let run">
+      <span class="trigger-chip">{{ run.triggerType }}</span>
+    </td>
+  </ng-container>
 
-    <ng-container matColumnDef="startedAt">
-      <th mat-header-cell *matHeaderCellDef>Started</th>
-      <td mat-cell *matCellDef="let run">{{ formatTime(run.startedAt) }}</td>
-    </ng-container>
+  <ng-container matColumnDef="startedAt">
+    <th mat-header-cell *matHeaderCellDef>Started</th>
+    <td mat-cell *matCellDef="let run">{{ formatTime(run.startedAt) }}</td>
+  </ng-container>
 
-    <ng-container matColumnDef="duration">
-      <th mat-header-cell *matHeaderCellDef>Duration</th>
-      <td mat-cell *matCellDef="let run">{{ run.durationSeconds | duration }}</td>
-    </ng-container>
+  <ng-container matColumnDef="duration">
+    <th mat-header-cell *matHeaderCellDef>Duration</th>
+    <td mat-cell *matCellDef="let run">{{ run.durationSeconds | duration }}</td>
+  </ng-container>
 
-    <ng-container matColumnDef="actions">
-      <th mat-header-cell *matHeaderCellDef>Actions</th>
-      <td mat-cell *matCellDef="let run">
-        <button mat-icon-button [routerLink]="'/runs/' + run.runId" aria-label="View run details for {{ run.jobName }}">
-          <mat-icon>visibility</mat-icon>
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Actions</th>
+    <td mat-cell *matCellDef="let run">
+      <button mat-icon-button [routerLink]="'/runs/' + run.runId" aria-label="View run details for {{ run.jobName }}">
+        <mat-icon>visibility</mat-icon>
+      </button>
+      @if (run.status !== 'RUNNING') {
+        <button mat-icon-button (click)="triggerRun(run.jobName, run.jobId)" aria-label="Re-run {{ run.jobName }}">
+          <mat-icon>play_arrow</mat-icon>
         </button>
-        @if (run.status !== 'RUNNING') {
-          <button mat-icon-button (click)="triggerRun(run.jobName, run.jobId)" aria-label="Re-run {{ run.jobName }}">
-            <mat-icon>play_arrow</mat-icon>
-          </button>
-        }
-      </td>
-    </ng-container>
+      }
+    </td>
+  </ng-container>
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
-    } @else {
-      <div class="empty-state">
-        <mat-icon>history</mat-icon>
-        <p>No recent runs found</p>
-      </div>
-    }
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  </table>
+  } @else {
+    <div class="empty-state">
+      <mat-icon>history</mat-icon>
+      <p>No recent runs found. When jobs execute, their runs will appear here.</p>
+    </div>
   }
 </div>
+}

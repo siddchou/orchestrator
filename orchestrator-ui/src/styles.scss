@@ -287,6 +287,11 @@ button.mat-mdc-flat-button {
   50% { opacity: 0; }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
 /* Apply fade-in to content areas */
 .content > * {
   animation: fadeIn var(--transition-normal) ease-out;
@@ -390,6 +395,70 @@ button.mat-mdc-flat-button {
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+/* ── Skeleton Placeholders ─────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 15, 15, 0.04) 25%,
+    rgba(15, 15, 15, 0.08) 37%,
+    rgba(15, 15, 15, 0.04) 63%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-card {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 15, 15, 0.04) 25%,
+    rgba(15, 15, 15, 0.08) 37%,
+    rgba(15, 15, 15, 0.04) 63%
+  );
+  background-size: 200px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  height: 100px;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 14px;
+    background: linear-gradient(
+      90deg,
+      rgba(15, 15, 15, 0.04) 25%,
+      rgba(15, 15, 15, 0.08) 37%,
+      rgba(15, 15, 15, 0.04) 63%
+    );
+    background-size: 200px 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+  }
+}
+
+.skeleton-text {
+  height: 14px;
+  width: 60%;
+}
+
+.skeleton-text-sm {
+  height: 12px;
+  width: 40%;
+}
+
+.skeleton-text-lg {
+  height: 20px;
+  width: 30%;
 }
 
 .loading-overlay {
@@ -706,6 +775,28 @@ mat-sidenav-container {
 
 [data-theme="dark"] .loading-overlay {
   background: rgba(15, 17, 23, 0.85);
+}
+
+/* Skeleton dark mode */
+[data-theme="dark"] .skeleton,
+[data-theme="dark"] .skeleton-card {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 200px 100%;
+}
+
+[data-theme="dark"] .skeleton-row::after {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 200px 100%;
 }
 
 [data-theme="dark"] .trigger-chip {

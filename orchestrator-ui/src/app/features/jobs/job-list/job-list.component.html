@@ -20,100 +20,98 @@
   </div>
 </div>
 
-<!-- Loading Overlay -->
-@if (isLoading) {
-  <div class="loading-overlay">
-    <mat-spinner />
-  </div>
-}
-
 <div class="section-card">
-  @if (!isLoading) {
-    @if (jobs.length > 0) {
-    <table mat-table [dataSource]="jobs" class="jobs-table">
-    <ng-container matColumnDef="jobName">
-      <th mat-header-cell *matHeaderCellDef>Job Name</th>
-      <td mat-cell *matCellDef="let job">
-        <a [routerLink]="'/jobs/' + job.jobId" class="job-link">
-          <mat-icon class="job-icon">work</mat-icon>
-          <span>{{ job.jobName }}</span>
-        </a>
-      </td>
-    </ng-container>
+@if (isLoading) {
+  @for (_ of [1,2,3,4,5]; track _) {
+    <div class="skeleton-row"></div>
+  }
+} @else if (jobs.length > 0) {
+<table mat-table [dataSource]="jobs" class="jobs-table">
+<ng-container matColumnDef="jobName">
+  <th mat-header-cell *matHeaderCellDef>Job Name</th>
+  <td mat-cell *matCellDef="let job">
+    <a [routerLink]="'/jobs/' + job.jobId" class="job-link">
+      <mat-icon class="job-icon">work</mat-icon>
+      <span>{{ job.jobName }}</span>
+    </a>
+  </td>
+</ng-container>
 
-    <ng-container matColumnDef="description">
-      <th mat-header-cell *matHeaderCellDef>Description</th>
-      <td mat-cell *matCellDef="let job">
-        <span class="description-text">{{ job.description || '—' }}</span>
-      </td>
-    </ng-container>
+<ng-container matColumnDef="description">
+  <th mat-header-cell *matHeaderCellDef>Description</th>
+  <td mat-cell *matCellDef="let job">
+    <span class="description-text">{{ job.description || '—' }}</span>
+  </td>
+</ng-container>
 
-    <ng-container matColumnDef="enabled">
-      <th mat-header-cell *matHeaderCellDef>Status</th>
-      <td mat-cell *matCellDef="let job">
-        <span class="status-pill" [class.enabled]="job.enabled" [class.disabled]="!job.enabled">
-          <span class="status-dot"></span>
-          {{ job.enabled ? 'Enabled' : 'Disabled' }}
-        </span>
-      </td>
-    </ng-container>
+<ng-container matColumnDef="enabled">
+  <th mat-header-cell *matHeaderCellDef>Status</th>
+  <td mat-cell *matCellDef="let job">
+    <span class="status-pill" [class.enabled]="job.enabled" [class.disabled]="!job.enabled">
+      <span class="status-dot"></span>
+      {{ job.enabled ? 'Enabled' : 'Disabled' }}
+    </span>
+  </td>
+</ng-container>
 
-    <ng-container matColumnDef="steps">
-      <th mat-header-cell *matHeaderCellDef>Steps</th>
-      <td mat-cell *matCellDef="let job">
-        <span class="step-count">{{ job.steps?.length || 0 }}</span>
-      </td>
-    </ng-container>
+<ng-container matColumnDef="steps">
+  <th mat-header-cell *matHeaderCellDef>Steps</th>
+  <td mat-cell *matCellDef="let job">
+    <span class="step-count">{{ job.steps?.length || 0 }}</span>
+  </td>
+</ng-container>
 
-    <ng-container matColumnDef="schedule">
-      <th mat-header-cell *matHeaderCellDef>Schedule</th>
-      <td mat-cell *matCellDef="let job">
-        <span class="cron-text">{{ job.schedule?.cronExpression || '—' }}</span>
-      </td>
-    </ng-container>
+<ng-container matColumnDef="schedule">
+  <th mat-header-cell *matHeaderCellDef>Schedule</th>
+  <td mat-cell *matCellDef="let job">
+    <span class="cron-text">{{ job.schedule?.cronExpression || '—' }}</span>
+  </td>
+</ng-container>
 
-    <ng-container matColumnDef="actions">
-      <th mat-header-cell *matHeaderCellDef>Actions</th>
-      <td mat-cell *matCellDef="let job">
-        <div class="action-group">
-          <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" aria-label="Edit {{ job.jobName }}">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-icon-button (click)="triggerRun(job)" aria-label="Run {{ job.jobName }}">
-            <mat-icon>play_arrow</mat-icon>
-          </button>
-          <button mat-icon-button (click)="toggleEnabled(job)" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
-            <mat-icon>{{ job.enabled ? 'toggle_off' : 'toggle_on' }}</mat-icon>
-          </button>
-          <button mat-icon-button (click)="exportJob(job)" aria-label="Export {{ job.jobName }}">
-            <mat-icon>download</mat-icon>
-          </button>
-          <button mat-icon-button (click)="deleteJob(job)" color="warn" aria-label="Delete {{ job.jobName }}">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </div>
-      </td>
-    </ng-container>
-
-      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-    </table>
-
-    <!-- Pagination -->
-    <div class="pagination-bar">
-      <button mat-icon-button (click)="setPage(page - 1)" [disabled]="!hasPrevious" aria-label="Previous page">
-        <mat-icon>chevron_left</mat-icon>
+<ng-container matColumnDef="actions">
+  <th mat-header-cell *matHeaderCellDef>Actions</th>
+  <td mat-cell *matCellDef="let job">
+    <div class="action-group">
+      <button mat-icon-button [routerLink]="'/jobs/' + job.jobId" aria-label="Edit {{ job.jobName }}">
+        <mat-icon>edit</mat-icon>
       </button>
-      <span class="page-info">Page {{ page + 1 }} of {{ getTotalPages() }} ({{ totalElements }} total)</span>
-      <button mat-icon-button (click)="setPage(page + 1)" [disabled]="!hasNext" aria-label="Next page">
-        <mat-icon>chevron_right</mat-icon>
+      <button mat-icon-button (click)="triggerRun(job)" aria-label="Run {{ job.jobName }}">
+        <mat-icon>play_arrow</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleEnabled(job)" [attr.aria-label]="(job.enabled ? 'Disable' : 'Enable') + ' ' + job.jobName">
+        <mat-icon>{{ job.enabled ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+      </button>
+      <button mat-icon-button (click)="exportJob(job)" aria-label="Export {{ job.jobName }}">
+        <mat-icon>download</mat-icon>
+      </button>
+      <button mat-icon-button (click)="deleteJob(job)" color="warn" aria-label="Delete {{ job.jobName }}">
+        <mat-icon>delete</mat-icon>
       </button>
     </div>
-    } @else {
-      <div class="empty-state">
-        <mat-icon>work_off</mat-icon>
-        <p>No jobs found</p>
-      </div>
-    }
-  }
+  </td>
+</ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+</table>
+
+<!-- Pagination -->
+<div class="pagination-bar">
+  <button mat-icon-button (click)="setPage(page - 1)" [disabled]="!hasPrevious" aria-label="Previous page">
+    <mat-icon>chevron_left</mat-icon>
+  </button>
+  <span class="page-info">Page {{ page + 1 }} of {{ getTotalPages() }} ({{ totalElements }} total)</span>
+  <button mat-icon-button (click)="setPage(page + 1)" [disabled]="!hasNext" aria-label="Next page">
+    <mat-icon>chevron_right</mat-icon>
+  </button>
+</div>
+} @else {
+  <div class="empty-state">
+    <mat-icon>work_off</mat-icon>
+    <p>No jobs yet. Create your first job to get started.</p>
+    <button mat-flat-button color="primary" routerLink="/jobs/new">
+      <mat-icon>add</mat-icon> Create Job
+    </button>
+  </div>
+}
 </div>
